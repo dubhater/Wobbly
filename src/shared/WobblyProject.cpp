@@ -248,23 +248,17 @@ void WobblyProject::readProject(const std::string &path) {
 
 
     json_matches = json_project["matches"].toArray();
-    matches.resize(json_matches.size());
-    for (int i = 0; i < json_matches.size(); i++)
+    matches.resize(num_frames_after_trim, 'c');
+    for (int i = 0; i < std::min(json_matches.size(), (int)matches.size()); i++)
         matches[i] = json_matches[i].toString().toStdString()[0];
 
 
     json_original_matches = json_project["original matches"].toArray();
-    original_matches.resize(json_original_matches.size());
-    for (int i = 0; i < json_original_matches.size(); i++)
+    original_matches.resize(num_frames_after_trim, 'c');
+    for (int i = 0; i < std::min(json_original_matches.size(), (int)original_matches.size()); i++)
         original_matches[i] = json_original_matches[i].toString().toStdString()[0];
 
-    if (original_matches.size() == 0) {
-        original_matches.resize(num_frames_after_trim);
-        memset(original_matches.data(), 'c', original_matches.size());
-    }
-
-    if (matches.size() == 0) {
-        matches.resize(original_matches.size());
+    if (json_matches.size() == 0 && json_original_matches.size() != 0) {
         memcpy(matches.data(), original_matches.data(), matches.size());
     }
 
