@@ -21,6 +21,8 @@ void WobblyProject::writeProject(const std::string &path) {
     if (!file.open(QIODevice::WriteOnly))
         throw WobblyException("Couldn't open project file. Error message: " + file.errorString());
 
+    project_path = path;
+
     QJsonObject json_project;
 
     json_project.insert("wibbly wobbly version", 42); // XXX use real version
@@ -29,12 +31,15 @@ void WobblyProject::writeProject(const std::string &path) {
     json_project.insert("input file", QString::fromStdString(input_file));
 
 
-    QJsonArray json_trim_values;
+    QJsonArray json_trims;
 
-    json_trim_values.append(trim_values[0]);
-    json_trim_values.append(trim_values[1]);
-
-    json_project.insert("trim", json_trim_values);
+    for (auto it = trims.cbegin(); it != trims.cend(); it++) {
+        QJsonArray json_trim;
+        json_trim.append(it->second.first);
+        json_trim.append(it->second.last);
+        json_trims.append(json_trim);
+    }
+    json_project.insert("trim", json_trims);
 
 
     QJsonObject json_vfm_parameters;
@@ -203,10 +208,17 @@ void WobblyProject::readProject(const std::string &path) {
     input_file = json_project["input file"].toString().toStdString();
 
 
-    trim_values[0] = (int)json_project["trim"].toArray()[0].toDouble();
-    trim_values[1] = (int)json_project["trim"].toArray()[1].toDouble();
+    num_frames_after_trim = 0;
 
-    num_frames_after_trim = trim_values[1] - trim_values[0] + 1;
+    QJsonArray json_trims = json_project["trim"].toArray();
+    for (int i = 0; i < json_trims.size(); i++) {
+        QJsonArray json_trim = json_trims[i].toArray();
+        FrameRange range;
+        range.first = (int)json_trim[0].toDouble();
+        range.last = (int)json_trim[1].toDouble();
+        trims.insert(std::make_pair(range.first, range));
+        num_frames_after_trim += range.last - range.first + 1;
+    }
 
 
     QJsonObject json_vfm_parameters = json_project["vfm parameters"].toObject();
@@ -518,7 +530,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
 
         // it_prev is cend()-1 at the end of the loop.
 
-        if (it_prev->second.last < trim_values[1]) { // XXX trim_values[1] is not the same as the last frame of src.
+        if (it_prev->second.last < num_frames_after_trim - 1) {
             splice += "src[";
             splice += std::to_string(it_prev->second.last + 1) + ":]";
         }
@@ -551,12 +563,11 @@ void WobblyProject::sourceToScript(std::string &script) {
 }
 
 void WobblyProject::trimToScript(std::string &script) {
-    script += "src = c.std.Trim(clip=src, first=";
-    script += std::to_string(trim_values[0]);
-    script += ", last=";
-    script += std::to_string(trim_values[1]);
+    script += "src = c.std.Splice(clips=[";
+    for (auto it = trims.cbegin(); it != trims.cend(); it++)
+        script += "src[" + std::to_string(it->second.first) + ":" + std::to_string(it->second.last + 1) + "],";
     script +=
-            ")\n"
+            "])\n"
             "\n";
 }
 

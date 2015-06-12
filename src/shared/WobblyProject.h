@@ -64,7 +64,7 @@ struct Section {
 };
 
 
-struct CustomListFrames {
+struct FrameRange {
     int first;
     int last;
 };
@@ -73,11 +73,11 @@ struct CustomListFrames {
 struct CustomList {
     std::string name;
     std::string preset; // Preset name.
-    std::map<int, CustomListFrames> frames; // Key is CustomListFrames::first
+    std::map<int, FrameRange> frames; // Key is FrameRange::first
 
     void addFrameRange(int first, int last) {
-        CustomListFrames f = { first, last };
-        frames.insert(std::make_pair(f.first, f));
+        FrameRange range = { first, last };
+        frames.insert(std::make_pair(range.first, range));
     }
 
     void deleteFrameRange(int first) {
@@ -113,7 +113,7 @@ class WobblyProject {
         int num_frames_after_trim;
 
         std::string input_file;
-        int trim_values[2];
+        std::map<int, FrameRange> trims; // Key is FrameRange::first
         std::unordered_map<std::string, double> vfm_parameters;
         std::unordered_map<std::string, double> vdecimate_parameters;
 
