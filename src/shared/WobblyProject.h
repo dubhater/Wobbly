@@ -11,6 +11,8 @@
 #include <vector>
 #include <string>
 
+#include "WobblyException.h"
+
 
 /*
 static const char[] match_chars = { 'p', 'c', 'n', 'b', 'u' };
@@ -61,6 +63,13 @@ struct Section {
     int64_t fps_num;
     int64_t fps_den;
     int num_frames; // If the presets don't change the frame count, this is the same as the original number of frames. Or -1?
+
+    Section(int _start, int64_t _fps_num = 0, int64_t _fps_den = 0, int _num_frames = 0)
+        : start(_start)
+        , fps_num(_fps_num)
+        , fps_den(_fps_den)
+        , num_frames(_num_frames)
+    { }
 };
 
 
@@ -76,12 +85,34 @@ struct CustomList {
     std::map<int, FrameRange> frames; // Key is FrameRange::first
 
     void addFrameRange(int first, int last) {
+        int overlap = findFrameRange(first);
+        if (overlap == -1)
+            overlap = findFrameRange(last);
+        if (overlap == -1) {
+            auto it = frames.upper_bound(first);
+            if (it != frames.cend() && it->second.first < last)
+                overlap = it->second.first;
+        }
+
+        if (overlap != -1)
+            throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + name + "': overlaps (" + std::to_string(frames[overlap].first) + "," + std::to_string(frames[overlap].last) + ").");
+
         FrameRange range = { first, last };
         frames.insert(std::make_pair(range.first, range));
     }
 
     void deleteFrameRange(int first) {
         frames.erase(first);
+    }
+
+    int findFrameRange(int frame) {
+        auto it = frames.upper_bound(frame);
+        it--;
+
+        if (frame <= it->second.last)
+            return it->first;
+
+        return -1;
     }
 };
 
@@ -110,7 +141,7 @@ enum PositionInFilterChain {
 class WobblyProject {
     public:
         std::string project_path;
-        int num_frames_after_trim;
+        int num_frames[3];
 
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
@@ -154,7 +185,6 @@ class WobblyProject {
 
 
         void addPreset(const std::string &preset_name);
-
         void addPreset(const std::string &preset_name, const std::string &preset_contents);
 
         void deletePreset(const std::string &preset_name);
@@ -166,44 +196,36 @@ class WobblyProject {
 
 
         void addSection(int section_start, PositionInFilterChain position);
+        void addSection(const Section &section, PositionInFilterChain position);
 
         void deleteSection(int section_start, PositionInFilterChain position);
 
 
         void addCustomList(const std::string &list_name, PositionInFilterChain position);
+        void addCustomList(const std::string &list_name, const std::string &list_preset, PositionInFilterChain position);
 
         void deleteCustomList(const std::string &list_name, PositionInFilterChain position); // XXX Maybe overload to take an index instead of name.
 
 
         void sectionsToScript(std::string &script, PositionInFilterChain position);
-
         void customListsToScript(std::string &script, PositionInFilterChain position);
-
         void headerToScript(std::string &script);
-
         void presetsToScript(std::string &script);
-
         void sourceToScript(std::string &script);
-
         void trimToScript(std::string &script);
-
         void fieldHintToScript(std::string &script);
-
         void freezeFramesToScript(std::string &script);
-
         void decimatedFramesToScript(std::string &script);
-
         void cropToScript(std::string &script);
-
         void resizeToScript(std::string &script);
-
         void rgbConversionToScript(std::string &script);
-
         void setOutputToScript(std::string &script);
 
         std::string generateFinalScript();
-
         std::string generateMainDisplayScript();
+
+    private:
+        bool isNameSafeForPython(const std::string &name);
 };
 
 #endif // WOBBLYPROJECT_H

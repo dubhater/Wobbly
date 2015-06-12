@@ -281,8 +281,8 @@ void WobblyWindow::displayFrame(int n) {
 
     if (n < 0)
         n = 0;
-    if (n >= project->num_frames_after_trim)
-        n = project->num_frames_after_trim - 1;
+    if (n >= project->num_frames[PostSource])
+        n = project->num_frames[PostSource] - 1;
 
     std::vector<char> error(1024);
     const VSFrameRef *frame = vsapi->getFrame(n, vsnode, error.data(), 1024);
@@ -369,7 +369,7 @@ void WobblyWindow::cycleMatchPCN() {
         else
             match = 'p';
     } else if (match == 'p') {
-        if (current_frame == project->num_frames_after_trim - 1)
+        if (current_frame == project->num_frames[PostSource] - 1)
             match = 'c';
         else
             match = 'n';

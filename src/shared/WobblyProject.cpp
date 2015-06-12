@@ -208,7 +208,7 @@ void WobblyProject::readProject(const std::string &path) {
     input_file = json_project["input file"].toString().toStdString();
 
 
-    num_frames_after_trim = 0;
+    num_frames[PostSource] = 0;
 
     QJsonArray json_trims = json_project["trim"].toArray();
     for (int i = 0; i < json_trims.size(); i++) {
@@ -217,9 +217,10 @@ void WobblyProject::readProject(const std::string &path) {
         range.first = (int)json_trim[0].toDouble();
         range.last = (int)json_trim[1].toDouble();
         trims.insert(std::make_pair(range.first, range));
-        num_frames_after_trim += range.last - range.first + 1;
+        num_frames[PostSource] += range.last - range.first + 1;
     }
 
+    num_frames[PostFieldMatch] = num_frames[PostSource];
 
     QJsonObject json_vfm_parameters = json_project["vfm parameters"].toObject();
 
@@ -248,13 +249,13 @@ void WobblyProject::readProject(const std::string &path) {
 
 
     json_matches = json_project["matches"].toArray();
-    matches.resize(num_frames_after_trim, 'c');
+    matches.resize(num_frames[PostSource], 'c');
     for (int i = 0; i < std::min(json_matches.size(), (int)matches.size()); i++)
         matches[i] = json_matches[i].toString().toStdString()[0];
 
 
     json_original_matches = json_project["original matches"].toArray();
-    original_matches.resize(num_frames_after_trim, 'c');
+    original_matches.resize(num_frames[PostSource], 'c');
     for (int i = 0; i < std::min(json_original_matches.size(), (int)original_matches.size()); i++)
         original_matches[i] = json_original_matches[i].toString().toStdString()[0];
 
@@ -265,19 +266,26 @@ void WobblyProject::readProject(const std::string &path) {
 
     json_combed_frames = json_project["combed frames"].toArray();
     combed_frames.resize(json_combed_frames.size());
-    for (int i = 0; i < json_combed_frames.size(); i++)
+    for (int i = 0; i < json_combed_frames.size(); i++) {
         combed_frames[i] = (int)json_combed_frames[i].toDouble();
+        if (combed_frames[i] < 0 || combed_frames[i] >= num_frames[PostSource])
+            throw WobblyException("Broken project: out of range value " + std::to_string(combed_frames[i]) + " in 'combed frames' section.");
+    }
 
 
     json_decimated_frames = json_project["decimated frames"].toArray();
     decimated_frames.resize(json_decimated_frames.size());
-    for (int i = 0; i < json_decimated_frames.size(); i++)
+    for (int i = 0; i < json_decimated_frames.size(); i++) {
         decimated_frames[i] = (int)json_decimated_frames[i].toDouble();
+        if (decimated_frames[i] < 0 || decimated_frames[i] >= num_frames[PostSource])
+            throw WobblyException("Broken project: out of range value " + std::to_string(decimated_frames[i]) + " in 'decimated frames' section.");
+    }
 
+    num_frames[PostDecimate] = num_frames[PostSource] - decimated_frames.size();
 
     json_decimate_metrics = json_project["decimate metrics"].toArray();
-    decimate_metrics.resize(json_decimate_metrics.size());
-    for (int i = 0; i < json_decimate_metrics.size(); i++)
+    decimate_metrics.resize(num_frames[PostSource], 0);
+    for (int i = 0; i < std::min(json_decimate_metrics.size(), (int)decimate_metrics.size()); i++)
         decimate_metrics[i] = (int)json_decimate_metrics[i].toDouble();
 
 
@@ -286,23 +294,14 @@ void WobblyProject::readProject(const std::string &path) {
     json_presets = json_project["presets"].toArray();
     for (int i = 0; i < json_presets.size(); i++) {
         QJsonObject json_preset = json_presets[i].toObject();
-        Preset preset = {
-            .name = json_preset["name"].toString().toStdString(),
-            .contents = json_preset["contents"].toString().toStdString()
-        };
-        presets.insert(std::make_pair(preset.name, preset));
+        addPreset(json_preset["name"].toString().toStdString(), json_preset["contents"].toString().toStdString());
     }
 
 
     json_frozen_frames = json_project["frozen frames"].toArray();
     for (int i = 0; i < json_frozen_frames.size(); i++) {
         QJsonArray json_ff = json_frozen_frames[i].toArray();
-        FreezeFrame ff = {
-            .first = (int)json_ff[0].toDouble(),
-            .last = (int)json_ff[1].toDouble(),
-            .replacement = (int)json_ff[2].toDouble()
-        };
-        frozen_frames.insert(std::make_pair(ff.first, ff));
+        addFreezeFrame((int)json_ff[0].toDouble(), (int)json_ff[1].toDouble(), (int)json_ff[2].toDouble());
     }
 
 
@@ -314,28 +313,23 @@ void WobblyProject::readProject(const std::string &path) {
 
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < json_sections[i].size(); j++) {
-            Section section;
             QJsonObject json_section = json_sections[i][j].toObject();
-            section.start = (int)json_section["start"].toDouble();
+            int section_start = (int)json_section["start"].toDouble();
+            int section_fps_num = (int)json_section["fps_num"].toDouble();
+            int section_fps_den = (int)json_section["fps_den"].toDouble();
+            int section_num_frames = (int)json_section["num_frames"].toDouble();
+            Section section(section_start, section_fps_num, section_fps_den, section_num_frames);
             json_presets = json_section["presets"].toArray();
             section.presets.resize(json_presets.size());
             for (int k = 0; k < json_presets.size(); k++)
                 section.presets[k] = json_presets[k].toString().toStdString();
-            section.fps_num = (int)json_section["fps_num"].toDouble();
-            section.fps_den = (int)json_section["fps_den"].toDouble();
-            section.num_frames = (int)json_section["num_frames"].toDouble();
 
             sections[i].insert(std::make_pair(section.start, section));
+            addSection(section, (PositionInFilterChain)i);
         }
 
         if (json_sections[i].size() == 0) {
-            Section section;
-            section.start = 0;
-            section.fps_num = 0;
-            section.fps_den = 0;
-            section.num_frames = 0;
-
-            sections[i].insert(std::make_pair(section.start, section));
+            addSection(0, (PositionInFilterChain)i);
         }
     }
 
@@ -344,20 +338,19 @@ void WobblyProject::readProject(const std::string &path) {
     json_custom_lists[2] = json_project["custom lists"].toObject()["post decimate"].toArray();
 
     for (int i = 0; i < 3; i++) {
-        custom_lists[i].resize(json_custom_lists[i].size());
+        custom_lists[i].reserve(json_custom_lists[i].size());
 
         for (int j = 0; j < json_custom_lists[i].size(); j++) {
-            CustomList list;
             QJsonObject json_list = json_custom_lists[i][j].toObject();
-            list.name = json_list["name"].toString().toStdString();
-            list.preset = json_list["preset"].toString().toStdString();
+            const std::string &list_name = json_list["name"].toString().toStdString();
+            const std::string &list_preset = json_list["preset"].toString().toStdString();
+            addCustomList(list_name, list_preset, (PositionInFilterChain)i);
+            CustomList &list = custom_lists[i][j];
             QJsonArray json_frames = json_list["frames"].toArray();
             for (int k = 0; k < json_frames.size(); k++) {
                 QJsonArray json_range = json_frames[k].toArray();
                 list.addFrameRange((int)json_range[0].toDouble(), (int)json_range[1].toDouble());
             }
-
-            custom_lists[i][j] = list;
         }
     }
 
@@ -376,7 +369,23 @@ void WobblyProject::readProject(const std::string &path) {
 }
 
 void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
-    // XXX Make sure it doesn't overlap with any existing freezeframe. If findFreezeFrame(first) and findFreezeFrame(last) both return -1, it's all good.
+    if (first < 0 || first >= num_frames[PostSource] ||
+        last < 0 || last >= num_frames[PostSource] ||
+        replacement < 0 || replacement >= num_frames[PostSource])
+        throw WobblyException("Can't add FreezeFrame (" + std::to_string(first) + "," + std::to_string(last) + "," + std::to_string(replacement) + "): values out of range.");
+
+    int overlap = findFreezeFrame(first);
+    if (overlap == -1)
+        overlap = findFreezeFrame(last);
+    if (overlap == -1) {
+        auto it = frozen_frames.upper_bound(first);
+        if (it != frozen_frames.cend() && it->second.first < last)
+            overlap = it->second.first;
+    }
+
+    if (overlap != -1)
+        throw WobblyException("Can't add FreezeFrame (" + std::to_string(first) + "," + std::to_string(last) + "," + std::to_string(replacement) + "): overlaps (" + std::to_string(frozen_frames[overlap].first) + "," + std::to_string(frozen_frames[overlap].last) + "," + std::to_string(frozen_frames[overlap].replacement) + ").");
+
     FreezeFrame ff = {
         .first = first,
         .last = last,
@@ -391,10 +400,11 @@ void WobblyProject::deleteFreezeFrame(int frame) {
 
 // Find the FreezeFrame this frame belongs to.
 int WobblyProject::findFreezeFrame(int frame) {
-    // XXX A more efficient search algorithm is in order. This function will likely be called every time a frame is to be displayed. lower_bound() maybe.
-    for (auto it = frozen_frames.cbegin(); it != frozen_frames.cend(); it++)
-        if (it->second.first <= frame && frame <= it->second.last)
-            return it->first;
+    auto it = frozen_frames.upper_bound(frame);
+    it--;
+
+    if (frame <= it->second.last)
+        return it->first;
 
     return -1;
 }
@@ -411,7 +421,22 @@ void WobblyProject::addPreset(const std::string &preset_name) {
     addPreset(preset_name, contents);
 }
 
+
+bool WobblyProject::isNameSafeForPython(const std::string &name) {
+    for (size_t i = 0; i < name.size(); i++) {
+        const char &c = name[i];
+
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (i && c >= '0' && c <= '9') || c == '_'))
+            return false;
+    }
+
+    return true;
+}
+
 void WobblyProject::addPreset(const std::string &preset_name, const std::string &preset_contents) {
+    if (!isNameSafeForPython(preset_name))
+        throw WobblyException("Preset name '" + preset_name + "' is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
+
     Preset preset;
     preset.name = preset_name;
     preset.contents = preset_contents;
@@ -434,9 +459,15 @@ void WobblyProject::setMatch(int frame, char match) {
 
 
 void WobblyProject::addSection(int section_start, PositionInFilterChain position) {
-    Section section;
-    section.start = section_start;
-    sections[position].insert(std::make_pair(section_start, section));
+    Section section(section_start);
+    addSection(section, position);
+}
+
+void WobblyProject::addSection(const Section &section, PositionInFilterChain position) {
+    if (section.start < 0 || section.start >= num_frames[position])
+        throw WobblyException("Can't add section starting at " + std::to_string(section.start) + ": value out of range.");
+
+    sections[position].insert(std::make_pair(section.start, section));
 }
 
 void WobblyProject::deleteSection(int section_start, PositionInFilterChain position) {
@@ -445,9 +476,23 @@ void WobblyProject::deleteSection(int section_start, PositionInFilterChain posit
 
 
 void WobblyProject::addCustomList(const std::string &list_name, PositionInFilterChain position) {
-    // XXX no duplicates
+    addCustomList(list_name, std::string(), position);
+}
+
+void WobblyProject::addCustomList(const std::string &list_name, const std::string &list_preset, PositionInFilterChain position) {
+    if (!isNameSafeForPython(list_name))
+        throw WobblyException("Can't add custom list '" + list_name + "': name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
+
+    if (list_preset.size() && presets.count(list_preset) == 0)
+        throw WobblyException("Can't add custom list '" + list_name + "' with preset '" + list_preset + "': no such preset.");
+
+    for (size_t i = 0; i < custom_lists[position].size(); i++)
+        if (custom_lists[position][i].name == list_name)
+            throw WobblyException("Can't add custom list '" + list_name + "': a list with this name already exists.");
+
     CustomList list;
     list.name = list_name;
+    list.preset = list_preset;
     custom_lists[position].push_back(list);
 }
 
@@ -516,15 +561,17 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
 
         it++;
         for ( ; it != lists[i].frames.cend(); it++, it_prev++) {
-            splice += "src[";
-            splice += std::to_string(it_prev->second.last + 1) + ":" + std::to_string(it->second.first) + "],";
+            if (it->second.first - it_prev->second.last > 1) {
+                splice += "src[";
+                splice += std::to_string(it_prev->second.last + 1) + ":" + std::to_string(it->second.first) + "],";
+            }
 
             splice += list_name + "[" + std::to_string(it->second.first) + ":" + std::to_string(it->second.last + 1) + "],";
         }
 
         // it_prev is cend()-1 at the end of the loop.
 
-        if (it_prev->second.last < num_frames_after_trim - 1) {
+        if (it_prev->second.last < num_frames[PostSource] - 1) {
             splice += "src[";
             splice += std::to_string(it_prev->second.last + 1) + ":]";
         }
