@@ -255,8 +255,15 @@ void WobblyWindow::saveProject() {
 void WobblyWindow::evaluateMainDisplayScript() {
     std::string script = project->generateMainDisplayScript();
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->project_path.c_str()).dir().path().toUtf8().constData(), efSetWorkingDir))
-        throw WobblyException(std::string("Failed to evaluate main display script. This should never happen. Error message:\n") + vsscript_getError(vsscript));
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->project_path.c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+        std::string error = vsscript_getError(vsscript);
+        // The traceback is mostly unnecessary noise.
+        size_t traceback = error.find("Traceback");
+        if (traceback != std::string::npos)
+            error.erase(traceback);
+
+        throw WobblyException("Failed to evaluate main display script. This should never happen. Error message:\n" + error);
+    }
 
     vsapi->freeNode(vsnode);
 
