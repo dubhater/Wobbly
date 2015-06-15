@@ -98,8 +98,9 @@ public slots:
     void jumpToNextSectionStart();
     void jumpToPreviousSectionStart();
 
-    //void jumpToNextSection();
-    //void jumpToPreviousSection();
+    void freezeForward();
+    void freezeBackward();
+    void freezeRange();
 
     void cycleMatchPCN();
 

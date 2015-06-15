@@ -97,6 +97,9 @@ void WobblyWindow::createShortcuts() {
         { Qt::ControlModifier + Qt::Key_Up, &WobblyWindow::jumpToNextSectionStart },
         { Qt::ControlModifier + Qt::Key_Down, &WobblyWindow::jumpToPreviousSectionStart },
         { Qt::Key_S, &WobblyWindow::cycleMatchPCN },
+        { Qt::ControlModifier + Qt::Key_F, &WobblyWindow::freezeForward },
+        { Qt::ShiftModifier + Qt::Key_F, &WobblyWindow::freezeBackward },
+        { Qt::Key_F, &WobblyWindow::freezeRange },
         { 0, nullptr }
     };
 
@@ -541,4 +544,54 @@ void WobblyWindow::cycleMatchPCN() {
     }
 
     evaluateMainDisplayScript();
+}
+
+
+void WobblyWindow::freezeForward() {
+    if (current_frame == project->num_frames[PostSource] - 1)
+        return;
+
+    try {
+        project->addFreezeFrame(current_frame, current_frame, current_frame + 1);
+
+        evaluateMainDisplayScript();
+    } catch (WobblyException &) {
+        // XXX Maybe don't be silent.
+    }
+}
+
+
+void WobblyWindow::freezeBackward() {
+    if (current_frame == 0)
+        return;
+
+    try {
+        project->addFreezeFrame(current_frame, current_frame, current_frame - 1);
+
+        evaluateMainDisplayScript();
+    } catch (WobblyException &) {
+
+    }
+}
+
+
+void WobblyWindow::freezeRange() {
+    static FreezeFrame ff = { -1, -1, -1 };
+
+    if (ff.first == -1)
+        ff.first = current_frame;
+    else if (ff.last == -1)
+        ff.last = current_frame;
+    else if (ff.replacement == -1) {
+        ff.replacement = current_frame;
+        try {
+            project->addFreezeFrame(ff.first, ff.last, ff.replacement);
+
+            evaluateMainDisplayScript();
+        } catch (WobblyException &) {
+
+        }
+
+        ff = { -1, -1, -1 };
+    }
 }
