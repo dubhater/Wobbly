@@ -489,12 +489,16 @@ void WobblyWindow::jump50Forward() {
 
 
 void WobblyWindow::jumpALotBackward() {
-    displayFrame(current_frame - 200); // XXX Something like 20% of the total number of frames?
+    int twenty_percent = project->num_frames[current_section_set] * 20 / 100;
+
+    displayFrame(current_frame - twenty_percent);
 }
 
 
 void WobblyWindow::jumpALotForward() {
-    displayFrame(current_frame + 200);
+    int twenty_percent = project->num_frames[current_section_set] * 20 / 100;
+
+    displayFrame(current_frame + twenty_percent);
 }
 
 
