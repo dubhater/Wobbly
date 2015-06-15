@@ -31,6 +31,12 @@ void WobblyProject::writeProject(const std::string &path) {
     json_project.insert("input file", QString::fromStdString(input_file));
 
 
+    QJsonArray json_fps;
+    json_fps.append((qint64)fps_num);
+    json_fps.append((qint64)fps_den);
+    json_project.insert("input frame rate", json_fps);
+
+
     QJsonArray json_trims;
 
     for (auto it = trims.cbegin(); it != trims.cend(); it++) {
@@ -70,11 +76,11 @@ void WobblyProject::writeProject(const std::string &path) {
     for (size_t i = 0; i < matches.size(); i++)
         json_matches.append(QString(matches[i]));
 
-    for (size_t i = 0; i < combed_frames.size(); i++)
-        json_combed_frames.append(combed_frames[i]);
+    for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
+        json_combed_frames.append(*it);
 
-    for (size_t i = 0; i < decimated_frames.size(); i++)
-        json_decimated_frames.append(decimated_frames[i]);
+    for (auto it = decimated_frames.cbegin(); it != decimated_frames.cend(); it++)
+        json_decimated_frames.append(*it);
 
     for (size_t i = 0; i < decimate_metrics.size(); i++)
         json_decimate_metrics.append(decimate_metrics[i]);
@@ -208,6 +214,10 @@ void WobblyProject::readProject(const std::string &path) {
     input_file = json_project["input file"].toString().toStdString();
 
 
+    fps_num = (int64_t)json_project["input frame rate"].toArray()[0].toDouble();
+    fps_den = (int64_t)json_project["input frame rate"].toArray()[1].toDouble();
+
+
     num_frames[PostSource] = 0;
 
     QJsonArray json_trims = json_project["trim"].toArray();
@@ -240,7 +250,7 @@ void WobblyProject::readProject(const std::string &path) {
 
 
     json_mics = json_project["mics"].toArray();
-    mics.resize(json_mics.size());
+    mics.resize(num_frames[PostSource], { 0 });
     for (int i = 0; i < json_mics.size(); i++) {
         QJsonArray json_mic = json_mics[i].toArray();
         for (int j = 0; j < 5; j++)
@@ -265,21 +275,13 @@ void WobblyProject::readProject(const std::string &path) {
 
 
     json_combed_frames = json_project["combed frames"].toArray();
-    combed_frames.resize(json_combed_frames.size());
-    for (int i = 0; i < json_combed_frames.size(); i++) {
-        combed_frames[i] = (int)json_combed_frames[i].toDouble();
-        if (combed_frames[i] < 0 || combed_frames[i] >= num_frames[PostSource])
-            throw WobblyException("Broken project: out of range value " + std::to_string(combed_frames[i]) + " in 'combed frames' section.");
-    }
+    for (int i = 0; i < json_combed_frames.size(); i++)
+        addCombedFrame((int)json_combed_frames[i].toDouble());
 
 
     json_decimated_frames = json_project["decimated frames"].toArray();
-    decimated_frames.resize(json_decimated_frames.size());
-    for (int i = 0; i < json_decimated_frames.size(); i++) {
-        decimated_frames[i] = (int)json_decimated_frames[i].toDouble();
-        if (decimated_frames[i] < 0 || decimated_frames[i] >= num_frames[PostSource])
-            throw WobblyException("Broken project: out of range value " + std::to_string(decimated_frames[i]) + " in 'decimated frames' section.");
-    }
+    for (int i = 0; i < json_decimated_frames.size(); i++)
+        addDecimatedFrame((int)json_decimated_frames[i].toDouble());
 
     num_frames[PostDecimate] = num_frames[PostSource] - decimated_frames.size();
 
@@ -374,17 +376,17 @@ void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
         replacement < 0 || replacement >= num_frames[PostSource])
         throw WobblyException("Can't add FreezeFrame (" + std::to_string(first) + "," + std::to_string(last) + "," + std::to_string(replacement) + "): values out of range.");
 
-    int overlap = findFreezeFrame(first);
-    if (overlap == -1)
+    const FreezeFrame *overlap = findFreezeFrame(first);
+    if (!overlap)
         overlap = findFreezeFrame(last);
-    if (overlap == -1) {
+    if (!overlap) {
         auto it = frozen_frames.upper_bound(first);
         if (it != frozen_frames.cend() && it->second.first < last)
-            overlap = it->second.first;
+            overlap = &it->second;
     }
 
-    if (overlap != -1)
-        throw WobblyException("Can't add FreezeFrame (" + std::to_string(first) + "," + std::to_string(last) + "," + std::to_string(replacement) + "): overlaps (" + std::to_string(frozen_frames[overlap].first) + "," + std::to_string(frozen_frames[overlap].last) + "," + std::to_string(frozen_frames[overlap].replacement) + ").");
+    if (overlap)
+        throw WobblyException("Can't add FreezeFrame (" + std::to_string(first) + "," + std::to_string(last) + "," + std::to_string(replacement) + "): overlaps (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + "," + std::to_string(overlap->replacement) + ").");
 
     FreezeFrame ff = {
         .first = first,
@@ -398,15 +400,18 @@ void WobblyProject::deleteFreezeFrame(int frame) {
     frozen_frames.erase(frame);
 }
 
-// Find the FreezeFrame this frame belongs to.
-int WobblyProject::findFreezeFrame(int frame) {
+const FreezeFrame *WobblyProject::findFreezeFrame(int frame) {
+    if (!frozen_frames.size())
+        return nullptr;
+
     auto it = frozen_frames.upper_bound(frame);
+
     it--;
 
     if (frame <= it->second.last)
-        return it->first;
+        return &it->second;
 
-    return -1;
+    return nullptr;
 }
 
 
@@ -474,6 +479,21 @@ void WobblyProject::deleteSection(int section_start, PositionInFilterChain posit
     sections[position].erase(section_start);
 }
 
+const Section *WobblyProject::findSection(int frame, PositionInFilterChain position) {
+    auto it = sections[position].upper_bound(frame);
+    it--;
+    return &it->second;
+}
+
+const Section *WobblyProject::findNextSection(int frame, PositionInFilterChain position) {
+    auto it = sections[position].upper_bound(frame);
+
+    if (it != sections[position].cend())
+        return &it->second;
+
+    return nullptr;
+}
+
 
 void WobblyProject::addCustomList(const std::string &list_name, PositionInFilterChain position) {
     addCustomList(list_name, std::string(), position);
@@ -502,6 +522,62 @@ void WobblyProject::deleteCustomList(const std::string &list_name, PositionInFil
             custom_lists[position].erase(it);
             break;
         }
+}
+
+
+void WobblyProject::addDecimatedFrame(int frame) {
+    if (frame < 0 || frame >= num_frames[PostSource]) // XXX Maybe it should be PostFieldMatch.
+        throw WobblyException("Can't mark frame " + std::to_string(frame) + " for decimation: value out of range.");
+
+    decimated_frames.insert(frame);
+}
+
+
+void WobblyProject::deleteDecimatedFrame(int frame) {
+    decimated_frames.erase(frame);
+}
+
+
+bool WobblyProject::isDecimatedFrame(int frame) {
+    return (bool)decimated_frames.count(frame);
+}
+
+
+void WobblyProject::addCombedFrame(int frame) {
+    if (frame < 0 || frame >= num_frames[PostSource]) // XXX Maybe it should be PostFieldMatch.
+        throw WobblyException("Can't mark frame " + std::to_string(frame) + " as combed: value out of range.");
+
+    combed_frames.insert(frame);
+}
+
+
+void WobblyProject::deleteCombedFrame(int frame) {
+    combed_frames.erase(frame);
+}
+
+
+bool WobblyProject::isCombedFrame(int frame) {
+    return (bool)combed_frames.count(frame);
+}
+
+
+std::string WobblyProject::frameToTime(int frame) {
+    int milliseconds = (int)((frame * fps_den * 1000 / fps_num) % 1000);
+    int seconds_total = (int)(frame * fps_den / fps_num);
+    int seconds = seconds_total % 60;
+    int minutes = (seconds_total / 60) % 60;
+    int hours = seconds_total / 3600;
+
+    char time[16];
+#ifdef _MSC_VER
+    _snprintf
+#else
+    snprintf
+#endif
+            (time, sizeof(time), "%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds);
+    time[15] = '\0';
+
+    return std::string(time);
 }
 
 
@@ -648,8 +724,8 @@ void WobblyProject::freezeFramesToScript(std::string &script) {
 void WobblyProject::decimatedFramesToScript(std::string &script) {
     script += "src = c.std.DeleteFrames(clip=src, frames=[";
 
-    for (size_t i = 0; i < decimated_frames.size(); i++)
-        script += std::to_string(decimated_frames[i]) + ",";
+    for (auto it = decimated_frames.cbegin(); it != decimated_frames.cend(); it++)
+        script += std::to_string(*it) + ",";
 
     script +=
             "])\n"

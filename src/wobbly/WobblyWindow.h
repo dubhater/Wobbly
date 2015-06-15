@@ -24,7 +24,16 @@ private:
     QLabel *frame_label;
 
     QLabel *frame_num_label;
-    QLabel *match_label;
+    QLabel *time_label;
+    QLabel *matches_label;
+    QLabel *section_set_label;
+    QLabel *section_label;
+    QLabel *custom_list_set_label;
+    QLabel *custom_list_label;
+    QLabel *freeze_label;
+    QLabel *decimate_metric_label;
+    QLabel *mic_label;
+    QLabel *combed_label;
 
 
 
@@ -68,6 +77,7 @@ private:
 
     void evaluateMainDisplayScript();
     void displayFrame(int n);
+    void updateFrameDetails();
 
 
     void closeEvent(QCloseEvent *event);

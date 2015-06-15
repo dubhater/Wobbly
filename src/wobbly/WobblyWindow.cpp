@@ -4,6 +4,9 @@
 #include <QShortcut>
 #include <QStatusBar>
 
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+
 #include <VSScript.h>
 
 #include "WobblyException.h"
@@ -108,18 +111,48 @@ void WobblyWindow::createUI() {
 
     setWindowTitle(QStringLiteral("Wobbly"));
 
-    frame_num_label = new QLabel;
-    match_label = new QLabel;
-
-    statusBar()->addPermanentWidget(frame_num_label);
-    statusBar()->addPermanentWidget(match_label);
     statusBar()->setSizeGripEnabled(true);
+
+    frame_num_label = new QLabel;
+    time_label = new QLabel;
+    matches_label = new QLabel;
+    matches_label->setTextFormat(Qt::RichText);
+    section_set_label = new QLabel;
+    section_label = new QLabel;
+    custom_list_set_label = new QLabel;
+    custom_list_label = new QLabel;
+    freeze_label = new QLabel;
+    decimate_metric_label = new QLabel;
+    mic_label = new QLabel;
+    mic_label->setTextFormat(Qt::RichText);
+    combed_label = new QLabel;
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(frame_num_label);
+    vbox->addWidget(time_label);
+    vbox->addWidget(matches_label);
+    vbox->addWidget(section_set_label);
+    vbox->addWidget(section_label);
+    vbox->addWidget(custom_list_set_label);
+    vbox->addWidget(custom_list_label);
+    vbox->addWidget(freeze_label);
+    vbox->addWidget(decimate_metric_label);
+    vbox->addWidget(mic_label);
+    vbox->addWidget(combed_label);
+    vbox->addStretch(1);
 
     frame_label = new QLabel;
     frame_label->setTextFormat(Qt::PlainText);
     frame_label->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 
-    setCentralWidget(frame_label);
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addLayout(vbox);
+    hbox->addWidget(frame_label);
+
+    QWidget *central_widget = new QWidget;
+    central_widget->setLayout(hbox);
+
+    setCentralWidget(central_widget);
 }
 
 
@@ -262,7 +295,7 @@ void WobblyWindow::evaluateMainDisplayScript() {
         if (traceback != std::string::npos)
             error.erase(traceback);
 
-        throw WobblyException("Failed to evaluate main display script. This should never happen. Error message:\n" + error);
+        throw WobblyException("Failed to evaluate main display script. Error message:\n" + error);
     }
 
     vsapi->freeNode(vsnode);
@@ -300,9 +333,118 @@ void WobblyWindow::displayFrame(int n) {
     vsframe = frame;
 
     current_frame = n;
-    frame_num_label->setText(QStringLiteral("Frame: ") + QString::number(current_frame));
 
-    match_label->setText(QString(project->matches[current_frame]));
+    updateFrameDetails();
+}
+
+
+void WobblyWindow::updateFrameDetails() {
+    frame_num_label->setText(QStringLiteral("Frame: %1").arg(current_frame));
+
+    // frame number after decimation is a bit complicated to calculate
+
+    time_label->setText(QString::fromStdString("Time: " + project->frameToTime(current_frame)));
+
+
+    int matches_start = std::max(0, current_frame - 10);
+    int matches_end = std::min(current_frame + 10, project->num_frames[PostSource] - 1);
+
+    QString matches("Matches: ");
+    for (int i = matches_start; i <= matches_end; i++) {
+        char match = project->matches[i];
+
+        bool is_decimated = project->isDecimatedFrame(i);
+
+        if (i % 5 == 0)
+            matches += "<u>";
+
+        if (is_decimated)
+            matches += "<s>";
+
+        if (i == current_frame)
+            match += 'C' - 'c';
+        matches += match;
+
+        if (is_decimated)
+            matches += "</s>";
+
+        if (i % 5 == 0)
+            matches += "</u>";
+    }
+    matches_label->setText(matches);
+
+
+    if (project->isCombedFrame(current_frame))
+        combed_label->setText(QStringLiteral("Combed"));
+    else
+        combed_label->clear();
+
+
+    decimate_metric_label->setText(QStringLiteral("DMetric: ") + QString::number(project->decimate_metrics[current_frame]));
+
+
+    int match_index = matchCharToIndex(project->matches[current_frame]);
+    QString mics("Mics: ");
+    for (int i = 0; i < 5; i++) {
+        if (i == match_index)
+            mics += "<b>";
+
+        mics += QStringLiteral("%1 ").arg((int)project->mics[current_frame][i]);
+
+        if (i == match_index)
+            mics += "</b>";
+    }
+    mic_label->setText(mics);
+
+
+    const char *positions[3] = {
+        "post source",
+        "post field match",
+        "post decimate"
+    };
+    section_set_label->setText(QStringLiteral("Section set: ") + positions[current_section_set]);
+
+
+    const Section *current_section = project->findSection(current_frame, current_section_set);
+    const Section *next_section = project->findNextSection(current_frame, current_section_set);
+    int section_start = current_section->start;
+    int section_end;
+    if (next_section)
+        section_end = next_section->start - 1;
+    else
+        section_end = project->num_frames[current_section_set] - 1;
+
+    QString presets;
+    for (auto it = current_section->presets.cbegin(); it != current_section->presets.cend(); it++)
+        presets.append(QString::fromStdString(*it));
+
+    if (presets.isNull())
+        presets = "<none>";
+
+    section_label->setText(QStringLiteral("Section: [%1,%2]\nPresets:\n%3").arg(section_start).arg(section_end).arg(presets));
+
+
+    custom_list_set_label->setText(QStringLiteral("Custom list set: ") + positions[current_custom_list_set]);
+
+
+    QString custom_lists;
+    for (auto it = project->custom_lists[current_custom_list_set].cbegin(); it != project->custom_lists[current_custom_list_set].cend(); it++) {
+        const FrameRange *range = it->findFrameRange(current_frame);
+        if (range)
+            custom_lists += QStringLiteral("%1: [%2,%3]\n").arg(QString::fromStdString(it->name)).arg(range->first).arg(range->last);
+    }
+
+    if (custom_lists.isNull())
+        custom_lists = "<none>";
+
+    custom_list_label->setText(QStringLiteral("Custom lists:\n%1").arg(custom_lists));
+
+
+    const FreezeFrame *freeze = project->findFreezeFrame(current_frame);
+    if (freeze)
+        freeze_label->setText(QStringLiteral("Frozen: [%1,%2,%3]").arg(freeze->first).arg(freeze->last).arg(freeze->replacement));
+    else
+        freeze_label->clear();
 }
 
 
