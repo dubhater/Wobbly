@@ -64,17 +64,6 @@ private:
     void checkRequiredFilters();
 
 
-    void toggleDecimate();
-
-    void toggleCombed();
-
-    void addSection();
-    void deleteSection();
-
-    void deleteFreezeFrame();
-
-    void jump(int frame);
-
     void evaluateMainDisplayScript();
     void displayFrame(int n);
     void updateFrameDetails();
@@ -102,8 +91,16 @@ public slots:
     void freezeBackward();
     void freezeRange();
 
+    void deleteFreezeFrame();
+
     void cycleMatchPCN();
 
+    void toggleDecimation();
+
+    void toggleCombed();
+
+    void addSection();
+    void deleteSection();
 
     void openProject();
     void saveProject();

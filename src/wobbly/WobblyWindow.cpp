@@ -100,6 +100,11 @@ void WobblyWindow::createShortcuts() {
         { "Ctrl+F", &WobblyWindow::freezeForward },
         { "Shift+F", &WobblyWindow::freezeBackward },
         { "F", &WobblyWindow::freezeRange },
+        { "Delete,F", &WobblyWindow::deleteFreezeFrame },
+        { "D", &WobblyWindow::toggleDecimation },
+        { "I", &WobblyWindow::addSection },
+        { "Delete,I", &WobblyWindow::deleteSection },
+        { "P", &WobblyWindow::toggleCombed },
         { nullptr, nullptr }
     };
 
@@ -594,4 +599,52 @@ void WobblyWindow::freezeRange() {
 
         ff = { -1, -1, -1 };
     }
+}
+
+
+void WobblyWindow::deleteFreezeFrame() {
+    const FreezeFrame *ff = project->findFreezeFrame(current_frame);
+    if (ff) {
+        project->deleteFreezeFrame(ff->first);
+
+        evaluateMainDisplayScript();
+    }
+}
+
+
+void WobblyWindow::toggleDecimation() {
+    if (project->isDecimatedFrame(current_frame))
+        project->deleteDecimatedFrame(current_frame);
+    else
+        project->addDecimatedFrame(current_frame);
+
+    updateFrameDetails();
+}
+
+
+void WobblyWindow::toggleCombed() {
+    if (project->isCombedFrame(current_frame))
+        project->deleteCombedFrame(current_frame);
+    else
+        project->addCombedFrame(current_frame);
+
+    updateFrameDetails();
+}
+
+
+void WobblyWindow::addSection() {
+    const Section *section = project->findSection(current_frame, current_section_set);
+    if (section->start != current_frame) {
+        project->addSection(current_frame, current_section_set);
+
+        updateFrameDetails();
+    }
+}
+
+
+void WobblyWindow::deleteSection() {
+    const Section *section = project->findSection(current_frame, current_section_set);
+    project->deleteSection(section->start, current_section_set);
+
+    updateFrameDetails();
 }

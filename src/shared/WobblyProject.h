@@ -115,7 +115,7 @@ struct CustomList {
 
         it--;
 
-        if (frame <= it->second.last)
+        if (it->second.first <= frame && frame <= it->second.last)
             return &it->second;
 
         return nullptr;

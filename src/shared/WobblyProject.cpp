@@ -408,7 +408,7 @@ const FreezeFrame *WobblyProject::findFreezeFrame(int frame) {
 
     it--;
 
-    if (frame <= it->second.last)
+    if (it->second.first <= frame && frame <= it->second.last)
         return &it->second;
 
     return nullptr;
@@ -476,7 +476,9 @@ void WobblyProject::addSection(const Section &section, PositionInFilterChain pos
 }
 
 void WobblyProject::deleteSection(int section_start, PositionInFilterChain position) {
-    sections[position].erase(section_start);
+    // Never delete the very first section.
+    if (section_start > 0)
+        sections[position].erase(section_start);
 }
 
 const Section *WobblyProject::findSection(int frame, PositionInFilterChain position) {
