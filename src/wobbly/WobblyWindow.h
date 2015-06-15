@@ -95,6 +95,9 @@ public slots:
     void jumpToStart();
     void jumpToEnd();
 
+    void jumpToNextSectionStart();
+    void jumpToPreviousSectionStart();
+
     //void jumpToNextSection();
     //void jumpToPreviousSection();
 

@@ -94,6 +94,8 @@ void WobblyWindow::createShortcuts() {
         { Qt::Key_End, &WobblyWindow::jumpToEnd },
         { Qt::Key_PageDown, &WobblyWindow::jumpALotBackward },
         { Qt::Key_PageUp, &WobblyWindow::jumpALotForward },
+        { Qt::ControlModifier + Qt::Key_Up, &WobblyWindow::jumpToNextSectionStart },
+        { Qt::ControlModifier + Qt::Key_Down, &WobblyWindow::jumpToPreviousSectionStart },
         { Qt::Key_S, &WobblyWindow::cycleMatchPCN },
         { 0, nullptr }
     };
@@ -494,7 +496,28 @@ void WobblyWindow::jumpToStart() {
 
 
 void WobblyWindow::jumpToEnd() {
-    displayFrame(INT_MAX - 16); // XXX Use the real end.
+    displayFrame(INT_MAX - 16);
+}
+
+
+void WobblyWindow::jumpToNextSectionStart() {
+    // XXX current_frame always refers to PostFieldMatch. Fix this.
+    const Section *next_section = project->findNextSection(current_frame, current_section_set);
+
+    if (next_section)
+        displayFrame(next_section->start);
+}
+
+
+void WobblyWindow::jumpToPreviousSectionStart() {
+    if (current_frame == 0)
+        return;
+
+    const Section *section = project->findSection(current_frame, current_section_set);
+    if (section->start == current_frame)
+        section = project->findSection(current_frame - 1, current_section_set);
+
+    displayFrame(section->start);
 }
 
 
