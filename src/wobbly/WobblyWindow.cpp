@@ -77,30 +77,30 @@ void WobblyWindow::createMenu() {
 
 
 struct Shortcut {
-    int keys;
+    const char *keys;
     void (WobblyWindow::* func)();
 };
 
 
 void WobblyWindow::createShortcuts() {
     Shortcut shortcuts[] = {
-        { Qt::Key_Left, &WobblyWindow::jump1Backward },
-        { Qt::Key_Right, &WobblyWindow::jump1Forward },
-        { Qt::ControlModifier + Qt::Key_Left, &WobblyWindow::jump5Backward },
-        { Qt::ControlModifier + Qt::Key_Right, &WobblyWindow::jump5Forward },
-        { Qt::AltModifier + Qt::Key_Left, &WobblyWindow::jump50Backward },
-        { Qt::AltModifier + Qt::Key_Right, &WobblyWindow::jump50Forward },
-        { Qt::Key_Home, &WobblyWindow::jumpToStart },
-        { Qt::Key_End, &WobblyWindow::jumpToEnd },
-        { Qt::Key_PageDown, &WobblyWindow::jumpALotBackward },
-        { Qt::Key_PageUp, &WobblyWindow::jumpALotForward },
-        { Qt::ControlModifier + Qt::Key_Up, &WobblyWindow::jumpToNextSectionStart },
-        { Qt::ControlModifier + Qt::Key_Down, &WobblyWindow::jumpToPreviousSectionStart },
-        { Qt::Key_S, &WobblyWindow::cycleMatchPCN },
-        { Qt::ControlModifier + Qt::Key_F, &WobblyWindow::freezeForward },
-        { Qt::ShiftModifier + Qt::Key_F, &WobblyWindow::freezeBackward },
-        { Qt::Key_F, &WobblyWindow::freezeRange },
-        { 0, nullptr }
+        { "Left", &WobblyWindow::jump1Backward },
+        { "Right", &WobblyWindow::jump1Forward },
+        { "Ctrl+Left", &WobblyWindow::jump5Backward },
+        { "Ctrl+Right", &WobblyWindow::jump5Forward },
+        { "Alt+Left", &WobblyWindow::jump50Backward },
+        { "Alt+Right", &WobblyWindow::jump50Forward },
+        { "Home", &WobblyWindow::jumpToStart },
+        { "End", &WobblyWindow::jumpToEnd },
+        { "PgDown", &WobblyWindow::jumpALotBackward },
+        { "PgUp", &WobblyWindow::jumpALotForward },
+        { "Ctrl+Up", &WobblyWindow::jumpToNextSectionStart },
+        { "Ctrl+Down", &WobblyWindow::jumpToPreviousSectionStart },
+        { "S", &WobblyWindow::cycleMatchPCN },
+        { "Ctrl+F", &WobblyWindow::freezeForward },
+        { "Shift+F", &WobblyWindow::freezeBackward },
+        { "F", &WobblyWindow::freezeRange },
+        { nullptr, nullptr }
     };
 
     for (int i = 0; shortcuts[i].func; i++) {
