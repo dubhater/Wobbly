@@ -15,6 +15,13 @@
 #include "WobblyProject.h"
 
 
+WobblyProject::WobblyProject(bool _is_wobbly)
+    : is_wobbly(_is_wobbly)
+{
+
+}
+
+
 void WobblyProject::writeProject(const std::string &path) {
     QFile file(QString::fromStdString(path));
 
@@ -35,6 +42,12 @@ void WobblyProject::writeProject(const std::string &path) {
     json_fps.append((qint64)fps_num);
     json_fps.append((qint64)fps_den);
     json_project.insert("input frame rate", json_fps);
+
+
+    QJsonArray json_resolution;
+    json_resolution.append(width);
+    json_resolution.append(height);
+    json_project.insert("input resolution", json_resolution);
 
 
     QJsonArray json_trims;
@@ -218,6 +231,10 @@ void WobblyProject::readProject(const std::string &path) {
     fps_den = (int64_t)json_project["input frame rate"].toArray()[1].toDouble();
 
 
+    width = (int)json_project["input resolution"].toArray()[0].toDouble();
+    height = (int)json_project["input resolution"].toArray()[1].toDouble();
+
+
     num_frames[PostSource] = 0;
 
     QJsonArray json_trims = json_project["trim"].toArray();
@@ -360,8 +377,8 @@ void WobblyProject::readProject(const std::string &path) {
     QJsonObject json_resize, json_crop;
 
     json_resize = json_project["resize"].toObject();
-    resize.width = (int)json_resize["width"].toDouble();
-    resize.height = (int)json_resize["height"].toDouble();
+    resize.width = (int)json_resize["width"].toDouble(width);
+    resize.height = (int)json_resize["height"].toDouble(height);
 
     json_crop = json_project["crop"].toObject();
     crop.left = (int)json_crop["left"].toDouble();
@@ -563,6 +580,26 @@ bool WobblyProject::isCombedFrame(int frame) {
 }
 
 
+void WobblyProject::setResize(int new_width, int new_height) {
+    if (width <= 0 || height <= 0)
+        throw WobblyException("Can't resize to " + std::to_string(width) + "x" + std::to_string(height) + ": dimensions must be positive.");
+
+    resize.width = width;
+    resize.height = height;
+}
+
+
+void WobblyProject::setCrop(int left, int top, int right, int bottom) {
+    if (left < 0 || top < 0 || right < 0 || bottom < 0)
+        throw WobblyException("Can't crop (" + std::to_string(left) + "," + std::to_string(top) + "," + std::to_string(right) + "," + std::to_string(bottom) + "): negative values.");
+
+    crop.left = left;
+    crop.top = top;
+    crop.right = right;
+    crop.bottom = bottom;
+}
+
+
 std::string WobblyProject::frameToTime(int frame) {
     int milliseconds = (int)((frame * fps_den * 1000 / fps_num) % 1000);
     int seconds_total = (int)(frame * fps_den / fps_num);
@@ -744,6 +781,14 @@ void WobblyProject::cropToScript(std::string &script) {
     script += std::to_string(crop.bottom) + ")\n\n";
 }
 
+void WobblyProject::showCropToScript(std::string &script) {
+    script += "src = c.std.AddBorders(clip=src, left=";
+    script += std::to_string(crop.left) + ", top=";
+    script += std::to_string(crop.top) + ", right=";
+    script += std::to_string(crop.right) + ", bottom=";
+    script += std::to_string(crop.bottom) + ", color=[128, 230, 180])\n\n";
+}
+
 void WobblyProject::resizeToScript(std::string &script) {
     script += "src = c.resize.Bicubic(clip=src, width=";
     script += std::to_string(resize.width) + ", height=";
@@ -808,7 +853,7 @@ std::string WobblyProject::generateFinalScript() {
     return script;
 }
 
-std::string WobblyProject::generateMainDisplayScript() {
+std::string WobblyProject::generateMainDisplayScript(bool show_crop) {
     // I guess use text.Text to print matches, frame number, metrics, etc. Or just QLabels.
 
     std::string script;
@@ -823,6 +868,11 @@ std::string WobblyProject::generateMainDisplayScript() {
 
     if (frozen_frames.size())
         freezeFramesToScript(script);
+
+    if (show_crop) {
+        cropToScript(script);
+        showCropToScript(script);
+    }
 
     rgbConversionToScript(script);
 

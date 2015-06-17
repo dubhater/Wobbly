@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QLabel>
 #include <QMainWindow>
+#include <QSpinBox>
 
 #include <VapourSynth.h>
 #include <VSScript.h>
@@ -19,6 +20,12 @@ public:
     WobblyWindow();
 
 private:
+    // Menus.
+
+    QMenu *tools_menu;
+
+
+
     // Widgets.
 
     QLabel *frame_label;
@@ -35,6 +42,9 @@ private:
     QLabel *mic_label;
     QLabel *combed_label;
 
+    QDockWidget *crop_dock;
+    QSpinBox *crop_spin[4];
+    QSpinBox *resize_spin[2];
 
 
     // Other stuff.
@@ -57,6 +67,7 @@ private:
 
     void createMenu();
     void createShortcuts();
+    void createDockWidgets();
     void createUI();
 
     void initialiseVapourSynth();
@@ -104,6 +115,10 @@ public slots:
 
     void openProject();
     void saveProject();
+
+    void cropChanged(int value);
+    void resizeChanged(int value);
+    void cropVisibilityChanged(bool visible);
 };
 
 #endif // WOBBLYWINDOW_H

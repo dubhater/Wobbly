@@ -152,6 +152,9 @@ class WobblyProject {
         int64_t fps_num;
         int64_t fps_den;
 
+        int width;
+        int height;
+
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
         std::unordered_map<std::string, double> vfm_parameters;
@@ -179,6 +182,8 @@ class WobblyProject {
 
 
         // Only functions below.
+
+        WobblyProject(bool _is_wobbly);
 
         void writeProject(const std::string &path);
         void readProject(const std::string &path);
@@ -220,6 +225,10 @@ class WobblyProject {
         bool isCombedFrame(int frame);
 
 
+        void setResize(int new_width, int new_height);
+        void setCrop(int left, int top, int right, int bottom);
+
+
         std::string frameToTime(int frame);
 
         void sectionsToScript(std::string &script, PositionInFilterChain position);
@@ -232,12 +241,13 @@ class WobblyProject {
         void freezeFramesToScript(std::string &script);
         void decimatedFramesToScript(std::string &script);
         void cropToScript(std::string &script);
+        void showCropToScript(std::string &script);
         void resizeToScript(std::string &script);
         void rgbConversionToScript(std::string &script);
         void setOutputToScript(std::string &script);
 
         std::string generateFinalScript();
-        std::string generateMainDisplayScript();
+        std::string generateMainDisplayScript(bool show_crop);
 
     private:
         bool isNameSafeForPython(const std::string &name);

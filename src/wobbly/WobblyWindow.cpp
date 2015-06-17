@@ -1,7 +1,9 @@
+#include <QDockWidget>
 #include <QFileDialog>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QShortcut>
+#include <QSpinBox>
 #include <QStatusBar>
 
 #include <QHBoxLayout>
@@ -73,6 +75,9 @@ void WobblyWindow::createMenu() {
     p->addAction(projectSave);
     p->addSeparator();
     p->addAction(projectQuit);
+
+
+    tools_menu = bar->addMenu("&Tools");
 }
 
 
@@ -112,6 +117,71 @@ void WobblyWindow::createShortcuts() {
         QShortcut *s = new QShortcut(QKeySequence(shortcuts[i].keys), this);
         connect(s, &QShortcut::activated, this, shortcuts[i].func);
     }
+}
+
+
+void WobblyWindow::createDockWidgets() {
+    const char *crop_prefixes[4] = {
+        "Left: ",
+        "Top: ",
+        "Right: ",
+        "Bottom: "
+    };
+
+    const char *resize_prefixes[2] = {
+        "Width: ",
+        "Height: "
+    };
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+
+    for (int i = 0; i < 4; i++) {
+        crop_spin[i] = new QSpinBox;
+        crop_spin[i]->setRange(0, 99999);
+        crop_spin[i]->setPrefix(crop_prefixes[i]);
+        crop_spin[i]->setSuffix(QStringLiteral(" px"));
+        connect(crop_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &WobblyWindow::cropChanged);
+
+        vbox->addWidget(crop_spin[i]);
+    }
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addLayout(vbox);
+    hbox->addStretch(1);
+
+    vbox = new QVBoxLayout;
+
+    vbox->addLayout(hbox);
+
+    QVBoxLayout *vbox2 = new QVBoxLayout;
+
+    for (int i = 0; i < 2; i++) {
+        resize_spin[i] = new QSpinBox;
+        resize_spin[i]->setRange(1, 999999);
+        resize_spin[i]->setPrefix(resize_prefixes[i]);
+        resize_spin[i]->setSuffix(QStringLiteral(" px"));
+
+        vbox2->addWidget(resize_spin[i]);
+    }
+
+    hbox = new QHBoxLayout;
+    hbox->addLayout(vbox2);
+    hbox->addStretch(1);
+
+    vbox->addLayout(hbox);
+
+    vbox->addStretch(1);
+
+    QWidget *crop_widget = new QWidget;
+    crop_widget->setLayout(vbox);
+
+    crop_dock = new QDockWidget("Cropping/Resizing", this);
+    crop_dock->setVisible(false);
+    crop_dock->setFloating(true);
+    crop_dock->setWidget(crop_widget);
+    addDockWidget(Qt::RightDockWidgetArea, crop_dock);
+    tools_menu->addAction(crop_dock->toggleViewAction());
+    connect(crop_dock, &QDockWidget::visibilityChanged, this, &WobblyWindow::cropVisibilityChanged);
 }
 
 
@@ -163,6 +233,9 @@ void WobblyWindow::createUI() {
     central_widget->setLayout(hbox);
 
     setCentralWidget(central_widget);
+
+
+    createDockWidgets();
 }
 
 
@@ -259,7 +332,7 @@ void WobblyWindow::openProject() {
     QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
     if (!path.isNull()) {
-        WobblyProject *tmp = new WobblyProject;
+        WobblyProject *tmp = new WobblyProject(true);
 
         try {
             tmp->readProject(path.toStdString());
@@ -267,6 +340,26 @@ void WobblyWindow::openProject() {
             if (project)
                 delete project;
             project = tmp;
+
+            for (int i = 0; i < 4; i++)
+                crop_spin[i]->blockSignals(true);
+
+            crop_spin[0]->setValue(project->crop.left);
+            crop_spin[1]->setValue(project->crop.top);
+            crop_spin[2]->setValue(project->crop.right);
+            crop_spin[3]->setValue(project->crop.bottom);
+
+            for (int i = 0; i < 4; i++)
+                crop_spin[i]->blockSignals(false);
+
+            for (int i = 0; i < 2; i++)
+                resize_spin[i]->blockSignals(true);
+
+            resize_spin[0]->setValue(project->resize.width);
+            resize_spin[1]->setValue(project->resize.height);
+
+            for (int i = 0; i < 2; i++)
+                resize_spin[i]->blockSignals(false);
 
             vsscript_clearOutput(vsscript, 1);
 
@@ -298,7 +391,7 @@ void WobblyWindow::saveProject() {
 
 
 void WobblyWindow::evaluateMainDisplayScript() {
-    std::string script = project->generateMainDisplayScript();
+    std::string script = project->generateMainDisplayScript(crop_dock->isVisible());
 
     if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->project_path.c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
@@ -491,6 +584,9 @@ void WobblyWindow::jump50Forward() {
 
 
 void WobblyWindow::jumpALotBackward() {
+    if (!project)
+        return;
+
     int twenty_percent = project->num_frames[current_section_set] * 20 / 100;
 
     displayFrame(current_frame - twenty_percent);
@@ -498,6 +594,9 @@ void WobblyWindow::jumpALotBackward() {
 
 
 void WobblyWindow::jumpALotForward() {
+    if (!project)
+        return;
+
     int twenty_percent = project->num_frames[current_section_set] * 20 / 100;
 
     displayFrame(current_frame + twenty_percent);
@@ -653,4 +752,53 @@ void WobblyWindow::deleteSection() {
     project->deleteSection(section->start, current_section_set);
 
     updateFrameDetails();
+}
+
+
+void WobblyWindow::cropChanged(int value) {
+    (void)value;
+
+    if (!project)
+        return;
+
+    project->setCrop(crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value());
+
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &) {
+
+    }
+}
+
+
+void WobblyWindow::resizeChanged(int value) {
+    (void)value;
+
+    if (!project)
+        return;
+
+    project->setResize(resize_spin[0]->value(), resize_spin[1]->value());
+}
+
+
+void WobblyWindow::cropVisibilityChanged(bool visible) {
+    (void)visible;
+
+    for (int i = 0; i < 4; i++) {
+        crop_spin[i]->setFocusPolicy(visible ? Qt::StrongFocus : Qt::NoFocus);
+        crop_spin[i]->clearFocus();
+    }
+    for (int i = 0; i < 2; i++) {
+        resize_spin[i]->setFocusPolicy(visible ? Qt::StrongFocus : Qt::NoFocus);
+        resize_spin[i]->clearFocus();
+    }
+
+    if (!project)
+        return;
+
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &) {
+
+    }
 }
