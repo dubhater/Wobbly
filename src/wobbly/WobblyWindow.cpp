@@ -268,6 +268,8 @@ void WobblyWindow::openProject() {
                 delete project;
             project = tmp;
 
+            vsscript_clearOutput(vsscript, 1);
+
             evaluateMainDisplayScript();
         } catch (WobblyException &e) {
             QMessageBox::information(this, QStringLiteral("Error"), e.what());

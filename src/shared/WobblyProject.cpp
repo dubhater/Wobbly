@@ -674,10 +674,12 @@ void WobblyProject::presetsToScript(std::string &script) {
 }
 
 void WobblyProject::sourceToScript(std::string &script) {
-    script += "src = c.d2v.Source(input='";
-    script += input_file;
     script +=
-            "')\n"
+            "try:\n"
+            "    src = vs.get_output(index=1)\n"
+            "except KeyError:\n"
+            "    src = c.d2v.Source(input=r'" + input_file + "')\n"
+            "    src.set_output(index=1)\n"
             "\n";
 }
 
