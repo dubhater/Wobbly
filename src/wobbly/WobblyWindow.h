@@ -55,6 +55,7 @@ private:
     // Other stuff.
 
     WobblyProject *project;
+    QString project_path;
 
     int current_frame;
 
@@ -122,6 +123,7 @@ public slots:
 
     void openProject();
     void saveProject();
+    void saveProjectAs();
 
     void cropChanged(int value);
     void resizeChanged(int value);

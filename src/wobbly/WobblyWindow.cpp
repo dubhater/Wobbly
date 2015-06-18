@@ -45,6 +45,21 @@ WobblyWindow::WobblyWindow()
 
 
 void WobblyWindow::closeEvent(QCloseEvent *event) {
+    // XXX Only ask if the project was modified.
+
+    if (project) {
+        QMessageBox::StandardButton answer = QMessageBox::question(this, QStringLiteral("Save?"), QStringLiteral("Save project?"), QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel, QMessageBox::Yes);
+
+        if (answer == QMessageBox::Yes) {
+            saveProject();
+        } else if (answer == QMessageBox::No) {
+            ;
+        } else {
+            event->ignore();
+            return;
+        }
+    }
+
     cleanUpVapourSynth();
 
     if (project) {
@@ -52,7 +67,6 @@ void WobblyWindow::closeEvent(QCloseEvent *event) {
         project = nullptr;
     }
 
-    // XXX Message box/automatic saving of the project.
     event->accept();
 }
 
@@ -64,18 +78,22 @@ void WobblyWindow::createMenu() {
 
     QAction *projectOpen = new QAction("&Open project", this);
     QAction *projectSave = new QAction("&Save project", this);
+    QAction *projectSaveAs = new QAction("&Save project as", this);
     QAction *projectQuit = new QAction("&Quit", this);
 
     projectOpen->setShortcut(QKeySequence::Open);
     projectSave->setShortcut(QKeySequence::Save);
+    projectSaveAs->setShortcut(QKeySequence::SaveAs);
     projectQuit->setShortcut(QKeySequence("Ctrl+Q"));
 
     connect(projectOpen, &QAction::triggered, this, &WobblyWindow::openProject);
     connect(projectSave, &QAction::triggered, this, &WobblyWindow::saveProject);
+    connect(projectSaveAs, &QAction::triggered, this, &WobblyWindow::saveProjectAs);
     connect(projectQuit, &QAction::triggered, this, &QWidget::close);
 
     p->addAction(projectOpen);
     p->addAction(projectSave);
+    p->addAction(projectSaveAs);
     p->addSeparator();
     p->addAction(projectQuit);
 
@@ -421,6 +439,8 @@ void WobblyWindow::openProject() {
         try {
             tmp->readProject(path.toStdString());
 
+            project_path = path;
+
             if (project)
                 delete project;
             project = tmp;
@@ -446,10 +466,28 @@ void WobblyWindow::saveProject() {
         if (!project)
             throw WobblyException("Can't save the project because none has been loaded.");
 
+        if (project_path.isEmpty())
+            saveProjectAs();
+        else
+            project->writeProject(project_path.toStdString());
+    } catch (WobblyException &e) {
+        QMessageBox::information(this, QStringLiteral("Error"), e.what());
+    }
+}
+
+
+void WobblyWindow::saveProjectAs() {
+    try {
+        if (!project)
+            throw WobblyException("Can't save the project because none has been loaded.");
+
         QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
-        if (!path.isNull())
+        if (!path.isNull()) {
             project->writeProject(path.toStdString());
+
+            project_path = path;
+        }
     } catch (WobblyException &e) {
         QMessageBox::information(this, QStringLiteral("Error"), e.what());
     }
@@ -754,6 +792,7 @@ void WobblyWindow::freezeBackward() {
 void WobblyWindow::freezeRange() {
     static FreezeFrame ff = { -1, -1, -1 };
 
+    // XXX Don't bother if first or last are part of a freezeframe.
     if (ff.first == -1)
         ff.first = current_frame;
     else if (ff.last == -1)
