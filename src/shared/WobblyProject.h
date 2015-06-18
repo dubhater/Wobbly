@@ -196,7 +196,10 @@ class WobblyProject {
 
         void addPreset(const std::string &preset_name);
         void addPreset(const std::string &preset_name, const std::string &preset_contents);
+        void renamePreset(const std::string &old_name, const std::string &new_name);
         void deletePreset(const std::string &preset_name);
+        const std::string &getPresetContents(const std::string &preset_name);
+        void setPresetContents(const std::string &preset_name, const std::string &preset_contents);
         void assignPresetToSection(const std::string &preset_name, PositionInFilterChain position, int section_start);
 
 

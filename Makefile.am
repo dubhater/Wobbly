@@ -16,14 +16,17 @@ moc_verbose_0 = @echo "  MOC     " $@;
 
 bin_PROGRAMS = wobbly
 
-moc_files = src/wobbly/WobblyWindow.moc
+moc_files = src/wobbly/PresetTextEdit.moc \
+			src/wobbly/WobblyWindow.moc
 
 $(wobbly_OBJECTS) : \
 	$(moc_files)
 
 MOSTLYCLEANFILES = $(moc_files)
 
-wobbly_SOURCES = src/wobbly/Wobbly.cpp \
+wobbly_SOURCES = src/wobbly/PresetTextEdit.cpp \
+				 src/wobbly/PresetTextEdit.h \
+				 src/wobbly/Wobbly.cpp \
 				 src/wobbly/WobblyWindow.cpp \
 				 src/wobbly/WobblyWindow.h \
 				 src/shared/WobblyProject.cpp \

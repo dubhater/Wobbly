@@ -433,13 +433,10 @@ const FreezeFrame *WobblyProject::findFreezeFrame(int frame) {
 
 
 void WobblyProject::addPreset(const std::string &preset_name) {
-    std::string contents = "def ";
-    contents += preset_name;
-    contents +=
-            "(clip):\n"
-            "\n"
-            "\n"
-            "    return clip\n";
+    std::string contents =
+            "# The preset is a Python function. It takes a single parameter, called 'clip'.\n"
+            "# Filter that and assign the result to the same variable.\n"
+            "# The VapourSynth core object is called 'c'.\n";
     addPreset(preset_name, contents);
 }
 
@@ -457,7 +454,7 @@ bool WobblyProject::isNameSafeForPython(const std::string &name) {
 
 void WobblyProject::addPreset(const std::string &preset_name, const std::string &preset_contents) {
     if (!isNameSafeForPython(preset_name))
-        throw WobblyException("Preset name '" + preset_name + "' is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
+        throw WobblyException("Can't add preset '" + preset_name + "': name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
 
     Preset preset;
     preset.name = preset_name;
@@ -465,8 +462,62 @@ void WobblyProject::addPreset(const std::string &preset_name, const std::string 
     presets.insert(std::make_pair(preset_name, preset));
 }
 
+void WobblyProject::renamePreset(const std::string &old_name, const std::string &new_name) {
+    if (!presets.count(old_name))
+        throw WobblyException("Can't rename preset '" + old_name + "' to '" + new_name + "': no such preset.");
+
+    if (!isNameSafeForPython(new_name))
+        throw WobblyException("Can't rename preset '" + old_name + "' to '" + new_name + "': new name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
+
+    Preset preset;
+    preset.name = new_name;
+    preset.contents = presets.at(old_name).contents;
+
+    presets.erase(old_name);
+    presets.insert(std::make_pair(new_name, preset));
+
+    for (int i = 0; i < 3; i++) {
+        for (auto it = sections[i].begin(); it != sections[i].end(); it++)
+            for (size_t j = 0; j < it->second.presets.size(); j++)
+                if (it->second.presets[j] == old_name)
+                    it->second.presets[j] = new_name;
+
+        for (auto it = custom_lists[i].begin(); it != custom_lists[i].end(); it++)
+            if (it->preset == old_name)
+                it->preset = new_name;
+    }
+}
+
 void WobblyProject::deletePreset(const std::string &preset_name) {
-    presets.erase(preset_name);
+    if (presets.erase(preset_name) == 0)
+        throw WobblyException("Can't delete preset '" + preset_name + "': no such preset.");
+
+    for (int i = 0; i < 3; i++) {
+        for (auto it = sections[i].begin(); it != sections[i].end(); it++)
+            for (size_t j = 0; j < it->second.presets.size(); j++)
+                if (it->second.presets[j] == preset_name)
+                    it->second.presets.erase(it->second.presets.cbegin() + j);
+
+        for (auto it = custom_lists[i].begin(); it != custom_lists[i].end(); it++)
+            if (it->preset == preset_name)
+                it->preset.clear();
+    }
+}
+
+const std::string &WobblyProject::getPresetContents(const std::string &preset_name) {
+    if (!presets.count(preset_name))
+        throw WobblyException("Can't retrieve the contents of preset '" + preset_name + "': no such preset.");
+
+    const Preset &preset = presets.at(preset_name);
+    return preset.contents;
+}
+
+void WobblyProject::setPresetContents(const std::string &preset_name, const std::string &preset_contents) {
+    if (!presets.count(preset_name))
+        throw WobblyException("Can't modify the contents of preset '" + preset_name + "': no such preset.");
+
+    Preset &preset = presets.at(preset_name);
+    preset.contents = preset_contents;
 }
 
 void WobblyProject::assignPresetToSection(const std::string &preset_name, PositionInFilterChain position, int section_start) {
@@ -706,8 +757,16 @@ void WobblyProject::headerToScript(std::string &script) {
 }
 
 void WobblyProject::presetsToScript(std::string &script) {
-    for (auto it = presets.cbegin(); it != presets.cend(); it++)
-        script += it->second.contents + "\n\n";
+    for (auto it = presets.cbegin(); it != presets.cend(); it++) {
+        script += "def " + it->second.name + "(clip):\n";
+        for (size_t start = 0, end = 0; end != std::string::npos; ) {
+            end = it->second.name.find('\n', start);
+            script += "    " + it->second.name.substr(start, end) + "\n";
+            start = end + 1;
+        }
+        script += "return clip\n";
+        script += "\n\n";
+    }
 }
 
 void WobblyProject::sourceToScript(std::string &script) {

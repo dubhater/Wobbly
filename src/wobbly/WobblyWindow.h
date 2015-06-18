@@ -3,6 +3,7 @@
 
 
 #include <QCloseEvent>
+#include <QComboBox>
 #include <QLabel>
 #include <QMainWindow>
 #include <QSpinBox>
@@ -10,6 +11,7 @@
 #include <VapourSynth.h>
 #include <VSScript.h>
 
+#include "PresetTextEdit.h"
 #include "WobblyProject.h"
 
 
@@ -46,6 +48,9 @@ private:
     QSpinBox *crop_spin[4];
     QSpinBox *resize_spin[2];
 
+    QComboBox *preset_combo;
+    PresetTextEdit *preset_edit;
+
 
     // Other stuff.
 
@@ -67,13 +72,15 @@ private:
 
     void createMenu();
     void createShortcuts();
-    void createDockWidgets();
+    void createCropAssistant();
+    void createPresetEditor();
     void createUI();
 
     void initialiseVapourSynth();
     void cleanUpVapourSynth();
     void checkRequiredFilters();
 
+    void initialiseUIFromProject();
 
     void evaluateMainDisplayScript();
     void displayFrame(int n);
@@ -118,7 +125,13 @@ public slots:
 
     void cropChanged(int value);
     void resizeChanged(int value);
-    void cropVisibilityChanged(bool visible);
+    void cropAssistantVisibilityChanged(bool visible);
+
+    void presetChanged(const QString &text);
+    void presetEdited();
+    void presetNew();
+    void presetRename();
+    void presetDelete();
 };
 
 #endif // WOBBLYWINDOW_H

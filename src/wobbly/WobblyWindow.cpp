@@ -1,7 +1,10 @@
+#include <QComboBox>
 #include <QDockWidget>
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QShortcut>
 #include <QSpinBox>
 #include <QStatusBar>
@@ -120,7 +123,7 @@ void WobblyWindow::createShortcuts() {
 }
 
 
-void WobblyWindow::createDockWidgets() {
+void WobblyWindow::createCropAssistant() {
     const char *crop_prefixes[4] = {
         "Left: ",
         "Top: ",
@@ -181,7 +184,50 @@ void WobblyWindow::createDockWidgets() {
     crop_dock->setWidget(crop_widget);
     addDockWidget(Qt::RightDockWidgetArea, crop_dock);
     tools_menu->addAction(crop_dock->toggleViewAction());
-    connect(crop_dock, &QDockWidget::visibilityChanged, this, &WobblyWindow::cropVisibilityChanged);
+    connect(crop_dock, &QDockWidget::visibilityChanged, this, &WobblyWindow::cropAssistantVisibilityChanged);
+}
+
+
+void WobblyWindow::createPresetEditor() {
+    preset_combo = new QComboBox;
+    connect(preset_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), this, &WobblyWindow::presetChanged);
+
+    preset_edit = new PresetTextEdit;
+    preset_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
+    preset_edit->setTabChangesFocus(true);
+    connect(preset_edit, &PresetTextEdit::focusLost, this, &WobblyWindow::presetEdited);
+
+    QPushButton *new_button = new QPushButton(QStringLiteral("New"));
+    QPushButton *rename_button = new QPushButton(QStringLiteral("Rename"));
+    QPushButton *delete_button = new QPushButton(QStringLiteral("Delete"));
+
+    connect(new_button, &QPushButton::clicked, this, &WobblyWindow::presetNew);
+    connect(rename_button, &QPushButton::clicked, this, &WobblyWindow::presetRename);
+    connect(delete_button, &QPushButton::clicked, this, &WobblyWindow::presetDelete);
+
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(new_button);
+    hbox->addWidget(rename_button);
+    hbox->addWidget(delete_button);
+    hbox->addStretch(1);
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(preset_combo);
+    vbox->addWidget(preset_edit);
+    vbox->addLayout(hbox);
+
+    QWidget *preset_widget = new QWidget;
+    preset_widget->setLayout(vbox);
+
+
+    QDockWidget *preset_dock = new QDockWidget("Preset editor", this);
+    preset_dock->setVisible(false);
+    preset_dock->setFloating(true);
+    preset_dock->setWidget(preset_widget);
+    addDockWidget(Qt::RightDockWidgetArea, preset_dock);
+    tools_menu->addAction(preset_dock->toggleViewAction());
+    //connect(preset_dock, &QDockWidget::visibilityChanged, this, &WobblyWindow::presetEditorVisibilityChanged);
 }
 
 
@@ -228,6 +274,7 @@ void WobblyWindow::createUI() {
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->addLayout(vbox);
     hbox->addWidget(frame_label);
+    hbox->addStretch(1);
 
     QWidget *central_widget = new QWidget;
     central_widget->setLayout(hbox);
@@ -235,7 +282,8 @@ void WobblyWindow::createUI() {
     setCentralWidget(central_widget);
 
 
-    createDockWidgets();
+    createCropAssistant();
+    createPresetEditor();
 }
 
 
@@ -328,6 +376,42 @@ void WobblyWindow::checkRequiredFilters() {
 }
 
 
+void WobblyWindow::initialiseUIFromProject() {
+    // Crop.
+    for (int i = 0; i < 4; i++)
+        crop_spin[i]->blockSignals(true);
+
+    crop_spin[0]->setValue(project->crop.left);
+    crop_spin[1]->setValue(project->crop.top);
+    crop_spin[2]->setValue(project->crop.right);
+    crop_spin[3]->setValue(project->crop.bottom);
+
+    for (int i = 0; i < 4; i++)
+        crop_spin[i]->blockSignals(false);
+
+
+    // Resize.
+    for (int i = 0; i < 2; i++)
+        resize_spin[i]->blockSignals(true);
+
+    resize_spin[0]->setValue(project->resize.width);
+    resize_spin[1]->setValue(project->resize.height);
+
+    for (int i = 0; i < 2; i++)
+        resize_spin[i]->blockSignals(false);
+
+
+    // Presets.
+    for (auto it = project->presets.cbegin(); it != project->presets.cend(); it++)
+        preset_combo->addItem(QString::fromStdString(it->second.name));
+
+    if (preset_combo->count()) {
+        preset_combo->setCurrentIndex(0);
+        presetChanged(preset_combo->currentText());
+    }
+}
+
+
 void WobblyWindow::openProject() {
     QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
@@ -341,25 +425,7 @@ void WobblyWindow::openProject() {
                 delete project;
             project = tmp;
 
-            for (int i = 0; i < 4; i++)
-                crop_spin[i]->blockSignals(true);
-
-            crop_spin[0]->setValue(project->crop.left);
-            crop_spin[1]->setValue(project->crop.top);
-            crop_spin[2]->setValue(project->crop.right);
-            crop_spin[3]->setValue(project->crop.bottom);
-
-            for (int i = 0; i < 4; i++)
-                crop_spin[i]->blockSignals(false);
-
-            for (int i = 0; i < 2; i++)
-                resize_spin[i]->blockSignals(true);
-
-            resize_spin[0]->setValue(project->resize.width);
-            resize_spin[1]->setValue(project->resize.height);
-
-            for (int i = 0; i < 2; i++)
-                resize_spin[i]->blockSignals(false);
+            initialiseUIFromProject();
 
             vsscript_clearOutput(vsscript, 1);
 
@@ -781,7 +847,7 @@ void WobblyWindow::resizeChanged(int value) {
 }
 
 
-void WobblyWindow::cropVisibilityChanged(bool visible) {
+void WobblyWindow::cropAssistantVisibilityChanged(bool visible) {
     (void)visible;
 
     for (int i = 0; i < 4; i++) {
@@ -801,4 +867,88 @@ void WobblyWindow::cropVisibilityChanged(bool visible) {
     } catch (WobblyException &) {
 
     }
+}
+
+
+void WobblyWindow::presetChanged(const QString &text) {
+    if (!project)
+        return;
+
+    if (text.isEmpty())
+        preset_edit->setPlainText(QString());
+    else
+        preset_edit->setPlainText(QString::fromStdString(project->getPresetContents(text.toStdString())));
+}
+
+
+void WobblyWindow::presetEdited() {
+    if (!project)
+        return;
+
+    if (preset_combo->currentIndex() == -1)
+        return;
+
+    project->setPresetContents(preset_combo->currentText().toStdString(), preset_edit->toPlainText().toStdString());
+}
+
+
+void WobblyWindow::presetNew() {
+    if (!project)
+        return;
+
+    QString preset_name = QInputDialog::getText(this, QStringLiteral("New preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."));
+
+    if (!preset_name.isEmpty()) {
+        try {
+            project->addPreset(preset_name.toStdString());
+
+            preset_combo->addItem(preset_name);
+            preset_combo->setCurrentText(preset_name);
+
+            presetChanged(preset_name);
+        } catch (WobblyException &e) {
+            QMessageBox::information(this, QStringLiteral("Error"), e.what());
+        }
+    }
+}
+
+
+void WobblyWindow::presetRename() {
+    if (!project)
+        return;
+
+    if (preset_combo->currentIndex() == -1)
+        return;
+
+    QString preset_name = QInputDialog::getText(this, QStringLiteral("Rename preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."), QLineEdit::Normal, preset_combo->currentText());
+
+    if (!preset_name.isEmpty() && preset_name != preset_combo->currentText()) {
+        try {
+            project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
+
+            preset_combo->setItemText(preset_combo->currentIndex(), preset_name);
+
+            //presetChanged(preset_name);
+
+            // If the preset's name was displayed in other places, update them.
+        } catch (WobblyException &e) {
+            QMessageBox::information(this, QStringLiteral("Error"), e.what());
+        }
+    }
+
+}
+
+
+void WobblyWindow::presetDelete() {
+    if (!project)
+        return;
+
+    if (preset_combo->currentIndex() == -1)
+        return;
+
+    project->deletePreset(preset_combo->currentText().toStdString());
+
+    preset_combo->removeItem(preset_combo->currentIndex());
+
+    presetChanged(preset_combo->currentText());
 }
