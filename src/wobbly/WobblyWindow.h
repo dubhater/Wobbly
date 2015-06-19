@@ -97,6 +97,7 @@ private:
     void displayFrame(int n);
     void updateFrameDetails();
 
+    void errorPopup(const char *msg);
 
     void closeEvent(QCloseEvent *event);
 

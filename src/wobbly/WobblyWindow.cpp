@@ -41,9 +41,15 @@ WobblyWindow::WobblyWindow()
 
         checkRequiredFilters();
     } catch (WobblyException &e) {
-        frame_label->setText(e.what());
-        // XXX Disable everything but "Quit".
+        show();
+        errorPopup(e.what());
+        exit(1); // Seems a bit heavy-handed, but close() doesn't close the window if called here, so...
     }
+}
+
+
+void WobblyWindow::errorPopup(const char *msg) {
+    QMessageBox::information(this, QStringLiteral("Error"), msg);
 }
 
 
@@ -377,10 +383,13 @@ void WobblyWindow::initialiseVapourSynth() {
 void WobblyWindow::cleanUpVapourSynth() {
     frame_label->setPixmap(QPixmap()); // Does it belong here?
     vsapi->freeFrame(vsframe);
+    vsframe = nullptr;
 
     vsapi->freeNode(vsnode);
+    vsnode = nullptr;
 
     vsscript_freeScript(vsscript);
+    vsscript = nullptr;
 }
 
 
@@ -502,7 +511,7 @@ void WobblyWindow::openProject() {
 
             evaluateMainDisplayScript();
         } catch (WobblyException &e) {
-            QMessageBox::information(this, QStringLiteral("Error"), e.what());
+            errorPopup(e.what());
 
             if (project == tmp)
                 project = nullptr;
@@ -536,7 +545,7 @@ void WobblyWindow::saveProject() {
         else
             realSaveProject(project_path);
     } catch (WobblyException &e) {
-        QMessageBox::information(this, QStringLiteral("Error"), e.what());
+        errorPopup(e.what());
     }
 }
 
@@ -551,7 +560,7 @@ void WobblyWindow::saveProjectAs() {
         if (!path.isNull())
             realSaveProject(path);
     } catch (WobblyException &e) {
-        QMessageBox::information(this, QStringLiteral("Error"), e.what());
+        errorPopup(e.what());
     }
 }
 
@@ -985,7 +994,7 @@ void WobblyWindow::presetNew() {
 
             presetChanged(preset_name);
         } catch (WobblyException &e) {
-            QMessageBox::information(this, QStringLiteral("Error"), e.what());
+            errorPopup(e.what());
         }
     }
 }
@@ -1010,7 +1019,7 @@ void WobblyWindow::presetRename() {
 
             // If the preset's name was displayed in other places, update them.
         } catch (WobblyException &e) {
-            QMessageBox::information(this, QStringLiteral("Error"), e.what());
+            errorPopup(e.what());
         }
     }
 
