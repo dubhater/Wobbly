@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMainWindow>
 #include <QSpinBox>
 
@@ -51,6 +52,8 @@ private:
     QComboBox *preset_combo;
     PresetTextEdit *preset_edit;
 
+    QLineEdit *match_pattern_edit;
+    QLineEdit *decimation_pattern_edit;
 
     // Other stuff.
 
@@ -81,6 +84,7 @@ private:
     void createShortcuts();
     void createCropAssistant();
     void createPresetEditor();
+    void createPatternEditor();
     void createUI();
 
     void initialiseVapourSynth();
@@ -135,7 +139,6 @@ public slots:
 
     void cropChanged(int value);
     void resizeChanged(int value);
-    void cropAssistantVisibilityChanged(bool visible);
 
     void presetChanged(const QString &text);
     void presetEdited();
@@ -147,6 +150,9 @@ public slots:
     void resetSection();
 
     void rotateAndSetPatterns();
+
+    void matchPatternEdited(const QString &text);
+    void decimationPatternEdited(const QString &text);
 };
 
 #endif // WOBBLYWINDOW_H

@@ -5,6 +5,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QRegExpValidator>
 #include <QShortcut>
 #include <QSpinBox>
 #include <QStatusBar>
@@ -207,7 +208,17 @@ void WobblyWindow::createCropAssistant() {
     crop_dock->setWidget(crop_widget);
     addDockWidget(Qt::RightDockWidgetArea, crop_dock);
     tools_menu->addAction(crop_dock->toggleViewAction());
-    connect(crop_dock, &QDockWidget::visibilityChanged, this, &WobblyWindow::cropAssistantVisibilityChanged);
+    connect(crop_dock, &QDockWidget::visibilityChanged, crop_dock, &QDockWidget::setEnabled);
+    connect(crop_dock, &QDockWidget::visibilityChanged, [this] {
+        if (!project)
+            return;
+
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &) {
+
+        }
+    });
 }
 
 
@@ -250,7 +261,41 @@ void WobblyWindow::createPresetEditor() {
     preset_dock->setWidget(preset_widget);
     addDockWidget(Qt::RightDockWidgetArea, preset_dock);
     tools_menu->addAction(preset_dock->toggleViewAction());
-    //connect(preset_dock, &QDockWidget::visibilityChanged, this, &WobblyWindow::presetEditorVisibilityChanged);
+    connect(preset_dock, &QDockWidget::visibilityChanged, preset_dock, &QDockWidget::setEnabled);
+}
+
+
+void WobblyWindow::createPatternEditor() {
+    match_pattern_edit = new QLineEdit(match_pattern);
+    decimation_pattern_edit = new QLineEdit(decimation_pattern);
+
+    QRegExpValidator *match_validator = new QRegExpValidator(QRegExp("[pcn]{5,}"), this);
+    QRegExpValidator *decimation_validator = new QRegExpValidator(QRegExp("[dk]{5,}"), this);
+
+    match_pattern_edit->setValidator(match_validator);
+    decimation_pattern_edit->setValidator(decimation_validator);
+
+    connect(match_pattern_edit, &QLineEdit::textEdited, this, &WobblyWindow::matchPatternEdited);
+    connect(decimation_pattern_edit, &QLineEdit::textEdited, this, &WobblyWindow::decimationPatternEdited);
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(new QLabel(QStringLiteral("Match pattern:")));
+    vbox->addWidget(match_pattern_edit);
+    vbox->addWidget(new QLabel(QStringLiteral("Decimation pattern:")));
+    vbox->addWidget(decimation_pattern_edit);
+    vbox->addStretch(1);
+
+    QWidget *pattern_widget = new QWidget;
+    pattern_widget->setLayout(vbox);
+
+
+    QDockWidget *pattern_dock = new QDockWidget("Pattern editor", this);
+    pattern_dock->setVisible(false);
+    pattern_dock->setFloating(true);
+    pattern_dock->setWidget(pattern_widget);
+    addDockWidget(Qt::RightDockWidgetArea, pattern_dock);
+    tools_menu->addAction(pattern_dock->toggleViewAction());
+    connect(pattern_dock, &QDockWidget::visibilityChanged, pattern_dock, &QDockWidget::setEnabled);
 }
 
 
@@ -307,6 +352,7 @@ void WobblyWindow::createUI() {
 
     createCropAssistant();
     createPresetEditor();
+    createPatternEditor();
 }
 
 
@@ -902,29 +948,6 @@ void WobblyWindow::resizeChanged(int value) {
 }
 
 
-void WobblyWindow::cropAssistantVisibilityChanged(bool visible) {
-    (void)visible;
-
-    for (int i = 0; i < 4; i++) {
-        crop_spin[i]->setFocusPolicy(visible ? Qt::StrongFocus : Qt::NoFocus);
-        crop_spin[i]->clearFocus();
-    }
-    for (int i = 0; i < 2; i++) {
-        resize_spin[i]->setFocusPolicy(visible ? Qt::StrongFocus : Qt::NoFocus);
-        resize_spin[i]->clearFocus();
-    }
-
-    if (!project)
-        return;
-
-    try {
-        evaluateMainDisplayScript();
-    } catch (WobblyException &) {
-
-    }
-}
-
-
 void WobblyWindow::presetChanged(const QString &text) {
     if (!project)
         return;
@@ -1036,10 +1059,12 @@ void WobblyWindow::rotateAndSetPatterns() {
     int size = match_pattern.size();
     match_pattern.prepend(match_pattern[size - 1]);
     match_pattern.truncate(size);
+    match_pattern_edit->setText(match_pattern);
 
     size = decimation_pattern.size();
     decimation_pattern.prepend(decimation_pattern[size - 1]);
     decimation_pattern.truncate(size);
+    decimation_pattern_edit->setText(decimation_pattern);
 
     const Section *section = project->findSection(current_frame, PostFieldMatch);
 
@@ -1047,4 +1072,14 @@ void WobblyWindow::rotateAndSetPatterns() {
     project->setSectionDecimationFromPattern(section->start, decimation_pattern.toStdString());
 
     evaluateMainDisplayScript();
+}
+
+
+void WobblyWindow::matchPatternEdited(const QString &text) {
+    match_pattern = text;
+}
+
+
+void WobblyWindow::decimationPatternEdited(const QString &text) {
+    decimation_pattern = text;
 }

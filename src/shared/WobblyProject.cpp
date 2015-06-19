@@ -575,9 +575,15 @@ void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::s
     else
         section_end = num_frames[PostFieldMatch];
 
-    for (int i = 0; i < section_end - section_start; i++)
+    for (int i = 0; i < section_end - section_start; i++) {
+        if ((section_start + i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
+            (section_start + i == num_frames[PostFieldMatch] - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
+            // Skip the first and last frame if their new matches are incompatible.
+            continue;
+
         // Yatta does it like this.
         matches[section_start + i] = pattern[i % 5];
+    }
 }
 
 void WobblyProject::setSectionDecimationFromPattern(int section_start, const std::string &pattern) {
