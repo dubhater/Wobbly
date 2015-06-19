@@ -23,13 +23,15 @@
 WobblyWindow::WobblyWindow()
     : project(nullptr)
     , current_frame(0)
+    , current_section_set(PostFieldMatch)
+    , current_custom_list_set(PostFieldMatch)
+    , match_pattern("ccnnc")
+    , decimation_pattern("kkkkd")
     , vsapi(nullptr)
     , vsscript(nullptr)
     , vscore(nullptr)
     , vsnode(nullptr)
     , vsframe(nullptr)
-    , current_section_set(PostFieldMatch)
-    , current_custom_list_set(PostFieldMatch)
 {
     createUI();
 
@@ -131,6 +133,9 @@ void WobblyWindow::createShortcuts() {
         { "I", &WobblyWindow::addSection },
         { "Delete,I", &WobblyWindow::deleteSection },
         { "P", &WobblyWindow::toggleCombed },
+        //{ "R", &WobblyWindow::resetRange },
+        { "R,S", &WobblyWindow::resetSection },
+        { "Ctrl+R", &WobblyWindow::rotateAndSetPatterns },
         { nullptr, nullptr }
     };
 
@@ -461,6 +466,20 @@ void WobblyWindow::openProject() {
 }
 
 
+void WobblyWindow::realSaveProject(const QString &path) {
+    if (!project)
+        return;
+
+    // The currently selected preset might not have been stored in the project yet.
+    if (preset_combo->currentIndex() != -1)
+        project->setPresetContents(preset_combo->currentText().toStdString(), preset_edit->toPlainText().toStdString());
+
+    project->writeProject(path.toStdString());
+
+    project_path = path;
+}
+
+
 void WobblyWindow::saveProject() {
     try {
         if (!project)
@@ -469,7 +488,7 @@ void WobblyWindow::saveProject() {
         if (project_path.isEmpty())
             saveProjectAs();
         else
-            project->writeProject(project_path.toStdString());
+            realSaveProject(project_path);
     } catch (WobblyException &e) {
         QMessageBox::information(this, QStringLiteral("Error"), e.what());
     }
@@ -483,11 +502,8 @@ void WobblyWindow::saveProjectAs() {
 
         QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
-        if (!path.isNull()) {
-            project->writeProject(path.toStdString());
-
-            project_path = path;
-        }
+        if (!path.isNull())
+            realSaveProject(path);
     } catch (WobblyException &e) {
         QMessageBox::information(this, QStringLiteral("Error"), e.what());
     }
@@ -990,4 +1006,45 @@ void WobblyWindow::presetDelete() {
     preset_combo->removeItem(preset_combo->currentIndex());
 
     presetChanged(preset_combo->currentText());
+}
+
+
+void WobblyWindow::resetRange() {
+    if (!project)
+        return;
+
+    //evaluateMainDisplayScript();
+}
+
+
+void WobblyWindow::resetSection() {
+    if (!project)
+        return;
+
+    const Section *section = project->findSection(current_frame, PostFieldMatch);
+
+    project->resetSectionMatches(section->start);
+
+    evaluateMainDisplayScript();
+}
+
+
+void WobblyWindow::rotateAndSetPatterns() {
+    if (!project)
+        return;
+
+    int size = match_pattern.size();
+    match_pattern.prepend(match_pattern[size - 1]);
+    match_pattern.truncate(size);
+
+    size = decimation_pattern.size();
+    decimation_pattern.prepend(decimation_pattern[size - 1]);
+    decimation_pattern.truncate(size);
+
+    const Section *section = project->findSection(current_frame, PostFieldMatch);
+
+    project->setSectionMatchesFromPattern(section->start, match_pattern.toStdString());
+    project->setSectionDecimationFromPattern(section->start, decimation_pattern.toStdString());
+
+    evaluateMainDisplayScript();
 }

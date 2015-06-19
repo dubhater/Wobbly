@@ -59,14 +59,20 @@ private:
 
     int current_frame;
 
+    PositionInFilterChain current_section_set;
+    PositionInFilterChain current_custom_list_set;
+
+    QString match_pattern;
+    QString decimation_pattern;
+
+
+    // VapourSynth stuff.
+
     const VSAPI *vsapi;
     VSScript *vsscript;
     VSCore *vscore;
     VSNodeRef *vsnode;
     const VSFrameRef *vsframe;
-
-    PositionInFilterChain current_section_set;
-    PositionInFilterChain current_custom_list_set;
 
 
     // Functions
@@ -89,6 +95,8 @@ private:
 
 
     void closeEvent(QCloseEvent *event);
+
+    void realSaveProject(const QString &path);
 
 public slots:
     void jump1Forward();
@@ -134,6 +142,11 @@ public slots:
     void presetNew();
     void presetRename();
     void presetDelete();
+
+    void resetRange();
+    void resetSection();
+
+    void rotateAndSetPatterns();
 };
 
 #endif // WOBBLYWINDOW_H

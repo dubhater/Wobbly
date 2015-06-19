@@ -388,6 +388,9 @@ void WobblyProject::readProject(const std::string &path) {
 }
 
 void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
+    if (first > last)
+        std::swap(first, last);
+
     if (first < 0 || first >= num_frames[PostSource] ||
         last < 0 || last >= num_frames[PostSource] ||
         replacement < 0 || replacement >= num_frames[PostSource])
@@ -562,6 +565,59 @@ const Section *WobblyProject::findNextSection(int frame, PositionInFilterChain p
         return &it->second;
 
     return nullptr;
+}
+
+void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
+    const Section *next_section = findNextSection(section_start, PostFieldMatch);
+    int section_end;
+    if (next_section)
+        section_end = next_section->start;
+    else
+        section_end = num_frames[PostFieldMatch];
+
+    for (int i = 0; i < section_end - section_start; i++)
+        // Yatta does it like this.
+        matches[section_start + i] = pattern[i % 5];
+}
+
+void WobblyProject::setSectionDecimationFromPattern(int section_start, const std::string &pattern) {
+    const Section *next_section = findNextSection(section_start, PostFieldMatch);
+    int section_end;
+    if (next_section)
+        section_end = next_section->start;
+    else
+        section_end = num_frames[PostFieldMatch];
+
+    for (int i = 0; i < section_end - section_start; i++) {
+        // Yatta does it like this.
+        if (pattern[i % 5] == 'd')
+            decimated_frames.insert(section_start + i);
+        else
+            decimated_frames.erase(section_start + i);
+    }
+}
+
+
+void WobblyProject::resetRangeMatches(int start, int end) {
+    if (start > end)
+        std::swap(start, end);
+
+    if (start < 0 || end >= num_frames[PostFieldMatch])
+        throw WobblyException("Can't reset the matches for range [" + std::to_string(start) + "," + std::to_string(end) + "]: values out of range.");
+
+    memcpy(matches.data() + start, original_matches.data() + start, end - start + 1);
+}
+
+
+void WobblyProject::resetSectionMatches(int section_start) {
+    const Section *next_section = findNextSection(section_start, PostFieldMatch);
+    int section_end;
+    if (next_section)
+        section_end = next_section->start;
+    else
+        section_end = num_frames[PostFieldMatch];
+
+    resetRangeMatches(section_start, section_end - 1);
 }
 
 

@@ -1,4 +1,4 @@
-AC_INIT([WibblyWobbly], [1], [https://github.com/dubhater/WibblyWobbly/issues], [WibblyWobbly], [https://github.com/dubhater/WibblyWobbly])
+AC_INIT([Wobbly], [1], [https://github.com/dubhater/Wobbly/issues], [Wobbly], [https://github.com/dubhater/Wobbly])
 
 : ${CFLAGS=""}
 : ${CXXFLAGS=""}

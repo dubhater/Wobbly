@@ -87,6 +87,9 @@ struct CustomList {
     std::map<int, FrameRange> frames; // Key is FrameRange::first
 
     void addFrameRange(int first, int last) {
+        if (first > last)
+            std::swap(first, last);
+
         const FrameRange *overlap = findFrameRange(first);
         if (!overlap)
             overlap = findFrameRange(last);
@@ -211,6 +214,12 @@ class WobblyProject {
         void deleteSection(int section_start, PositionInFilterChain position);
         const Section *findSection(int frame, PositionInFilterChain position);
         const Section *findNextSection(int frame, PositionInFilterChain position);
+        void setSectionMatchesFromPattern(int section_start, const std::string &pattern);
+        void setSectionDecimationFromPattern(int section_start, const std::string &pattern);
+
+
+        void resetSectionMatches(int section_start);
+        void resetRangeMatches(int start, int end);
 
 
         void addCustomList(const std::string &list_name, PositionInFilterChain position);
