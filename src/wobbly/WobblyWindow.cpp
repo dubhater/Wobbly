@@ -24,7 +24,6 @@
 WobblyWindow::WobblyWindow()
     : project(nullptr)
     , current_frame(0)
-    , current_section_set(PostFieldMatch)
     , current_custom_list_set(PostFieldMatch)
     , match_pattern("ccnnc")
     , decimation_pattern("kkkkd")
@@ -317,7 +316,6 @@ void WobblyWindow::createUI() {
     time_label = new QLabel;
     matches_label = new QLabel;
     matches_label->setTextFormat(Qt::RichText);
-    section_set_label = new QLabel;
     section_label = new QLabel;
     custom_list_set_label = new QLabel;
     custom_list_label = new QLabel;
@@ -331,7 +329,6 @@ void WobblyWindow::createUI() {
     vbox->addWidget(frame_num_label);
     vbox->addWidget(time_label);
     vbox->addWidget(matches_label);
-    vbox->addWidget(section_set_label);
     vbox->addWidget(section_label);
     vbox->addWidget(custom_list_set_label);
     vbox->addWidget(custom_list_label);
@@ -399,7 +396,7 @@ void WobblyWindow::checkRequiredFilters() {
             "com.sources.d2vsource",
             "Source",
             "d2vsource plugin not found.",
-            "How would I know?"
+            "I don't know."
         },
         {
             "com.nodame.fieldhint",
@@ -682,17 +679,15 @@ void WobblyWindow::updateFrameDetails() {
         "post field match",
         "post decimate"
     };
-    section_set_label->setText(QStringLiteral("Section set: ") + positions[current_section_set]);
 
-
-    const Section *current_section = project->findSection(current_frame, current_section_set);
-    const Section *next_section = project->findNextSection(current_frame, current_section_set);
+    const Section *current_section = project->findSection(current_frame);
+    const Section *next_section = project->findNextSection(current_frame);
     int section_start = current_section->start;
     int section_end;
     if (next_section)
         section_end = next_section->start - 1;
     else
-        section_end = project->num_frames[current_section_set] - 1;
+        section_end = project->num_frames[PostSource] - 1;
 
     QString presets;
     for (auto it = current_section->presets.cbegin(); it != current_section->presets.cend(); it++)
@@ -762,7 +757,7 @@ void WobblyWindow::jumpALotBackward() {
     if (!project)
         return;
 
-    int twenty_percent = project->num_frames[current_section_set] * 20 / 100;
+    int twenty_percent = project->num_frames[PostSource] * 20 / 100;
 
     displayFrame(current_frame - twenty_percent);
 }
@@ -772,7 +767,7 @@ void WobblyWindow::jumpALotForward() {
     if (!project)
         return;
 
-    int twenty_percent = project->num_frames[current_section_set] * 20 / 100;
+    int twenty_percent = project->num_frames[PostSource] * 20 / 100;
 
     displayFrame(current_frame + twenty_percent);
 }
@@ -789,8 +784,7 @@ void WobblyWindow::jumpToEnd() {
 
 
 void WobblyWindow::jumpToNextSectionStart() {
-    // XXX current_frame always refers to PostFieldMatch. Fix this.
-    const Section *next_section = project->findNextSection(current_frame, current_section_set);
+    const Section *next_section = project->findNextSection(current_frame);
 
     if (next_section)
         displayFrame(next_section->start);
@@ -801,9 +795,9 @@ void WobblyWindow::jumpToPreviousSectionStart() {
     if (current_frame == 0)
         return;
 
-    const Section *section = project->findSection(current_frame, current_section_set);
+    const Section *section = project->findSection(current_frame);
     if (section->start == current_frame)
-        section = project->findSection(current_frame - 1, current_section_set);
+        section = project->findSection(current_frame - 1);
 
     displayFrame(section->start);
 }
@@ -914,9 +908,9 @@ void WobblyWindow::toggleCombed() {
 
 
 void WobblyWindow::addSection() {
-    const Section *section = project->findSection(current_frame, current_section_set);
+    const Section *section = project->findSection(current_frame);
     if (section->start != current_frame) {
-        project->addSection(current_frame, current_section_set);
+        project->addSection(current_frame);
 
         updateFrameDetails();
     }
@@ -924,8 +918,8 @@ void WobblyWindow::addSection() {
 
 
 void WobblyWindow::deleteSection() {
-    const Section *section = project->findSection(current_frame, current_section_set);
-    project->deleteSection(section->start, current_section_set);
+    const Section *section = project->findSection(current_frame);
+    project->deleteSection(section->start);
 
     updateFrameDetails();
 }
@@ -1053,7 +1047,7 @@ void WobblyWindow::resetSection() {
     if (!project)
         return;
 
-    const Section *section = project->findSection(current_frame, PostFieldMatch);
+    const Section *section = project->findSection(current_frame);
 
     project->resetSectionMatches(section->start);
 
@@ -1075,7 +1069,7 @@ void WobblyWindow::rotateAndSetPatterns() {
     decimation_pattern.truncate(size);
     decimation_pattern_edit->setText(decimation_pattern);
 
-    const Section *section = project->findSection(current_frame, PostFieldMatch);
+    const Section *section = project->findSection(current_frame);
 
     project->setSectionMatchesFromPattern(section->start, match_pattern.toStdString());
     project->setSectionDecimationFromPattern(section->start, decimation_pattern.toStdString());

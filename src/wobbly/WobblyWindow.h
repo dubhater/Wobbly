@@ -36,7 +36,6 @@ private:
     QLabel *frame_num_label;
     QLabel *time_label;
     QLabel *matches_label;
-    QLabel *section_set_label;
     QLabel *section_label;
     QLabel *custom_list_set_label;
     QLabel *custom_list_label;
@@ -62,8 +61,7 @@ private:
 
     int current_frame;
 
-    PositionInFilterChain current_section_set;
-    PositionInFilterChain current_custom_list_set;
+    PositionInFilterChain current_custom_list_set; // May be entirely unnecessary.
 
     QString match_pattern;
     QString decimation_pattern;

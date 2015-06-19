@@ -105,34 +105,23 @@ void WobblyProject::writeProject(const std::string &path) {
     json_project.insert("decimate metrics", json_decimate_metrics);
 
 
-    QJsonObject json_section_types;
-    QJsonArray json_sections[3];
+    QJsonArray json_sections;
 
-    for (int i = 0; i < 3; i++) { // XXX Magic numbers are bad.
-        if (!is_wobbly && (i == PostSource || i == PostDecimate))
-            continue;
+    for (auto it = sections.cbegin(); it != sections.cend(); it++) {
+        QJsonObject json_section;
+        json_section.insert("start", it->second.start);
+        QJsonArray json_presets;
+        for (size_t i = 0; i < it->second.presets.size(); i++)
+            json_presets.append(QString::fromStdString(it->second.presets[i]));
+        json_section.insert("presets", json_presets);
+        json_section.insert("fps_num", (qint64)it->second.fps_num);
+        json_section.insert("fps_den", (qint64)it->second.fps_den);
+        json_section.insert("num_frames", it->second.num_frames);
 
-        for (auto it = sections[i].cbegin(); it != sections[i].cend(); it++) {
-            QJsonObject json_section;
-            json_section.insert("start", it->second.start);
-            QJsonArray json_presets;
-            for (size_t j = 0; j < it->second.presets.size(); j++)
-                json_presets.append(QString::fromStdString(it->second.presets[i]));
-            json_section.insert("presets", json_presets);
-            json_section.insert("fps_num", (qint64)it->second.fps_num);
-            json_section.insert("fps_den", (qint64)it->second.fps_den);
-            json_section.insert("num_frames", it->second.num_frames);
-
-            json_sections[i].append(json_section);
-        }
+        json_sections.append(json_section);
     }
 
-    json_section_types.insert("post field match", json_sections[PostFieldMatch]);
-    if (is_wobbly) {
-        json_section_types.insert("post source", json_sections[PostSource]);
-        json_section_types.insert("post decimate", json_sections[PostDecimate]);
-    }
-    json_project.insert("sections", json_section_types);
+    json_project.insert("sections", json_sections);
 
 
     if (is_wobbly) {
@@ -324,32 +313,27 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    QJsonArray json_sections[3], json_custom_lists[3];
+    QJsonArray json_sections, json_custom_lists[3];
 
-    json_sections[0] = json_project["sections"].toObject()["post source"].toArray();
-    json_sections[1] = json_project["sections"].toObject()["post field match"].toArray();
-    json_sections[2] = json_project["sections"].toObject()["post decimate"].toArray();
+    json_sections = json_project["sections"].toArray();
 
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < json_sections[i].size(); j++) {
-            QJsonObject json_section = json_sections[i][j].toObject();
-            int section_start = (int)json_section["start"].toDouble();
-            int section_fps_num = (int)json_section["fps_num"].toDouble();
-            int section_fps_den = (int)json_section["fps_den"].toDouble();
-            int section_num_frames = (int)json_section["num_frames"].toDouble();
-            Section section(section_start, section_fps_num, section_fps_den, section_num_frames);
-            json_presets = json_section["presets"].toArray();
-            section.presets.resize(json_presets.size());
-            for (int k = 0; k < json_presets.size(); k++)
-                section.presets[k] = json_presets[k].toString().toStdString();
+    for (int j = 0; j < json_sections.size(); j++) {
+        QJsonObject json_section = json_sections[j].toObject();
+        int section_start = (int)json_section["start"].toDouble();
+        int section_fps_num = (int)json_section["fps_num"].toDouble();
+        int section_fps_den = (int)json_section["fps_den"].toDouble();
+        int section_num_frames = (int)json_section["num_frames"].toDouble();
+        Section section(section_start, section_fps_num, section_fps_den, section_num_frames);
+        json_presets = json_section["presets"].toArray();
+        section.presets.resize(json_presets.size());
+        for (int k = 0; k < json_presets.size(); k++)
+            section.presets[k] = json_presets[k].toString().toStdString();
 
-            sections[i].insert(std::make_pair(section.start, section));
-            addSection(section, (PositionInFilterChain)i);
-        }
+        addSection(section);
+    }
 
-        if (json_sections[i].size() == 0) {
-            addSection(0, (PositionInFilterChain)i);
-        }
+    if (json_sections.size() == 0) {
+        addSection(0);
     }
 
     json_custom_lists[0] = json_project["custom lists"].toObject()["post source"].toArray();
@@ -479,12 +463,12 @@ void WobblyProject::renamePreset(const std::string &old_name, const std::string 
     presets.erase(old_name);
     presets.insert(std::make_pair(new_name, preset));
 
-    for (int i = 0; i < 3; i++) {
-        for (auto it = sections[i].begin(); it != sections[i].end(); it++)
-            for (size_t j = 0; j < it->second.presets.size(); j++)
-                if (it->second.presets[j] == old_name)
-                    it->second.presets[j] = new_name;
+    for (auto it = sections.begin(); it != sections.end(); it++)
+        for (size_t j = 0; j < it->second.presets.size(); j++)
+            if (it->second.presets[j] == old_name)
+                it->second.presets[j] = new_name;
 
+    for (int i = 0; i < 3; i++) {
         for (auto it = custom_lists[i].begin(); it != custom_lists[i].end(); it++)
             if (it->preset == old_name)
                 it->preset = new_name;
@@ -495,12 +479,12 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
     if (presets.erase(preset_name) == 0)
         throw WobblyException("Can't delete preset '" + preset_name + "': no such preset.");
 
-    for (int i = 0; i < 3; i++) {
-        for (auto it = sections[i].begin(); it != sections[i].end(); it++)
-            for (size_t j = 0; j < it->second.presets.size(); j++)
-                if (it->second.presets[j] == preset_name)
-                    it->second.presets.erase(it->second.presets.cbegin() + j);
+    for (auto it = sections.begin(); it != sections.end(); it++)
+        for (size_t j = 0; j < it->second.presets.size(); j++)
+            if (it->second.presets[j] == preset_name)
+                it->second.presets.erase(it->second.presets.cbegin() + j);
 
+    for (int i = 0; i < 3; i++) {
         for (auto it = custom_lists[i].begin(); it != custom_lists[i].end(); it++)
             if (it->preset == preset_name)
                 it->preset.clear();
@@ -523,9 +507,9 @@ void WobblyProject::setPresetContents(const std::string &preset_name, const std:
     preset.contents = preset_contents;
 }
 
-void WobblyProject::assignPresetToSection(const std::string &preset_name, PositionInFilterChain position, int section_start) {
+void WobblyProject::assignPresetToSection(const std::string &preset_name, int section_start) {
     // The user may want to assign the same preset twice.
-    sections[position].at(section_start).presets.push_back(preset_name);
+    sections.at(section_start).presets.push_back(preset_name);
 }
 
 
@@ -534,50 +518,50 @@ void WobblyProject::setMatch(int frame, char match) {
 }
 
 
-void WobblyProject::addSection(int section_start, PositionInFilterChain position) {
+void WobblyProject::addSection(int section_start) {
     Section section(section_start);
-    addSection(section, position);
+    addSection(section);
 }
 
-void WobblyProject::addSection(const Section &section, PositionInFilterChain position) {
-    if (section.start < 0 || section.start >= num_frames[position])
+void WobblyProject::addSection(const Section &section) {
+    if (section.start < 0 || section.start >= num_frames[PostSource])
         throw WobblyException("Can't add section starting at " + std::to_string(section.start) + ": value out of range.");
 
-    sections[position].insert(std::make_pair(section.start, section));
+    sections.insert(std::make_pair(section.start, section));
 }
 
-void WobblyProject::deleteSection(int section_start, PositionInFilterChain position) {
+void WobblyProject::deleteSection(int section_start) {
     // Never delete the very first section.
     if (section_start > 0)
-        sections[position].erase(section_start);
+        sections.erase(section_start);
 }
 
-const Section *WobblyProject::findSection(int frame, PositionInFilterChain position) {
-    auto it = sections[position].upper_bound(frame);
+const Section *WobblyProject::findSection(int frame) {
+    auto it = sections.upper_bound(frame);
     it--;
     return &it->second;
 }
 
-const Section *WobblyProject::findNextSection(int frame, PositionInFilterChain position) {
-    auto it = sections[position].upper_bound(frame);
+const Section *WobblyProject::findNextSection(int frame) {
+    auto it = sections.upper_bound(frame);
 
-    if (it != sections[position].cend())
+    if (it != sections.cend())
         return &it->second;
 
     return nullptr;
 }
 
 void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
-    const Section *next_section = findNextSection(section_start, PostFieldMatch);
+    const Section *next_section = findNextSection(section_start);
     int section_end;
     if (next_section)
         section_end = next_section->start;
     else
-        section_end = num_frames[PostFieldMatch];
+        section_end = num_frames[PostSource];
 
     for (int i = 0; i < section_end - section_start; i++) {
         if ((section_start + i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
-            (section_start + i == num_frames[PostFieldMatch] - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
+            (section_start + i == num_frames[PostSource] - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
             // Skip the first and last frame if their new matches are incompatible.
             continue;
 
@@ -587,12 +571,12 @@ void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::s
 }
 
 void WobblyProject::setSectionDecimationFromPattern(int section_start, const std::string &pattern) {
-    const Section *next_section = findNextSection(section_start, PostFieldMatch);
+    const Section *next_section = findNextSection(section_start);
     int section_end;
     if (next_section)
         section_end = next_section->start;
     else
-        section_end = num_frames[PostFieldMatch];
+        section_end = num_frames[PostSource];
 
     for (int i = 0; i < section_end - section_start; i++) {
         // Yatta does it like this.
@@ -608,7 +592,7 @@ void WobblyProject::resetRangeMatches(int start, int end) {
     if (start > end)
         std::swap(start, end);
 
-    if (start < 0 || end >= num_frames[PostFieldMatch])
+    if (start < 0 || end >= num_frames[PostSource])
         throw WobblyException("Can't reset the matches for range [" + std::to_string(start) + "," + std::to_string(end) + "]: values out of range.");
 
     memcpy(matches.data() + start, original_matches.data() + start, end - start + 1);
@@ -616,12 +600,12 @@ void WobblyProject::resetRangeMatches(int start, int end) {
 
 
 void WobblyProject::resetSectionMatches(int section_start) {
-    const Section *next_section = findNextSection(section_start, PostFieldMatch);
+    const Section *next_section = findNextSection(section_start);
     int section_end;
     if (next_section)
         section_end = next_section->start;
     else
-        section_end = num_frames[PostFieldMatch];
+        section_end = num_frames[PostSource];
 
     resetRangeMatches(section_start, section_end - 1);
 }
@@ -658,7 +642,7 @@ void WobblyProject::deleteCustomList(const std::string &list_name, PositionInFil
 
 
 void WobblyProject::addDecimatedFrame(int frame) {
-    if (frame < 0 || frame >= num_frames[PostSource]) // XXX Maybe it should be PostFieldMatch.
+    if (frame < 0 || frame >= num_frames[PostSource])
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " for decimation: value out of range.");
 
     decimated_frames.insert(frame);
@@ -676,7 +660,7 @@ bool WobblyProject::isDecimatedFrame(int frame) {
 
 
 void WobblyProject::addCombedFrame(int frame) {
-    if (frame < 0 || frame >= num_frames[PostSource]) // XXX Maybe it should be PostFieldMatch.
+    if (frame < 0 || frame >= num_frames[PostSource])
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as combed: value out of range.");
 
     combed_frames.insert(frame);
@@ -733,10 +717,10 @@ std::string WobblyProject::frameToTime(int frame) {
 }
 
 
-void WobblyProject::sectionsToScript(std::string &script, PositionInFilterChain position) {
+void WobblyProject::sectionsToScript(std::string &script) {
     // XXX Make a temporary copy of the sections map and merge sections with identical presets, to generate as few trims as possible.
     std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
-    for (auto it = sections[position].cbegin(); it != sections[position].cend(); it++) {
+    for (auto it = sections.cbegin(); it != sections.cend(); it++) {
         std::string section_name = "section";
         section_name += std::to_string(it->second.start);
         script += section_name + " = src";
@@ -754,8 +738,8 @@ void WobblyProject::sectionsToScript(std::string &script, PositionInFilterChain 
 
         auto it_next = it;
         it_next++;
-        if (it_next != sections[position].cend())
-            script += it_next->second.start;
+        if (it_next != sections.cend())
+            script += std::to_string(it_next->second.start);
         script += "]\n";
 
         splice += section_name + ",";
@@ -940,15 +924,12 @@ std::string WobblyProject::generateFinalScript() {
 
     trimToScript(script);
 
-    // XXX Put them in the same order as Yatta does.
-    sectionsToScript(script, PostSource);
-
     customListsToScript(script, PostSource);
 
     fieldHintToScript(script);
 
     // XXX Put them and FreezeFrames in the same order as Yatta does.
-    sectionsToScript(script, PostFieldMatch);
+    sectionsToScript(script);
 
     customListsToScript(script, PostFieldMatch);
 
@@ -959,9 +940,6 @@ std::string WobblyProject::generateFinalScript() {
         decimatedFramesToScript(script);
 
     // XXX DeleteFrames doesn't change the frame rate or the frame durations. This must be done separately.
-
-    // XXX Put them in the same order as Yatta does.
-    sectionsToScript(script, PostDecimate);
 
     customListsToScript(script, PostDecimate);
 

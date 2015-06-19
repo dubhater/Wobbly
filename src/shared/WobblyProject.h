@@ -176,7 +176,7 @@ class WobblyProject {
 
         std::map<int, FreezeFrame> frozen_frames; // Key is FreezeFrame::first
 
-        std::map<int, Section> sections[3]; // Key is Section::start
+        std::map<int, Section> sections; // Key is Section::start
 
         std::vector<CustomList> custom_lists[3];
 
@@ -203,17 +203,17 @@ class WobblyProject {
         void deletePreset(const std::string &preset_name);
         const std::string &getPresetContents(const std::string &preset_name);
         void setPresetContents(const std::string &preset_name, const std::string &preset_contents);
-        void assignPresetToSection(const std::string &preset_name, PositionInFilterChain position, int section_start);
+        void assignPresetToSection(const std::string &preset_name, int section_start);
 
 
         void setMatch(int frame, char match);
 
 
-        void addSection(int section_start, PositionInFilterChain position);
-        void addSection(const Section &section, PositionInFilterChain position);
-        void deleteSection(int section_start, PositionInFilterChain position);
-        const Section *findSection(int frame, PositionInFilterChain position);
-        const Section *findNextSection(int frame, PositionInFilterChain position);
+        void addSection(int section_start);
+        void addSection(const Section &section);
+        void deleteSection(int section_start);
+        const Section *findSection(int frame);
+        const Section *findNextSection(int frame);
         void setSectionMatchesFromPattern(int section_start, const std::string &pattern);
         void setSectionDecimationFromPattern(int section_start, const std::string &pattern);
 
@@ -243,7 +243,7 @@ class WobblyProject {
 
         std::string frameToTime(int frame);
 
-        void sectionsToScript(std::string &script, PositionInFilterChain position);
+        void sectionsToScript(std::string &script);
         void customListsToScript(std::string &script, PositionInFilterChain position);
         void headerToScript(std::string &script);
         void presetsToScript(std::string &script);
