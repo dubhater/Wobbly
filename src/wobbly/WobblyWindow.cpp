@@ -613,9 +613,8 @@ void WobblyWindow::displayFrame(int n) {
 
 
 void WobblyWindow::updateFrameDetails() {
-    frame_num_label->setText(QStringLiteral("Frame: %1").arg(current_frame));
+    frame_num_label->setText(QStringLiteral("Frame: %1 | %2").arg(current_frame).arg(project->frameNumberAfterDecimation(current_frame)));
 
-    // frame number after decimation is a bit complicated to calculate
 
     time_label->setText(QString::fromStdString("Time: " + project->frameToTime(current_frame)));
 

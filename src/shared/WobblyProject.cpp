@@ -92,8 +92,9 @@ void WobblyProject::writeProject(const std::string &path) {
     for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
         json_combed_frames.append(*it);
 
-    for (auto it = decimated_frames.cbegin(); it != decimated_frames.cend(); it++)
-        json_decimated_frames.append(*it);
+    for (size_t i = 0; i < decimated_frames.size(); i++)
+        for (auto it = decimated_frames[i].cbegin(); it != decimated_frames[i].cend(); it++)
+            json_decimated_frames.append((int)i * 5 + *it);
 
     for (size_t i = 0; i < decimate_metrics.size(); i++)
         json_decimate_metrics.append(decimate_metrics[i]);
@@ -280,11 +281,12 @@ void WobblyProject::readProject(const std::string &path) {
         addCombedFrame((int)json_combed_frames[i].toDouble());
 
 
+    decimated_frames.resize((num_frames[PostSource] - 1) / 5 + 1);
     json_decimated_frames = json_project["decimated frames"].toArray();
     for (int i = 0; i < json_decimated_frames.size(); i++)
         addDecimatedFrame((int)json_decimated_frames[i].toDouble());
 
-    num_frames[PostDecimate] = num_frames[PostSource] - decimated_frames.size();
+    // num_frames[PostDecimate] is correct at this point.
 
     json_decimate_metrics = json_project["decimate metrics"].toArray();
     decimate_metrics.resize(num_frames[PostSource], 0);
@@ -571,9 +573,9 @@ void WobblyProject::setSectionDecimationFromPattern(int section_start, const std
     for (int i = 0; i < section_end - section_start; i++) {
         // Yatta does it like this.
         if (pattern[i % 5] == 'd')
-            decimated_frames.insert(section_start + i);
+            addDecimatedFrame(section_start + i);
         else
-            decimated_frames.erase(section_start + i);
+            deleteDecimatedFrame(section_start + i);
     }
 }
 
@@ -645,17 +647,23 @@ void WobblyProject::addDecimatedFrame(int frame) {
     if (frame < 0 || frame >= num_frames[PostSource])
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " for decimation: value out of range.");
 
-    decimated_frames.insert(frame);
+    auto result = decimated_frames[frame / 5].insert(frame % 5);
+
+    if (result.second)
+        num_frames[PostDecimate]--;
 }
 
 
 void WobblyProject::deleteDecimatedFrame(int frame) {
-    decimated_frames.erase(frame);
+    size_t result = decimated_frames[frame / 5].erase(frame % 5);
+
+    if (result)
+        num_frames[PostDecimate]++;
 }
 
 
 bool WobblyProject::isDecimatedFrame(int frame) {
-    return (bool)decimated_frames.count(frame);
+    return (bool)decimated_frames[frame / 5].count(frame % 5);
 }
 
 
@@ -714,6 +722,30 @@ std::string WobblyProject::frameToTime(int frame) {
     time[15] = '\0';
 
     return std::string(time);
+}
+
+
+int WobblyProject::frameNumberAfterDecimation(int frame) {
+    if (frame < 0)
+        return 0;
+
+    if (frame >= num_frames[PostSource])
+        return num_frames[PostDecimate] - 1;
+
+    int cycle_number = frame / 5;
+
+    int position_in_cycle = frame % 5;
+
+    int out_frame = cycle_number * 5;
+
+    for (int i = 0; i < cycle_number; i++)
+        out_frame -= decimated_frames[i].size();
+
+    for (int8_t i = 0; i < position_in_cycle; i++)
+        if (!decimated_frames[cycle_number].count(i))
+            out_frame++;
+
+    return out_frame;
 }
 
 
@@ -880,8 +912,9 @@ void WobblyProject::freezeFramesToScript(std::string &script) {
 void WobblyProject::decimatedFramesToScript(std::string &script) {
     script += "src = c.std.DeleteFrames(clip=src, frames=[";
 
-    for (auto it = decimated_frames.cbegin(); it != decimated_frames.cend(); it++)
-        script += std::to_string(*it) + ",";
+    for (size_t i = 0; i < decimated_frames.size(); i++)
+        for (auto it = decimated_frames[i].cbegin(); it != decimated_frames[i].cend(); it++)
+            script += std::to_string(i * 5 + *it) + ",";
 
     script +=
             "])\n"

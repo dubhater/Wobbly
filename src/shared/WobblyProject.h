@@ -174,7 +174,7 @@ class WobblyProject {
         std::vector<char> matches;
         std::vector<char> original_matches;
         std::set<int> combed_frames;
-        std::set<int> decimated_frames;
+        std::vector<std::set<int8_t> > decimated_frames; // unordered_set may be sufficient.
         std::vector<int> decimate_metrics;
 
         bool is_wobbly; // XXX Maybe only the json writing function needs to know.
@@ -250,6 +250,10 @@ class WobblyProject {
 
 
         std::string frameToTime(int frame);
+
+
+        int frameNumberAfterDecimation(int frame);
+
 
         void sectionsToScript(std::string &script);
         void customListsToScript(std::string &script, PositionInFilterChain position);
