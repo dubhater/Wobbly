@@ -84,7 +84,14 @@ struct FrameRange {
 struct CustomList {
     std::string name;
     std::string preset; // Preset name.
+    int position;
     std::map<int, FrameRange> frames; // Key is FrameRange::first
+
+    CustomList(const std::string &_name, const std::string &_preset = "", int _position = 0)
+        : name(_name)
+        , preset(_preset)
+        , position(_position)
+    { }
 
     void addFrameRange(int first, int last) {
         if (first > last)
@@ -178,7 +185,7 @@ class WobblyProject {
 
         std::map<int, Section> sections; // Key is Section::start
 
-        std::vector<CustomList> custom_lists[3];
+        std::vector<CustomList> custom_lists;
 
         Resize resize;
         Crop crop;
@@ -222,9 +229,10 @@ class WobblyProject {
         void resetRangeMatches(int start, int end);
 
 
-        void addCustomList(const std::string &list_name, PositionInFilterChain position);
-        void addCustomList(const std::string &list_name, const std::string &list_preset, PositionInFilterChain position);
-        void deleteCustomList(const std::string &list_name, PositionInFilterChain position); // XXX Maybe overload to take an index instead of name.
+        void addCustomList(const std::string &list_name);
+        void addCustomList(const CustomList &list);
+        void deleteCustomList(const std::string &list_name);
+        void deleteCustomList(int list_index);
 
 
         void addDecimatedFrame(int frame);

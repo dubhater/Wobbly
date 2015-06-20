@@ -24,7 +24,6 @@
 WobblyWindow::WobblyWindow()
     : project(nullptr)
     , current_frame(0)
-    , current_custom_list_set(PostFieldMatch)
     , match_pattern("ccnnc")
     , decimation_pattern("kkkkd")
     , vsapi(nullptr)
@@ -317,7 +316,6 @@ void WobblyWindow::createUI() {
     matches_label = new QLabel;
     matches_label->setTextFormat(Qt::RichText);
     section_label = new QLabel;
-    custom_list_set_label = new QLabel;
     custom_list_label = new QLabel;
     freeze_label = new QLabel;
     decimate_metric_label = new QLabel;
@@ -330,7 +328,6 @@ void WobblyWindow::createUI() {
     vbox->addWidget(time_label);
     vbox->addWidget(matches_label);
     vbox->addWidget(section_label);
-    vbox->addWidget(custom_list_set_label);
     vbox->addWidget(custom_list_label);
     vbox->addWidget(freeze_label);
     vbox->addWidget(decimate_metric_label);
@@ -674,12 +671,6 @@ void WobblyWindow::updateFrameDetails() {
     mic_label->setText(mics);
 
 
-    const char *positions[3] = {
-        "post source",
-        "post field match",
-        "post decimate"
-    };
-
     const Section *current_section = project->findSection(current_frame);
     const Section *next_section = project->findNextSection(current_frame);
     int section_start = current_section->start;
@@ -699,11 +690,8 @@ void WobblyWindow::updateFrameDetails() {
     section_label->setText(QStringLiteral("Section: [%1,%2]\nPresets:\n%3").arg(section_start).arg(section_end).arg(presets));
 
 
-    custom_list_set_label->setText(QStringLiteral("Custom list set: ") + positions[current_custom_list_set]);
-
-
     QString custom_lists;
-    for (auto it = project->custom_lists[current_custom_list_set].cbegin(); it != project->custom_lists[current_custom_list_set].cend(); it++) {
+    for (auto it = project->custom_lists.cbegin(); it != project->custom_lists.cend(); it++) {
         const FrameRange *range = it->findFrameRange(current_frame);
         if (range)
             custom_lists += QStringLiteral("%1: [%2,%3]\n").arg(QString::fromStdString(it->name)).arg(range->first).arg(range->last);

@@ -148,31 +148,26 @@ void WobblyProject::writeProject(const std::string &path) {
         json_project.insert("frozen frames", json_frozen_frames);
 
 
-        QJsonObject json_custom_list_types;
-        QJsonArray json_custom_lists[3];
+        QJsonArray json_custom_lists;
 
-        for (int i = 0; i < 3; i++) {
-            for (size_t j = 0; j < custom_lists[i].size(); j++) {
-                QJsonObject json_custom_list;
-                json_custom_list.insert("name", QString::fromStdString(custom_lists[i][j].name));
-                json_custom_list.insert("preset", QString::fromStdString(custom_lists[i][j].preset));
-                QJsonArray json_frames;
-                for (auto it = custom_lists[i][j].frames.cbegin(); it != custom_lists[i][j].frames.cend(); it++) {
-                    QJsonArray json_pair;
-                    json_pair.append(it->second.first);
-                    json_pair.append(it->second.last);
-                    json_frames.append(json_pair);
-                }
-                json_custom_list.insert("frames", json_frames);
-
-                json_custom_lists[i].append(json_custom_list);
+        for (size_t i = 0; i < custom_lists.size(); i++) {
+            QJsonObject json_custom_list;
+            json_custom_list.insert("name", QString::fromStdString(custom_lists[i].name));
+            json_custom_list.insert("preset", QString::fromStdString(custom_lists[i].preset));
+            json_custom_list.insert("position", custom_lists[i].position);
+            QJsonArray json_frames;
+            for (auto it = custom_lists[i].frames.cbegin(); it != custom_lists[i].frames.cend(); it++) {
+                QJsonArray json_pair;
+                json_pair.append(it->second.first);
+                json_pair.append(it->second.last);
+                json_frames.append(json_pair);
             }
+            json_custom_list.insert("frames", json_frames);
+
+            json_custom_lists.append(json_custom_list);
         }
 
-        json_custom_list_types.insert("post source", json_custom_lists[PostSource]);
-        json_custom_list_types.insert("post field match", json_custom_lists[PostFieldMatch]);
-        json_custom_list_types.insert("post decimate", json_custom_lists[PostDecimate]);
-        json_project.insert("custom lists", json_custom_list_types);
+        json_project.insert("custom lists", json_custom_lists);
 
 
         QJsonObject json_resize, json_crop;
@@ -313,7 +308,7 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    QJsonArray json_sections, json_custom_lists[3];
+    QJsonArray json_sections, json_custom_lists;
 
     json_sections = json_project["sections"].toArray();
 
@@ -336,25 +331,24 @@ void WobblyProject::readProject(const std::string &path) {
         addSection(0);
     }
 
-    json_custom_lists[0] = json_project["custom lists"].toObject()["post source"].toArray();
-    json_custom_lists[1] = json_project["custom lists"].toObject()["post field match"].toArray();
-    json_custom_lists[2] = json_project["custom lists"].toObject()["post decimate"].toArray();
+    json_custom_lists = json_project["custom lists"].toArray();
 
-    for (int i = 0; i < 3; i++) {
-        custom_lists[i].reserve(json_custom_lists[i].size());
+    custom_lists.reserve(json_custom_lists.size());
 
-        for (int j = 0; j < json_custom_lists[i].size(); j++) {
-            QJsonObject json_list = json_custom_lists[i][j].toObject();
-            const std::string &list_name = json_list["name"].toString().toStdString();
-            const std::string &list_preset = json_list["preset"].toString().toStdString();
-            addCustomList(list_name, list_preset, (PositionInFilterChain)i);
-            CustomList &list = custom_lists[i][j];
-            QJsonArray json_frames = json_list["frames"].toArray();
-            for (int k = 0; k < json_frames.size(); k++) {
-                QJsonArray json_range = json_frames[k].toArray();
-                list.addFrameRange((int)json_range[0].toDouble(), (int)json_range[1].toDouble());
-            }
+    for (int i = 0; i < json_custom_lists.size(); i++) {
+        QJsonObject json_list = json_custom_lists[i].toObject();
+
+        CustomList list(json_list["name"].toString().toStdString(),
+                json_list["preset"].toString().toStdString(),
+                (int)json_list["position"].toDouble());
+
+        QJsonArray json_frames = json_list["frames"].toArray();
+        for (int j = 0; j < json_frames.size(); j++) {
+            QJsonArray json_range = json_frames[j].toArray();
+            list.addFrameRange((int)json_range[0].toDouble(), (int)json_range[1].toDouble());
         }
+
+        addCustomList(list);
     }
 
 
@@ -468,11 +462,9 @@ void WobblyProject::renamePreset(const std::string &old_name, const std::string 
             if (it->second.presets[j] == old_name)
                 it->second.presets[j] = new_name;
 
-    for (int i = 0; i < 3; i++) {
-        for (auto it = custom_lists[i].begin(); it != custom_lists[i].end(); it++)
-            if (it->preset == old_name)
-                it->preset = new_name;
-    }
+    for (auto it = custom_lists.begin(); it != custom_lists.end(); it++)
+        if (it->preset == old_name)
+            it->preset = new_name;
 }
 
 void WobblyProject::deletePreset(const std::string &preset_name) {
@@ -484,11 +476,9 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
             if (it->second.presets[j] == preset_name)
                 it->second.presets.erase(it->second.presets.cbegin() + j);
 
-    for (int i = 0; i < 3; i++) {
-        for (auto it = custom_lists[i].begin(); it != custom_lists[i].end(); it++)
-            if (it->preset == preset_name)
-                it->preset.clear();
-    }
+    for (auto it = custom_lists.begin(); it != custom_lists.end(); it++)
+        if (it->preset == preset_name)
+            it->preset.clear();
 }
 
 const std::string &WobblyProject::getPresetContents(const std::string &preset_name) {
@@ -611,33 +601,43 @@ void WobblyProject::resetSectionMatches(int section_start) {
 }
 
 
-void WobblyProject::addCustomList(const std::string &list_name, PositionInFilterChain position) {
-    addCustomList(list_name, std::string(), position);
+void WobblyProject::addCustomList(const std::string &list_name) {
+    CustomList list(list_name);
+    addCustomList(list);
 }
 
-void WobblyProject::addCustomList(const std::string &list_name, const std::string &list_preset, PositionInFilterChain position) {
-    if (!isNameSafeForPython(list_name))
-        throw WobblyException("Can't add custom list '" + list_name + "': name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
+void WobblyProject::addCustomList(const CustomList &list) {
+    if (list.position < 0 || list.position >= 3)
+        throw WobblyException("Can't add custom list '" + list.name + "' with position " + std::to_string(list.position) + ": position out of range.");
 
-    if (list_preset.size() && presets.count(list_preset) == 0)
-        throw WobblyException("Can't add custom list '" + list_name + "' with preset '" + list_preset + "': no such preset.");
+    if (!isNameSafeForPython(list.name))
+        throw WobblyException("Can't add custom list '" + list.name + "': name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
 
-    for (size_t i = 0; i < custom_lists[position].size(); i++)
-        if (custom_lists[position][i].name == list_name)
-            throw WobblyException("Can't add custom list '" + list_name + "': a list with this name already exists.");
+    if (list.preset.size() && presets.count(list.preset) == 0)
+        throw WobblyException("Can't add custom list '" + list.name + "' with preset '" + list.preset + "': no such preset.");
 
-    CustomList list;
-    list.name = list_name;
-    list.preset = list_preset;
-    custom_lists[position].push_back(list);
+    for (size_t i = 0; i < custom_lists.size(); i++)
+        if (custom_lists[i].name == list.name)
+            throw WobblyException("Can't add custom list '" + list.name + "': a list with this name already exists.");
+
+    custom_lists.push_back(list);
 }
 
-void WobblyProject::deleteCustomList(const std::string &list_name, PositionInFilterChain position) { // XXX Maybe overload to take an index instead of name.
-    for (auto it = custom_lists[position].cbegin(); it != custom_lists[position].cend(); it++)
-        if (it->name == list_name) {
-            custom_lists[position].erase(it);
-            break;
+void WobblyProject::deleteCustomList(const std::string &list_name) {
+    for (size_t i = 0; i < custom_lists.size(); i++)
+        if (custom_lists[i].name == list_name) {
+            deleteCustomList(i);
+            return;
         }
+
+    throw WobblyException("Can't delete custom list with name '" + list_name + "': no such list.");
+}
+
+void WobblyProject::deleteCustomList(int list_index) {
+    if (list_index < 0 || list_index >= (int)custom_lists.size())
+        throw WobblyException("Can't delete custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    custom_lists.erase(custom_lists.cbegin() + list_index);
 }
 
 
@@ -752,17 +752,27 @@ void WobblyProject::sectionsToScript(std::string &script) {
 }
 
 void WobblyProject::customListsToScript(std::string &script, PositionInFilterChain position) {
-    const std::vector<CustomList> &lists = custom_lists[position];
+    for (size_t i = 0; i < custom_lists.size(); i++) {
+        // Ignore lists that are in a different position in the filter chain.
+        if (custom_lists[i].position != position)
+            continue;
 
-    for (size_t i = 0; i < lists.size(); i++) {
+        // Ignore lists with no frame ranges.
+        if (!custom_lists[i].frames.size())
+            continue;
+
+        // Complain if the custom list doesn't have a preset assigned.
+        if (!custom_lists[i].preset.size())
+            throw WobblyException("Custom list '" + custom_lists[i].name + "' has no preset assigned.");
+
         std::string list_name = "cl_";
-        list_name += lists[i].name;
+        list_name += custom_lists[i].name;
 
-        script += list_name + " = " + lists[i].preset + "(src)\n";
+        script += list_name + " = " + custom_lists[i].preset + "(src)\n";
 
         std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
 
-        auto it = lists[i].frames.cbegin();
+        auto it = custom_lists[i].frames.cbegin();
         auto it_prev = it;
 
         if (it->second.first > 0) {
@@ -772,7 +782,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
         splice += list_name + "[" + std::to_string(it->second.first) + ":" + std::to_string(it->second.last + 1) + "],";
 
         it++;
-        for ( ; it != lists[i].frames.cend(); it++, it_prev++) {
+        for ( ; it != custom_lists[i].frames.cend(); it++, it_prev++) {
             if (it->second.first - it_prev->second.last > 1) {
                 splice += "src[";
                 splice += std::to_string(it_prev->second.last + 1) + ":" + std::to_string(it->second.first) + "],";
