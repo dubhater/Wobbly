@@ -171,17 +171,21 @@ void WobblyProject::writeProject(const std::string &path) {
         json_project.insert("custom lists", json_custom_lists);
 
 
-        QJsonObject json_resize, json_crop;
+        if (resize.enabled) {
+            QJsonObject json_resize;
+            json_resize.insert("width", resize.width);
+            json_resize.insert("height", resize.height);
+            json_project.insert("resize", json_resize);
+        }
 
-        json_resize.insert("width", resize.width);
-        json_resize.insert("height", resize.height);
-        json_project.insert("resize", json_resize);
-
-        json_crop.insert("left", crop.left);
-        json_crop.insert("top", crop.top);
-        json_crop.insert("right", crop.right);
-        json_crop.insert("bottom", crop.bottom);
-        json_project.insert("crop", json_crop);
+        if (crop.enabled) {
+            QJsonObject json_crop;
+            json_crop.insert("left", crop.left);
+            json_crop.insert("top", crop.top);
+            json_crop.insert("right", crop.right);
+            json_crop.insert("bottom", crop.bottom);
+            json_project.insert("crop", json_crop);
+        }
     }
 
     QJsonDocument json_doc(json_project);
@@ -357,10 +361,12 @@ void WobblyProject::readProject(const std::string &path) {
     QJsonObject json_resize, json_crop;
 
     json_resize = json_project["resize"].toObject();
+    resize.enabled = !json_resize.isEmpty();
     resize.width = (int)json_resize["width"].toDouble(width);
     resize.height = (int)json_resize["height"].toDouble(height);
 
     json_crop = json_project["crop"].toObject();
+    crop.enabled = !json_crop.isEmpty();
     crop.left = (int)json_crop["left"].toDouble();
     crop.top = (int)json_crop["top"].toDouble();
     crop.right = (int)json_crop["right"].toDouble();
@@ -686,11 +692,21 @@ bool WobblyProject::isCombedFrame(int frame) {
 
 
 void WobblyProject::setResize(int new_width, int new_height) {
-    if (width <= 0 || height <= 0)
-        throw WobblyException("Can't resize to " + std::to_string(width) + "x" + std::to_string(height) + ": dimensions must be positive.");
+    if (new_width <= 0 || new_height <= 0)
+        throw WobblyException("Can't resize to " + std::to_string(new_width) + "x" + std::to_string(new_height) + ": dimensions must be positive.");
 
-    resize.width = width;
-    resize.height = height;
+    resize.width = new_width;
+    resize.height = new_height;
+}
+
+
+void WobblyProject::setResizeEnabled(bool enabled) {
+    resize.enabled = enabled;
+}
+
+
+bool WobblyProject::isResizeEnabled() {
+    return resize.enabled;
 }
 
 
@@ -702,6 +718,16 @@ void WobblyProject::setCrop(int left, int top, int right, int bottom) {
     crop.top = top;
     crop.right = right;
     crop.bottom = bottom;
+}
+
+
+void WobblyProject::setCropEnabled(bool enabled) {
+    crop.enabled = enabled;
+}
+
+
+bool WobblyProject::isCropEnabled() {
+    return crop.enabled;
 }
 
 
@@ -852,7 +878,7 @@ void WobblyProject::presetsToScript(std::string &script) {
             script += "    " + it->second.name.substr(start, end) + "\n";
             start = end + 1;
         }
-        script += "return clip\n";
+        script += "    return clip\n";
         script += "\n\n";
     }
 }
@@ -955,7 +981,7 @@ void WobblyProject::setOutputToScript(std::string &script) {
     script += "src.set_output()\n";
 }
 
-std::string WobblyProject::generateFinalScript() {
+std::string WobblyProject::generateFinalScript(bool for_preview) {
     // XXX Insert comments before and after each part.
     std::string script;
 
@@ -979,16 +1005,28 @@ std::string WobblyProject::generateFinalScript() {
     if (frozen_frames.size())
         freezeFramesToScript(script);
 
-    if (decimated_frames.size())
+    bool decimation_needed = false;
+    for (size_t i = 0; i < decimated_frames.size(); i++)
+        if (decimated_frames[i].size()) {
+            decimation_needed = true;
+            break;
+        }
+    if (decimation_needed)
         decimatedFramesToScript(script);
 
     // XXX DeleteFrames doesn't change the frame rate or the frame durations. This must be done separately.
 
     customListsToScript(script, PostDecimate);
 
-    cropToScript(script);
+    if (crop.enabled)
+        cropToScript(script);
 
-    resizeToScript(script);
+    if (resize.enabled)
+        resizeToScript(script);
+
+    // Maybe this doesn't belong here after all.
+    if (for_preview)
+        rgbConversionToScript(script);
 
     setOutputToScript(script);
 
@@ -1011,7 +1049,7 @@ std::string WobblyProject::generateMainDisplayScript(bool show_crop) {
     if (frozen_frames.size())
         freezeFramesToScript(script);
 
-    if (show_crop) {
+    if (show_crop && crop.enabled) {
         cropToScript(script);
         showCropToScript(script);
     }

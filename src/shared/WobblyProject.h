@@ -134,12 +134,14 @@ struct CustomList {
 
 
 struct Resize {
+    bool enabled;
     int width;
     int height;
 };
 
 
 struct Crop {
+    bool enabled;
     int left;
     int top;
     int right;
@@ -246,7 +248,12 @@ class WobblyProject {
 
 
         void setResize(int new_width, int new_height);
+        void setResizeEnabled(bool enabled);
+        bool isResizeEnabled();
+
         void setCrop(int left, int top, int right, int bottom);
+        void setCropEnabled(bool enabled);
+        bool isCropEnabled();
 
 
         std::string frameToTime(int frame);
@@ -270,7 +277,7 @@ class WobblyProject {
         void rgbConversionToScript(std::string &script);
         void setOutputToScript(std::string &script);
 
-        std::string generateFinalScript();
+        std::string generateFinalScript(bool for_preview);
         std::string generateMainDisplayScript(bool show_crop);
 
     private:

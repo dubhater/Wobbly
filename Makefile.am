@@ -1,4 +1,4 @@
-warningflags = -Wall -Wextra -Wno-unused-parameter -Wshadow
+warningflags = -Wall -Wextra -Wshadow
 includeflags = -I$(srcdir)/src/shared
 commoncflags = -fPIC -O2 $(warningflags) $(includeflags)
 AM_CXXFLAGS = -std=c++11 $(commoncflags)

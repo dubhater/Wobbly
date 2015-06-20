@@ -26,10 +26,11 @@ WobblyWindow::WobblyWindow()
     , current_frame(0)
     , match_pattern("ccnnc")
     , decimation_pattern("kkkkd")
+    , preview(false)
     , vsapi(nullptr)
     , vsscript(nullptr)
     , vscore(nullptr)
-    , vsnode(nullptr)
+    , vsnode{nullptr, nullptr}
     , vsframe(nullptr)
 {
     createUI();
@@ -141,6 +142,7 @@ void WobblyWindow::createShortcuts() {
         //{ "R", &WobblyWindow::resetRange },
         { "R,S", &WobblyWindow::resetSection },
         { "Ctrl+R", &WobblyWindow::rotateAndSetPatterns },
+        { "Ctrl+P", &WobblyWindow::togglePreview },
         { nullptr, nullptr }
     };
 
@@ -180,27 +182,37 @@ void WobblyWindow::createCropAssistant() {
     hbox->addLayout(vbox);
     hbox->addStretch(1);
 
+    crop_box = new QGroupBox(QStringLiteral("Crop"));
+    crop_box->setCheckable(true);
+    crop_box->setChecked(true);
+    crop_box->setLayout(hbox);
+    connect(crop_box, &QGroupBox::clicked, this, &WobblyWindow::cropToggled);
+
     vbox = new QVBoxLayout;
-
-    vbox->addLayout(hbox);
-
-    QVBoxLayout *vbox2 = new QVBoxLayout;
 
     for (int i = 0; i < 2; i++) {
         resize_spin[i] = new QSpinBox;
         resize_spin[i]->setRange(1, 999999);
         resize_spin[i]->setPrefix(resize_prefixes[i]);
         resize_spin[i]->setSuffix(QStringLiteral(" px"));
+        connect(resize_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &WobblyWindow::resizeChanged);
 
-        vbox2->addWidget(resize_spin[i]);
+        vbox->addWidget(resize_spin[i]);
     }
 
     hbox = new QHBoxLayout;
-    hbox->addLayout(vbox2);
+    hbox->addLayout(vbox);
     hbox->addStretch(1);
 
-    vbox->addLayout(hbox);
+    resize_box = new QGroupBox(QStringLiteral("Resize"));
+    resize_box->setCheckable(true);
+    resize_box->setChecked(false);
+    resize_box->setLayout(hbox);
+    connect(resize_box, &QGroupBox::clicked, this, &WobblyWindow::resizeToggled);
 
+    vbox = new QVBoxLayout;
+    vbox->addWidget(crop_box);
+    vbox->addWidget(resize_box);
     vbox->addStretch(1);
 
     QWidget *crop_widget = new QWidget;
@@ -379,8 +391,10 @@ void WobblyWindow::cleanUpVapourSynth() {
     vsapi->freeFrame(vsframe);
     vsframe = nullptr;
 
-    vsapi->freeNode(vsnode);
-    vsnode = nullptr;
+    for (int i = 0; i < 2; i++) {
+        vsapi->freeNode(vsnode[i]);
+        vsnode[i] = nullptr;
+    }
 
     vsscript_freeScript(vsscript);
     vsscript = nullptr;
@@ -461,6 +475,8 @@ void WobblyWindow::initialiseUIFromProject() {
     for (int i = 0; i < 4; i++)
         crop_spin[i]->blockSignals(false);
 
+    crop_box->setChecked(project->isCropEnabled());
+
 
     // Resize.
     for (int i = 0; i < 2; i++)
@@ -471,6 +487,8 @@ void WobblyWindow::initialiseUIFromProject() {
 
     for (int i = 0; i < 2; i++)
         resize_spin[i]->blockSignals(false);
+
+    resize_box->setChecked(project->isResizeEnabled());
 
 
     // Presets.
@@ -572,18 +590,41 @@ void WobblyWindow::evaluateMainDisplayScript() {
         throw WobblyException("Failed to evaluate main display script. Error message:\n" + error);
     }
 
-    vsapi->freeNode(vsnode);
+    vsapi->freeNode(vsnode[0]);
 
-    vsnode = vsscript_getOutput(vsscript, 0);
-    if (!vsnode)
+    vsnode[0] = vsscript_getOutput(vsscript, 0);
+    if (!vsnode[0])
         throw WobblyException("Main display script evaluated successfully, but no node found at output index 0.");
 
     displayFrame(current_frame);
 }
 
 
+void WobblyWindow::evaluateFinalScript() {
+    std::string script = project->generateFinalScript(true);
+
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->project_path.c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+        std::string error = vsscript_getError(vsscript);
+        // The traceback is mostly unnecessary noise.
+        size_t traceback = error.find("Traceback");
+        if (traceback != std::string::npos)
+            error.erase(traceback);
+
+        throw WobblyException("Failed to evaluate final script. Error message:\n" + error);
+    }
+
+    vsapi->freeNode(vsnode[1]);
+
+    vsnode[1] = vsscript_getOutput(vsscript, 0);
+    if (!vsnode[1])
+        throw WobblyException("Final script evaluated successfully, but no node found at output index 0.");
+
+    displayFrame(current_frame);
+}
+
+
 void WobblyWindow::displayFrame(int n) {
-    if (!vsnode)
+    if (!vsnode[(int)preview])
         return;
 
     if (n < 0)
@@ -592,7 +633,7 @@ void WobblyWindow::displayFrame(int n) {
         n = project->num_frames[PostSource] - 1;
 
     std::vector<char> error(1024);
-    const VSFrameRef *frame = vsapi->getFrame(n, vsnode, error.data(), 1024);
+    const VSFrameRef *frame = vsapi->getFrame(preview ? project->frameNumberAfterDecimation(n): n, vsnode[(int)preview], error.data(), 1024);
 
     if (!frame)
         throw WobblyException(std::string("Failed to retrieve frame. Error message: ") + error.data());
@@ -613,7 +654,27 @@ void WobblyWindow::displayFrame(int n) {
 
 
 void WobblyWindow::updateFrameDetails() {
-    frame_num_label->setText(QStringLiteral("Frame: %1 | %2").arg(current_frame).arg(project->frameNumberAfterDecimation(current_frame)));
+    QString frame("Frame: ");
+
+    if (!preview)
+        frame += "<b>";
+
+    frame += QString::number(current_frame);
+
+    if (!preview)
+        frame += "</b>";
+
+    frame += " | ";
+
+    if (preview)
+        frame += "<b>";
+
+    frame += QString::number(project->frameNumberAfterDecimation(current_frame));
+
+    if (preview)
+        frame += "</b>";
+
+    frame_num_label->setText(frame);
 
 
     time_label->setText(QString::fromStdString("Time: " + project->frameToTime(current_frame)));
@@ -710,33 +771,59 @@ void WobblyWindow::updateFrameDetails() {
 }
 
 
+void WobblyWindow::jumpRelative(int offset) {
+    int target = current_frame + offset;
+
+    if (target < 0)
+        target = 0;
+    if (target >= project->num_frames[PostSource])
+        target = project->num_frames[PostSource] - 1;
+
+    if (preview) {
+        int skip = offset < 0 ? -1 : 1;
+
+        while (true) {
+            if (target == 0 || target == project->num_frames[PostSource] - 1)
+                skip = -skip;
+
+            if (!project->isDecimatedFrame(target))
+                break;
+
+            target += skip;
+        }
+    }
+
+    displayFrame(target);
+}
+
+
 void WobblyWindow::jump1Backward() {
-    displayFrame(current_frame - 1);
+    jumpRelative(-1);
 }
 
 
 void WobblyWindow::jump1Forward() {
-    displayFrame(current_frame + 1);
+    jumpRelative(1);
 }
 
 
 void WobblyWindow::jump5Backward() {
-    displayFrame(current_frame - 5);
+    jumpRelative(-5);
 }
 
 
 void WobblyWindow::jump5Forward() {
-    displayFrame(current_frame + 5);
+    jumpRelative(5);
 }
 
 
 void WobblyWindow::jump50Backward() {
-    displayFrame(current_frame - 50);
+    jumpRelative(-50);
 }
 
 
 void WobblyWindow::jump50Forward() {
-    displayFrame(current_frame + 50);
+    jumpRelative(50);
 }
 
 
@@ -746,7 +833,7 @@ void WobblyWindow::jumpALotBackward() {
 
     int twenty_percent = project->num_frames[PostSource] * 20 / 100;
 
-    displayFrame(current_frame - twenty_percent);
+    jumpRelative(-twenty_percent);
 }
 
 
@@ -756,29 +843,38 @@ void WobblyWindow::jumpALotForward() {
 
     int twenty_percent = project->num_frames[PostSource] * 20 / 100;
 
-    displayFrame(current_frame + twenty_percent);
+    jumpRelative(twenty_percent);
 }
 
 
 void WobblyWindow::jumpToStart() {
-    displayFrame(0);
+    jumpRelative(0 - current_frame);
 }
 
 
 void WobblyWindow::jumpToEnd() {
-    displayFrame(INT_MAX - 16);
+    if (!project)
+        return;
+
+    jumpRelative(project->num_frames[PostSource] - current_frame);
 }
 
 
 void WobblyWindow::jumpToNextSectionStart() {
+    if (!project)
+        return;
+
     const Section *next_section = project->findNextSection(current_frame);
 
     if (next_section)
-        displayFrame(next_section->start);
+        jumpRelative(next_section->start - current_frame);
 }
 
 
 void WobblyWindow::jumpToPreviousSectionStart() {
+    if (!project)
+        return;
+
     if (current_frame == 0)
         return;
 
@@ -786,7 +882,7 @@ void WobblyWindow::jumpToPreviousSectionStart() {
     if (section->start == current_frame)
         section = project->findSection(current_frame - 1);
 
-    displayFrame(section->start);
+    jumpRelative(section->start - current_frame);
 }
 
 
@@ -928,6 +1024,20 @@ void WobblyWindow::cropChanged(int value) {
 }
 
 
+void WobblyWindow::cropToggled(bool checked) {
+    if (!project)
+        return;
+
+    project->setCropEnabled(checked);
+
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &) {
+
+    }
+}
+
+
 void WobblyWindow::resizeChanged(int value) {
     (void)value;
 
@@ -935,6 +1045,14 @@ void WobblyWindow::resizeChanged(int value) {
         return;
 
     project->setResize(resize_spin[0]->value(), resize_spin[1]->value());
+}
+
+
+void WobblyWindow::resizeToggled(bool checked) {
+    if (!project)
+        return;
+
+    project->setResizeEnabled(checked);
 }
 
 
@@ -1072,4 +1190,19 @@ void WobblyWindow::matchPatternEdited(const QString &text) {
 
 void WobblyWindow::decimationPatternEdited(const QString &text) {
     decimation_pattern = text;
+}
+
+
+void WobblyWindow::togglePreview() {
+    preview = !preview;
+
+    if (preview) {
+        try {
+            evaluateFinalScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+            preview = !preview;
+        }
+    } else
+        evaluateMainDisplayScript();
 }

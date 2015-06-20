@@ -4,6 +4,7 @@
 
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
@@ -45,7 +46,9 @@ private:
 
     QDockWidget *crop_dock;
     QSpinBox *crop_spin[4];
+    QGroupBox *crop_box;
     QSpinBox *resize_spin[2];
+    QGroupBox *resize_box;
 
     QComboBox *preset_combo;
     PresetTextEdit *preset_edit;
@@ -63,13 +66,15 @@ private:
     QString match_pattern;
     QString decimation_pattern;
 
+    bool preview;
+
 
     // VapourSynth stuff.
 
     const VSAPI *vsapi;
     VSScript *vsscript;
     VSCore *vscore;
-    VSNodeRef *vsnode;
+    VSNodeRef *vsnode[2];
     const VSFrameRef *vsframe;
 
 
@@ -89,6 +94,7 @@ private:
     void initialiseUIFromProject();
 
     void evaluateMainDisplayScript();
+    void evaluateFinalScript();
     void displayFrame(int n);
     void updateFrameDetails();
 
@@ -97,6 +103,8 @@ private:
     void closeEvent(QCloseEvent *event);
 
     void realSaveProject(const QString &path);
+
+    void jumpRelative(int offset);
 
 public slots:
     void jump1Forward();
@@ -134,7 +142,9 @@ public slots:
     void saveProjectAs();
 
     void cropChanged(int value);
+    void cropToggled(bool checked);
     void resizeChanged(int value);
+    void resizeToggled(bool checked);
 
     void presetChanged(const QString &text);
     void presetEdited();
@@ -149,6 +159,8 @@ public slots:
 
     void matchPatternEdited(const QString &text);
     void decimationPatternEdited(const QString &text);
+
+    void togglePreview();
 };
 
 #endif // WOBBLYWINDOW_H
