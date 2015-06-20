@@ -153,6 +153,44 @@ void WobblyWindow::createShortcuts() {
 }
 
 
+void WobblyWindow::createFrameDetailsViewer() {
+    frame_num_label = new QLabel;
+    frame_num_label->setTextFormat(Qt::RichText);
+    time_label = new QLabel;
+    matches_label = new QLabel;
+    matches_label->setTextFormat(Qt::RichText);
+    section_label = new QLabel;
+    custom_list_label = new QLabel;
+    freeze_label = new QLabel;
+    decimate_metric_label = new QLabel;
+    mic_label = new QLabel;
+    mic_label->setTextFormat(Qt::RichText);
+    combed_label = new QLabel;
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(frame_num_label);
+    vbox->addWidget(time_label);
+    vbox->addWidget(matches_label);
+    vbox->addWidget(section_label);
+    vbox->addWidget(custom_list_label);
+    vbox->addWidget(freeze_label);
+    vbox->addWidget(decimate_metric_label);
+    vbox->addWidget(mic_label);
+    vbox->addWidget(combed_label);
+    vbox->addStretch(1);
+
+    QWidget *details_widget = new QWidget;
+    details_widget->setLayout(vbox);
+
+    QDockWidget *details_dock = new QDockWidget("Frame details", this);
+    details_dock->setFloating(false);
+    details_dock->setWidget(details_widget);
+    addDockWidget(Qt::LeftDockWidgetArea, details_dock);
+    tools_menu->addAction(details_dock->toggleViewAction());
+    //connect(details_dock, &QDockWidget::visibilityChanged, details_dock, &QDockWidget::setEnabled);
+}
+
+
 void WobblyWindow::createCropAssistant() {
     const char *crop_prefixes[4] = {
         "Left: ",
@@ -323,45 +361,20 @@ void WobblyWindow::createUI() {
 
     statusBar()->setSizeGripEnabled(true);
 
-    frame_num_label = new QLabel;
-    time_label = new QLabel;
-    matches_label = new QLabel;
-    matches_label->setTextFormat(Qt::RichText);
-    section_label = new QLabel;
-    custom_list_label = new QLabel;
-    freeze_label = new QLabel;
-    decimate_metric_label = new QLabel;
-    mic_label = new QLabel;
-    mic_label->setTextFormat(Qt::RichText);
-    combed_label = new QLabel;
-
-    QVBoxLayout *vbox = new QVBoxLayout;
-    vbox->addWidget(frame_num_label);
-    vbox->addWidget(time_label);
-    vbox->addWidget(matches_label);
-    vbox->addWidget(section_label);
-    vbox->addWidget(custom_list_label);
-    vbox->addWidget(freeze_label);
-    vbox->addWidget(decimate_metric_label);
-    vbox->addWidget(mic_label);
-    vbox->addWidget(combed_label);
-    vbox->addStretch(1);
-
     frame_label = new QLabel;
     frame_label->setTextFormat(Qt::PlainText);
     frame_label->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 
-    QHBoxLayout *hbox = new QHBoxLayout;
-    hbox->addLayout(vbox);
-    hbox->addWidget(frame_label);
-    hbox->addStretch(1);
-
+    /*
     QWidget *central_widget = new QWidget;
     central_widget->setLayout(hbox);
 
     setCentralWidget(central_widget);
+    */
+    setCentralWidget(frame_label);
 
 
+    createFrameDetailsViewer();
     createCropAssistant();
     createPresetEditor();
     createPatternEditor();

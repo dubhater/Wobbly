@@ -82,6 +82,7 @@ private:
 
     void createMenu();
     void createShortcuts();
+    void createFrameDetailsViewer();
     void createCropAssistant();
     void createPresetEditor();
     void createPatternEditor();
