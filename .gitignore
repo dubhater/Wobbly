@@ -2,7 +2,7 @@
 *.la
 *.lo
 *.so
-*.moc
+moc_*.cpp
 *.dll
 .libs
 Makefile

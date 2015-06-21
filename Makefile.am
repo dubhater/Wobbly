@@ -11,16 +11,14 @@ moc_verbose_ = $(moc_verbose_$(AM_DEFAULT_VERBOSITY))
 moc_verbose_0 = @echo "  MOC     " $@;
 
 
-%.moc : %.h
-	$(moc_verbose)$(MOC) -i -o "$@" "$<"
+moc_%.cpp : %.h
+	$(moc_verbose)$(MOC) -o "$@" "$<"
 
 bin_PROGRAMS = wobbly
 
-moc_files = src/wobbly/PresetTextEdit.moc \
-			src/wobbly/WobblyWindow.moc
+moc_files = src/wobbly/moc_PresetTextEdit.cpp \
+			src/wobbly/moc_WobblyWindow.cpp
 
-$(wobbly_OBJECTS) : \
-	$(moc_files)
 
 MOSTLYCLEANFILES = $(moc_files)
 
@@ -31,7 +29,8 @@ wobbly_SOURCES = src/wobbly/PresetTextEdit.cpp \
 				 src/wobbly/WobblyWindow.h \
 				 src/shared/WobblyProject.cpp \
 				 src/shared/WobblyProject.h \
-				 src/shared/WobblyException.h
+				 src/shared/WobblyException.h \
+				 $(moc_files)
 
 wobbly_LDFLAGS = $(QT5WIDGETS_LIBS) $(VSScript_LIBS)
 

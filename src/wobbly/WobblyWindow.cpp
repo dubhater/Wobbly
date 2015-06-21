@@ -18,8 +18,6 @@
 #include "WobblyException.h"
 #include "WobblyWindow.h"
 
-#include "WobblyWindow.moc"
-
 
 WobblyWindow::WobblyWindow()
     : project(nullptr)
