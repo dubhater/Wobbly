@@ -1074,6 +1074,16 @@ void WobblyProject::sectionsToScript(std::string &script) {
     script += splice;
 }
 
+int WobblyProject::maybeTranslate(int frame, bool is_end, PositionInFilterChain position) {
+    if (position == PostDecimate) {
+        if (is_end)
+            while (isDecimatedFrame(frame))
+                frame--;
+        return frameNumberAfterDecimation(frame);
+    } else
+        return frame;
+}
+
 void WobblyProject::customListsToScript(std::string &script, PositionInFilterChain position) {
     for (size_t i = 0; i < custom_lists.size(); i++) {
         // Ignore lists that are in a different position in the filter chain.
@@ -1088,6 +1098,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
         if (!custom_lists[i].preset.size())
             throw WobblyException("Custom list '" + custom_lists[i].name + "' has no preset assigned.");
 
+
         std::string list_name = "cl_";
         list_name += custom_lists[i].name;
 
@@ -1100,25 +1111,31 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
 
         if (it->second.first > 0) {
             splice += "src[0:";
-            splice += std::to_string(it->second.first) + "],";
+            splice += std::to_string(maybeTranslate(it->second.first, true, position)) + "],";
         }
-        splice += list_name + "[" + std::to_string(it->second.first) + ":" + std::to_string(it->second.last + 1) + "],";
+
+        splice += list_name + "[" + std::to_string(maybeTranslate(it->second.first, false, position)) + ":" + std::to_string(maybeTranslate(it->second.last, true, position) + 1) + "],";
 
         it++;
         for ( ; it != custom_lists[i].frames.cend(); it++, it_prev++) {
-            if (it->second.first - it_prev->second.last > 1) {
+            int previous_last = maybeTranslate(it_prev->second.last, true, position);
+            int current_first = maybeTranslate(it->second.first, false, position);
+            int current_last = maybeTranslate(it->second.last, true, position);
+            if (current_first - previous_last > 1) {
                 splice += "src[";
-                splice += std::to_string(it_prev->second.last + 1) + ":" + std::to_string(it->second.first) + "],";
+                splice += std::to_string(previous_last + 1) + ":" + std::to_string(current_first) + "],";
             }
 
-            splice += list_name + "[" + std::to_string(it->second.first) + ":" + std::to_string(it->second.last + 1) + "],";
+            splice += list_name + "[" + std::to_string(current_first) + ":" + std::to_string(current_last + 1) + "],";
         }
 
         // it_prev is cend()-1 at the end of the loop.
 
-        if (it_prev->second.last < num_frames[PostSource] - 1) {
+        int last_last = maybeTranslate(it_prev->second.last, true, position);
+
+        if (last_last < maybeTranslate(num_frames[PostSource] - 1, true, position)) {
             splice += "src[";
-            splice += std::to_string(it_prev->second.last + 1) + ":]";
+            splice += std::to_string(last_last + 1) + ":]";
         }
 
         splice += "])\n\n";

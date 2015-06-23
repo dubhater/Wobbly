@@ -324,6 +324,7 @@ class WobblyProject {
 
     private:
         bool isNameSafeForPython(const std::string &name);
+        int maybeTranslate(int frame, bool is_end, PositionInFilterChain position);
 };
 
 #endif // WOBBLYPROJECT_H
