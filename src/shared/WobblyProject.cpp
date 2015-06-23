@@ -705,7 +705,7 @@ std::vector<DecimationRange> WobblyProject::getDecimationRanges() {
     current_range.num_dropped = -1;
 
     for (size_t i = 0; i < decimated_frames.size(); i++) {
-        if (decimated_frames[i].size() != current_range.num_dropped) {
+        if ((int)decimated_frames[i].size() != current_range.num_dropped) {
             current_range.start = i * 5;
             current_range.num_dropped = decimated_frames[i].size();
             ranges.push_back(current_range);
@@ -842,6 +842,9 @@ int WobblyProject::frameNumberAfterDecimation(int frame) {
     for (int8_t i = 0; i < position_in_cycle; i++)
         if (!decimated_frames[cycle_number].count(i))
             out_frame++;
+
+    if (frame == num_frames[PostSource] - 1 && isDecimatedFrame(frame))
+        out_frame--;
 
     return out_frame;
 }
@@ -1198,15 +1201,59 @@ void WobblyProject::freezeFramesToScript(std::string &script) {
 }
 
 void WobblyProject::decimatedFramesToScript(std::string &script) {
-    script += "src = c.std.DeleteFrames(clip=src, frames=[";
+    std::string delete_frames = "src = c.std.DeleteFrames(clip=src, frames=[";
 
     for (size_t i = 0; i < decimated_frames.size(); i++)
         for (auto it = decimated_frames[i].cbegin(); it != decimated_frames[i].cend(); it++)
-            script += std::to_string(i * 5 + *it) + ",";
+            delete_frames += std::to_string(i * 5 + *it) + ",";
 
-    script +=
+    delete_frames +=
             "])\n"
             "\n";
+
+
+    std::string select_every;
+
+    const std::vector<DecimationPatternRange> &ranges = getDecimationPatternRanges();
+
+    std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
+
+    for (size_t i = 0; i < ranges.size(); i++) {
+        std::set<int8_t> offsets = { 0, 1, 2, 3, 4 };
+
+        for (auto it = ranges[i].dropped_offsets.cbegin(); it != ranges[i].dropped_offsets.cend(); it++)
+            offsets.erase(*it);
+
+        int range_end;
+        if (i == ranges.size() - 1)
+            range_end = num_frames[PostSource];
+        else
+            range_end = ranges[i + 1].start;
+
+        // The last range could contain fewer than five frames.
+        // If they're all decimated, don't generate a SelectEvery
+        // because clips with no frames are not allowed.
+        if (range_end - ranges[i].start <= (int)ranges[i].dropped_offsets.size())
+            break;
+
+        std::string range_name = "dec" + std::to_string(ranges[i].start);
+
+        select_every += range_name + " = c.std.SelectEvery(clip=src[" + std::to_string(ranges[i].start) + ":" + std::to_string(range_end) + "], cycle=5, offsets=[";
+
+        for (auto it = offsets.cbegin(); it != offsets.cend(); it++)
+            select_every += std::to_string(*it) + ",";
+
+        select_every += "])\n";
+
+        splice += range_name + ",";
+    }
+
+    select_every += "\n" + splice + "])\n\n";
+
+    if (delete_frames.size() < select_every.size())
+        script += delete_frames;
+    else
+        script += select_every;
 }
 
 void WobblyProject::cropToScript(std::string &script) {

@@ -30,16 +30,18 @@ enum Matches {
 */
 
 
+// The confusion stems from the fact that what Yatta calls P match, VFM calls B match,
+// and what Yatta calls N match, VFM calls U match.
 static inline uint8_t matchCharToIndex(char match) {
-    if (match == 'p')
+    if (match == 'b')
         return 0;
     if (match == 'c')
         return 1;
-    if (match == 'n')
-        return 2;
-    if (match == 'b')
-        return 3;
     if (match == 'u')
+        return 2;
+    if (match == 'p')
+        return 3;
+    if (match == 'n')
         return 4;
 
     return 255;

@@ -155,7 +155,7 @@ void WobblyWindow::createFrameDetailsViewer() {
     frame_num_label = new QLabel;
     frame_num_label->setTextFormat(Qt::RichText);
     time_label = new QLabel;
-    matches_label = new QLabel;
+    matches_label = new QLabel("                     ");
     matches_label->setTextFormat(Qt::RichText);
     section_label = new QLabel;
     custom_list_label = new QLabel;
