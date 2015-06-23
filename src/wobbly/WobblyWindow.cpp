@@ -596,7 +596,7 @@ void WobblyWindow::evaluateMainDisplayScript() {
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
         if (traceback != std::string::npos)
-            error.erase(traceback);
+            error.insert(traceback, 1, '\n');
 
         throw WobblyException("Failed to evaluate main display script. Error message:\n" + error);
     }
@@ -619,7 +619,7 @@ void WobblyWindow::evaluateFinalScript() {
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
         if (traceback != std::string::npos)
-            error.erase(traceback);
+            error.insert(traceback, 1, '\n');
 
         throw WobblyException("Failed to evaluate final script. Error message:\n" + error);
     }
