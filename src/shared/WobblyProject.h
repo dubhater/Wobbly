@@ -156,6 +156,21 @@ enum PositionInFilterChain {
 };
 
 
+enum UseThirdNMatch {
+    UseThirdNMatchAlways,
+    UseThirdNMatchNever,
+    UseThirdNMatchIfPrettier
+};
+
+
+enum DropDuplicate {
+    DropFirstDuplicate,
+    DropSecondDuplicate,
+    DropUglierDuplicatePerCycle,
+    DropUglierDuplicatePerSection
+};
+
+
 class WobblyProject {
     public:
         std::string project_path;
@@ -223,6 +238,7 @@ class WobblyProject {
         void deleteSection(int section_start);
         const Section *findSection(int frame);
         const Section *findNextSection(int frame);
+        int getSectionEnd(int frame);
         void setSectionMatchesFromPattern(int section_start, const std::string &pattern);
         void setSectionDecimationFromPattern(int section_start, const std::string &pattern);
 
@@ -240,6 +256,7 @@ class WobblyProject {
         void addDecimatedFrame(int frame);
         void deleteDecimatedFrame(int frame);
         bool isDecimatedFrame(int frame);
+        void clearDecimatedFramesFromCycle(int frame);
 
 
         void addCombedFrame(int frame);
@@ -260,6 +277,10 @@ class WobblyProject {
 
 
         int frameNumberAfterDecimation(int frame);
+
+
+        void guessSectionPatternsFromMatches(int section_start, int use_third_n_match, int drop_duplicate);
+        void guessProjectPatternsFromMatches(int minimum_length, int use_third_n_match, int drop_duplicate);
 
 
         void sectionsToScript(std::string &script);

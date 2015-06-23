@@ -549,13 +549,16 @@ const Section *WobblyProject::findNextSection(int frame) {
     return nullptr;
 }
 
-void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
-    const Section *next_section = findNextSection(section_start);
-    int section_end;
+int WobblyProject::getSectionEnd(int frame) {
+    const Section *next_section = findNextSection(frame);
     if (next_section)
-        section_end = next_section->start;
+        return next_section->start;
     else
-        section_end = num_frames[PostSource];
+        return num_frames[PostSource];
+}
+
+void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
+    int section_end = getSectionEnd(section_start);
 
     for (int i = 0; i < section_end - section_start; i++) {
         if ((section_start + i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
@@ -569,12 +572,7 @@ void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::s
 }
 
 void WobblyProject::setSectionDecimationFromPattern(int section_start, const std::string &pattern) {
-    const Section *next_section = findNextSection(section_start);
-    int section_end;
-    if (next_section)
-        section_end = next_section->start;
-    else
-        section_end = num_frames[PostSource];
+    int section_end = getSectionEnd(section_start);
 
     for (int i = 0; i < section_end - section_start; i++) {
         // Yatta does it like this.
@@ -598,12 +596,7 @@ void WobblyProject::resetRangeMatches(int start, int end) {
 
 
 void WobblyProject::resetSectionMatches(int section_start) {
-    const Section *next_section = findNextSection(section_start);
-    int section_end;
-    if (next_section)
-        section_end = next_section->start;
-    else
-        section_end = num_frames[PostSource];
+    int section_end = getSectionEnd(section_start);
 
     resetRangeMatches(section_start, section_end - 1);
 }
@@ -661,6 +654,9 @@ void WobblyProject::addDecimatedFrame(int frame) {
 
 
 void WobblyProject::deleteDecimatedFrame(int frame) {
+    if (frame < 0 || frame >= num_frames[PostSource])
+        throw WobblyException("Can't delete decimated frame " + std::to_string(frame) + ": value out of range.");
+
     size_t result = decimated_frames[frame / 5].erase(frame % 5);
 
     if (result)
@@ -669,7 +665,24 @@ void WobblyProject::deleteDecimatedFrame(int frame) {
 
 
 bool WobblyProject::isDecimatedFrame(int frame) {
+    if (frame < 0 || frame >= num_frames[PostSource])
+        throw WobblyException("Can't check if frame " + std::to_string(frame) + " is decimated: value out of range.");
+
     return (bool)decimated_frames[frame / 5].count(frame % 5);
+}
+
+
+void WobblyProject::clearDecimatedFramesFromCycle(int frame) {
+    if (frame < 0 || frame >= num_frames[PostSource])
+        throw WobblyException("Can't clear decimated frames from cycle containing frame " + std::to_string(frame) + ": value out of range.");
+
+    int cycle = frame / 5;
+
+    size_t new_frames = decimated_frames[cycle].size();
+
+    decimated_frames[cycle].clear();
+
+    num_frames[PostDecimate] += new_frames;
 }
 
 
@@ -772,6 +785,196 @@ int WobblyProject::frameNumberAfterDecimation(int frame) {
             out_frame++;
 
     return out_frame;
+}
+
+
+void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_third_n_match, int drop_duplicate) {
+    int section_end = getSectionEnd(section_start);
+
+    // Count the "nc" pairs in each position.
+    int positions[5] = { 0 };
+    int total = 0;
+
+    for (int i = section_start; i < std::min(section_end, num_frames[PostSource] - 1); i++) {
+        if (original_matches[i] == 'n' && original_matches[i + 1] == 'c') {
+            positions[i % 5]++;
+            total++;
+        }
+    }
+
+    // Find the two positions with the most "nc" pairs.
+    int best = 0;
+    int next_best = 0;
+    int tmp = -1;
+
+    for (int i = 0; i < 5; i++)
+        if (positions[i] > tmp) {
+            tmp = positions[i];
+            best = i;
+        }
+
+    tmp = -1;
+
+    for (int i = 0; i < 5; i++) {
+        if (i == best)
+            continue;
+
+        if (positions[i] > tmp) {
+            tmp = positions[i];
+            next_best = i;
+        }
+    }
+
+    float best_percent = 0.0f;
+    float next_best_percent = 0.0f;
+
+    if (total > 0) {
+        best_percent = positions[best] * 100 / (float)total;
+        next_best_percent = positions[next_best] * 100 / (float)total;
+    }
+
+    // Totally arbitrary thresholds.
+    if (best_percent > 40.0f && best_percent - next_best_percent > 10.0f) {
+        // Take care of decimation first.
+
+        // If the first duplicate is the last frame in the cycle, we have to drop the same duplicate in the entire section.
+        if (drop_duplicate == DropUglierDuplicatePerCycle && best == 4)
+            drop_duplicate = DropUglierDuplicatePerSection;
+
+        int drop = -1;
+
+        if (drop_duplicate == DropUglierDuplicatePerSection) {
+            // Find the uglier duplicate.
+            int drop_n = 0;
+            int drop_c = 0;
+
+            for (int i = section_start; i < std::min(section_end, num_frames[PostSource] - 1); i++) {
+                if (i % 5 == best) {
+                    int16_t mic_n = mics[i][2];
+                    int16_t mic_c = mics[i + 1][1];
+                    if (mic_n > mic_c)
+                        drop_n++;
+                    else
+                        drop_c++;
+                }
+            }
+
+            if (drop_n > drop_c)
+                drop = best;
+            else
+                drop = (best + 1) % 5;
+        } else if (drop_duplicate == DropFirstDuplicate) {
+            drop = best;
+        } else if (drop_duplicate == DropSecondDuplicate) {
+            drop = (best + 1) % 5;
+        }
+
+        int first_cycle = section_start / 5;
+        int last_cycle = (section_end - 1) / 5;
+        for (int i = first_cycle; i < last_cycle + 1; i++) {
+            if (drop_duplicate == DropUglierDuplicatePerCycle) {
+                if (i == first_cycle) {
+                    if (section_start % 5 > best + 1)
+                        continue;
+                    else if (section_start % 5 > best)
+                        drop = best + 1;
+                } else if (i == last_cycle) {
+                    if ((section_end - 1) % 5 < best)
+                        continue;
+                    else if ((section_end - 1) % 5 < best + 1)
+                        drop = best;
+                }
+
+                if (drop == -1) {
+                    int16_t mic_n = mics[i * 5 + best][2];
+                    int16_t mic_c = mics[i * 5 + best + 1][1];
+                    if (mic_n > mic_c)
+                        drop = best;
+                    else
+                        drop = (best + 1) % 5;
+                }
+            }
+
+            // At this point we know what frame to drop in this cycle.
+
+            if (i == first_cycle) {
+                // See if the cycle has a decimated frame from the previous section.
+
+                /*
+                bool conflicting_patterns = false;
+
+                for (int j = i * 5; j < section_start; j++)
+                    if (isDecimatedFrame(j)) {
+                        conflicting_patterns = true;
+                        break;
+                    }
+
+                if (conflicting_patterns) {
+                    // If 18 fps cycles are not wanted, try to decimate from the side with more motion.
+                }
+                */
+
+                // Clear decimated frames in the cycle, but only from this section.
+                for (int j = section_start; j < (i + 1) * 5; j++)
+                    if (isDecimatedFrame(j))
+                        deleteDecimatedFrame(j);
+            } else if (i == last_cycle) {
+                // See if the cycle has a decimated frame from the next section.
+
+                // Clear decimated frames in the cycle, but only from this section.
+                for (int j = i * 5; j < section_end; j++)
+                    if (isDecimatedFrame(j))
+                        deleteDecimatedFrame(j);
+            } else {
+                clearDecimatedFramesFromCycle(i * 5);
+            }
+
+            addDecimatedFrame(i * 5 + drop);
+        }
+
+
+        // Now the matches.
+        std::string patterns[5] = { "ncccn", "nnccc", "cnncc", "ccnnc", "cccnn" };
+        if (use_third_n_match == UseThirdNMatchAlways)
+            for (int i = 0; i < 5; i++)
+                patterns[i][(i + 3) % 5] = 'n';
+
+        const std::string &pattern = patterns[best];
+
+        for (int i = section_start; i < section_end; i++) {
+            if (use_third_n_match == UseThirdNMatchIfPrettier && pattern[i % 5] == 'c' && pattern[(i + 1) % 5] == 'n') {
+                int16_t mic_n = mics[i][2];
+                int16_t mic_c = mics[i][1];
+                if (mic_n < mic_c)
+                    matches[i] = 'n';
+                else
+                    matches[i] = 'c';
+            } else {
+                matches[i] = pattern[i % 5];
+            }
+        }
+
+        // If the last frame of the section has much higher mic with c/n matches than with p match, use the p match.
+        char match_index = matchCharToIndex(matches[section_end - 1]);
+        int16_t mic_cn = mics[section_end - 1][match_index];
+        int16_t mic_p = mics[section_end - 1][0];
+        if (mic_cn > mic_p * 2)
+            matches[section_end - 1] = 'p';
+    }
+}
+
+
+void WobblyProject::guessProjectPatternsFromMatches(int minimum_length, int use_third_n_match, int drop_duplicate) {
+    for (auto it = sections.cbegin(); it != sections.cend(); it++) {
+        int length = getSectionEnd(it->second.start) - it->second.start;
+
+        if (length < minimum_length)
+            // XXX Record the sections skipped due to their length.
+            continue;
+
+        // XXX Record the sections where the matches didn't reveal a pattern.
+        guessSectionPatternsFromMatches(it->second.start, use_third_n_match, drop_duplicate);
+    }
 }
 
 

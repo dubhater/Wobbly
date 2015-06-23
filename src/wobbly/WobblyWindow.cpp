@@ -743,13 +743,8 @@ void WobblyWindow::updateFrameDetails() {
 
 
     const Section *current_section = project->findSection(current_frame);
-    const Section *next_section = project->findNextSection(current_frame);
     int section_start = current_section->start;
-    int section_end;
-    if (next_section)
-        section_end = next_section->start - 1;
-    else
-        section_end = project->num_frames[PostSource] - 1;
+    int section_end = project->getSectionEnd(section_start) - 1;
 
     QString presets;
     for (auto it = current_section->presets.cbegin(); it != current_section->presets.cend(); it++)
