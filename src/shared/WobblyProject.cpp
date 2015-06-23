@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdint>
+#include <cstring>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -489,6 +490,17 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
             it->preset.clear();
 }
 
+std::vector<std::string> WobblyProject::getPresets() {
+    std::vector<std::string> preset_list;
+
+    preset_list.reserve(presets.size());
+
+    for (auto it = presets.cbegin(); it != presets.cend(); it++)
+        preset_list.push_back(it->second.name);
+
+    return preset_list;
+}
+
 const std::string &WobblyProject::getPresetContents(const std::string &preset_name) {
     if (!presets.count(preset_name))
         throw WobblyException("Can't retrieve the contents of preset '" + preset_name + "': no such preset.");
@@ -686,6 +698,53 @@ void WobblyProject::clearDecimatedFramesFromCycle(int frame) {
 }
 
 
+std::vector<DecimationRange> WobblyProject::getDecimationRanges() {
+    std::vector<DecimationRange> ranges;
+
+    DecimationRange current_range;
+    current_range.num_dropped = -1;
+
+    for (size_t i = 0; i < decimated_frames.size(); i++) {
+        if (decimated_frames[i].size() != current_range.num_dropped) {
+            current_range.start = i * 5;
+            current_range.num_dropped = decimated_frames[i].size();
+            ranges.push_back(current_range);
+        }
+    }
+
+    return ranges;
+}
+
+
+static bool areDecimationPatternsEqual(const std::set<int8_t> &a, const std::set<int8_t> &b) {
+    if (a.size() != b.size())
+        return false;
+
+    for (auto it1 = a.cbegin(), it2 = b.cbegin(); it1 != a.cend(); it1++, it2++)
+        if (*it1 != *it2)
+            return false;
+
+    return true;
+}
+
+std::vector<DecimationPatternRange> WobblyProject::getDecimationPatternRanges() {
+    std::vector<DecimationPatternRange> ranges;
+
+    DecimationPatternRange current_range;
+    current_range.dropped_offsets.insert(-1);
+
+    for (size_t i = 0; i < decimated_frames.size(); i++) {
+        if (!areDecimationPatternsEqual(decimated_frames[i], current_range.dropped_offsets)) {
+            current_range.start = i * 5;
+            current_range.dropped_offsets = decimated_frames[i];
+            ranges.push_back(current_range);
+        }
+    }
+
+    return ranges;
+}
+
+
 void WobblyProject::addCombedFrame(int frame) {
     if (frame < 0 || frame >= num_frames[PostSource])
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as combed: value out of range.");
@@ -769,7 +828,7 @@ int WobblyProject::frameNumberAfterDecimation(int frame) {
         return 0;
 
     if (frame >= num_frames[PostSource])
-        return num_frames[PostDecimate] - 1;
+        return num_frames[PostDecimate];
 
     int cycle_number = frame / 5;
 
@@ -1262,4 +1321,40 @@ std::string WobblyProject::generateMainDisplayScript(bool show_crop) {
     setOutputToScript(script);
 
     return script;
+}
+
+
+std::string WobblyProject::generateTimecodesV1() {
+    std::string tc =
+            "# timecode format v1\n"
+            "Assume ";
+
+    char buf[20] = { 0 };
+    sprintf(buf, "%.12f\n", 24000 / (double)1001);
+
+    tc += buf;
+
+    const std::vector<DecimationRange> &ranges = getDecimationRanges();
+
+    int numerators[] = { 30000, 24000, 18000, 12000, 6000 };
+
+    for (size_t i = 0; i < ranges.size(); i++) {
+        if (numerators[ranges[i].num_dropped] != 24000) {
+            int end;
+            if (i == ranges.size() - 1)
+                end = num_frames[PostSource];
+            else
+                end = ranges[i + 1].start;
+
+            tc += std::to_string(frameNumberAfterDecimation(ranges[i].start)) + ",";
+            tc += std::to_string(frameNumberAfterDecimation(end) - 1) + ",";
+            sprintf(buf, "%.12f\n", numerators[ranges[i].num_dropped] / (double)1001);
+            char *comma = std::strchr(buf, ',');
+            if (comma)
+                *comma = '.';
+            tc += buf;
+        }
+    }
+
+    return tc;
 }

@@ -19,7 +19,7 @@ QT_PATH2="$( eval $PKG_CONFIG --variable=exec_prefix Qt5Widgets )/bin"
 AC_PATH_PROGS([MOC], [moc-qt5 moc], [moc], [$QT_PATH1:$QT_PATH2])
 
 
-PKG_CHECK_MODULES([VSScript], [vapoursynth-script])
+PKG_CHECK_MODULES([VSSCRIPT], [vapoursynth-script])
 
 
 

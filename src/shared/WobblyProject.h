@@ -149,6 +149,18 @@ struct Crop {
 };
 
 
+struct DecimationRange {
+    int start;
+    int num_dropped;
+};
+
+
+struct DecimationPatternRange {
+    int start;
+    std::set<int8_t> dropped_offsets;
+};
+
+
 enum PositionInFilterChain {
     PostSource = 0,
     PostFieldMatch,
@@ -225,6 +237,7 @@ class WobblyProject {
         void addPreset(const std::string &preset_name, const std::string &preset_contents);
         void renamePreset(const std::string &old_name, const std::string &new_name);
         void deletePreset(const std::string &preset_name);
+        std::vector<std::string> getPresets();
         const std::string &getPresetContents(const std::string &preset_name);
         void setPresetContents(const std::string &preset_name, const std::string &preset_contents);
         void assignPresetToSection(const std::string &preset_name, int section_start);
@@ -257,6 +270,10 @@ class WobblyProject {
         void deleteDecimatedFrame(int frame);
         bool isDecimatedFrame(int frame);
         void clearDecimatedFramesFromCycle(int frame);
+
+
+        std::vector<DecimationRange> getDecimationRanges();
+        std::vector<DecimationPatternRange> getDecimationPatternRanges();
 
 
         void addCombedFrame(int frame);
@@ -300,6 +317,8 @@ class WobblyProject {
 
         std::string generateFinalScript(bool for_preview);
         std::string generateMainDisplayScript(bool show_crop);
+
+        std::string generateTimecodesV1();
 
     private:
         bool isNameSafeForPython(const std::string &name);

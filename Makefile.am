@@ -32,8 +32,8 @@ wobbly_SOURCES = src/wobbly/PresetTextEdit.cpp \
 				 src/shared/WobblyException.h \
 				 $(moc_files)
 
-wobbly_LDFLAGS = $(QT5WIDGETS_LIBS) $(VSScript_LIBS)
+wobbly_LDFLAGS = $(QT5WIDGETS_LIBS) $(VSSCRIPT_LIBS)
 
-wobbly_CPPFLAGS = $(QT5WIDGETS_CFLAGS) $(VSScript_CFLAGS)
+wobbly_CPPFLAGS = $(QT5WIDGETS_CFLAGS) $(VSSCRIPT_CFLAGS)
 
 
