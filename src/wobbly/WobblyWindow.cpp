@@ -1,3 +1,4 @@
+#include <QApplication>
 #include <QComboBox>
 #include <QDockWidget>
 #include <QFileDialog>
@@ -141,6 +142,8 @@ void WobblyWindow::createShortcuts() {
         { "R,S", &WobblyWindow::resetSection },
         { "Ctrl+R", &WobblyWindow::rotateAndSetPatterns },
         { "Ctrl+P", &WobblyWindow::togglePreview },
+        { "Ctrl++", &WobblyWindow::zoomIn },
+        { "Ctrl+-", &WobblyWindow::zoomOut },
         { nullptr, nullptr }
     };
 
@@ -359,6 +362,9 @@ void WobblyWindow::createUI() {
 
     statusBar()->setSizeGripEnabled(true);
 
+    zoom_label = new QLabel(QStringLiteral("Zoom: 1x"));
+    statusBar()->addPermanentWidget(zoom_label);
+
     frame_label = new QLabel;
     frame_label->setTextFormat(Qt::PlainText);
     frame_label->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
@@ -502,6 +508,10 @@ void WobblyWindow::initialiseUIFromProject() {
     resize_box->setChecked(project->isResizeEnabled());
 
 
+    // Zoom.
+    zoom_label->setText(QStringLiteral("Zoom: %1x").arg(project->getZoom()));
+
+
     // Presets.
     for (auto it = project->presets.cbegin(); it != project->presets.cend(); it++)
         preset_combo->addItem(QString::fromStdString(it->second.name));
@@ -588,8 +598,13 @@ void WobblyWindow::saveProjectAs() {
 }
 
 
-void WobblyWindow::evaluateMainDisplayScript() {
-    std::string script = project->generateMainDisplayScript(crop_dock->isVisible());
+void WobblyWindow::evaluateScript(bool final_script) {
+    std::string script;
+
+    if (final_script)
+        script = project->generateFinalScript(true);
+    else
+        script = project->generateMainDisplayScript(crop_dock->isVisible());
 
     if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->project_path.c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
@@ -598,39 +613,28 @@ void WobblyWindow::evaluateMainDisplayScript() {
         if (traceback != std::string::npos)
             error.insert(traceback, 1, '\n');
 
-        throw WobblyException("Failed to evaluate main display script. Error message:\n" + error);
+        throw WobblyException("Failed to evaluate " + std::string(final_script ? "final" : "main display") + " script. Error message:\n" + error);
     }
 
-    vsapi->freeNode(vsnode[0]);
+    int node_index = (int)final_script;
 
-    vsnode[0] = vsscript_getOutput(vsscript, 0);
-    if (!vsnode[0])
-        throw WobblyException("Main display script evaluated successfully, but no node found at output index 0.");
+    vsapi->freeNode(vsnode[node_index]);
+
+    vsnode[node_index] = vsscript_getOutput(vsscript, 0);
+    if (!vsnode[node_index])
+        throw WobblyException(std::string(final_script ? "Final" : "Main display") + " script evaluated successfully, but no node found at output index 0.");
 
     displayFrame(current_frame);
 }
 
 
+void WobblyWindow::evaluateMainDisplayScript() {
+    evaluateScript(false);
+}
+
+
 void WobblyWindow::evaluateFinalScript() {
-    std::string script = project->generateFinalScript(true);
-
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->project_path.c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
-        std::string error = vsscript_getError(vsscript);
-        // The traceback is mostly unnecessary noise.
-        size_t traceback = error.find("Traceback");
-        if (traceback != std::string::npos)
-            error.insert(traceback, 1, '\n');
-
-        throw WobblyException("Failed to evaluate final script. Error message:\n" + error);
-    }
-
-    vsapi->freeNode(vsnode[1]);
-
-    vsnode[1] = vsscript_getOutput(vsscript, 0);
-    if (!vsnode[1])
-        throw WobblyException("Final script evaluated successfully, but no node found at output index 0.");
-
-    displayFrame(current_frame);
+    evaluateScript(true);
 }
 
 
@@ -653,7 +657,13 @@ void WobblyWindow::displayFrame(int n) {
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    frame_label->setPixmap(QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32)));
+    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32));
+
+    int zoom = project->getZoom();
+    if (zoom > 1)
+        pixmap = pixmap.scaled(width * zoom, height * zoom, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+
+    frame_label->setPixmap(pixmap);
     // Must free the frame only after replacing the pixmap.
     vsapi->freeFrame(vsframe);
     vsframe = frame;
@@ -1211,4 +1221,41 @@ void WobblyWindow::togglePreview() {
         }
     } else
         evaluateMainDisplayScript();
+}
+
+
+void WobblyWindow::zoom(bool in) {
+    if (!project)
+        return;
+
+    int zoom = project->getZoom();
+    if ((!in && zoom > 1) || (in && zoom < 8)) {
+        zoom += in ? 1 : -1;
+        project->setZoom(zoom);
+        try {
+            evaluateScript(preview);
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+        }
+    }
+
+    zoom_label->setText(QStringLiteral("Zoom: %1x").arg(zoom));
+
+    if (!in) {
+        int width = vsapi->getFrameWidth(vsframe, 0);
+        int height = vsapi->getFrameHeight(vsframe, 0);
+
+        QApplication::processEvents();
+        resize(width, height);
+    }
+}
+
+
+void WobblyWindow::zoomIn() {
+    zoom(true);
+}
+
+
+void WobblyWindow::zoomOut() {
+    zoom(false);
 }

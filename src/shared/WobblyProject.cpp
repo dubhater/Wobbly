@@ -51,6 +51,9 @@ void WobblyProject::writeProject(const std::string &path) {
     json_project.insert("input resolution", json_resolution);
 
 
+    json_project.insert("zoom", zoom);
+
+
     QJsonArray json_trims;
 
     for (auto it = trims.cbegin(); it != trims.cend(); it++) {
@@ -223,6 +226,9 @@ void WobblyProject::readProject(const std::string &path) {
 
     width = (int)json_project["input resolution"].toArray()[0].toDouble();
     height = (int)json_project["input resolution"].toArray()[1].toDouble();
+
+
+    zoom = (int)json_project["zoom"].toDouble(1);
 
 
     num_frames[PostSource] = 0;
@@ -800,6 +806,19 @@ void WobblyProject::setCropEnabled(bool enabled) {
 
 bool WobblyProject::isCropEnabled() {
     return crop.enabled;
+}
+
+
+int WobblyProject::getZoom() {
+    return zoom;
+}
+
+
+void WobblyProject::setZoom(int ratio) {
+    if (ratio < 1)
+        throw WobblyException("Can't set zoom to ratio " + std::to_string(ratio) + ": invalid value.");
+
+    zoom = ratio;
 }
 
 

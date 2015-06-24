@@ -44,6 +44,8 @@ private:
     QLabel *mic_label;
     QLabel *combed_label;
 
+    QLabel *zoom_label;
+
     QDockWidget *crop_dock;
     QSpinBox *crop_spin[4];
     QGroupBox *crop_box;
@@ -94,6 +96,7 @@ private:
 
     void initialiseUIFromProject();
 
+    void evaluateScript(bool final_script);
     void evaluateMainDisplayScript();
     void evaluateFinalScript();
     void displayFrame(int n);
@@ -106,6 +109,8 @@ private:
     void realSaveProject(const QString &path);
 
     void jumpRelative(int offset);
+
+    void zoom(bool in);
 
 public slots:
     void jump1Forward();
@@ -162,6 +167,9 @@ public slots:
     void decimationPatternEdited(const QString &text);
 
     void togglePreview();
+
+    void zoomIn();
+    void zoomOut();
 };
 
 #endif // WOBBLYWINDOW_H

@@ -196,6 +196,8 @@ class WobblyProject {
         int width;
         int height;
 
+        int zoom;
+
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
         std::unordered_map<std::string, double> vfm_parameters;
@@ -290,6 +292,10 @@ class WobblyProject {
         void setCrop(int left, int top, int right, int bottom);
         void setCropEnabled(bool enabled);
         bool isCropEnabled();
+
+
+        int getZoom();
+        void setZoom(int ratio);
 
 
         std::string frameToTime(int frame);
