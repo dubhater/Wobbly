@@ -19,9 +19,10 @@ AC_ARG_WITH(
             [AS_HELP_STRING([--with-moc], [Path of the Qt meta object compiler.])],
             AC_SUBST([MOC], [$with_moc]),
             [
-             QT_PATH1="$( eval $PKG_CONFIG --variable=libdir Qt5Widgets )/qt5/bin"
-             QT_PATH2="$( eval $PKG_CONFIG --variable=exec_prefix Qt5Widgets )/bin"
-             AC_PATH_PROGS([MOC], [moc-qt5 moc], [moc], [$QT_PATH1:$QT_PATH2])
+             QT_PATH="$( eval $PKG_CONFIG --variable=libdir Qt5Widgets )/qt5/bin"
+             QT_PATH="$QT_PATH:$( eval $PKG_CONFIG --variable=libdir Qt5Widgets )/qt/bin"
+             QT_PATH="$QT_PATH:$( eval $PKG_CONFIG --variable=exec_prefix Qt5Widgets )/bin"
+             AC_PATH_PROGS([MOC], [moc-qt5 moc], [moc], [$QT_PATH])
             ]
 )
 
