@@ -6,7 +6,9 @@ AC_INIT([Wobbly], [1], [https://github.com/dubhater/Wobbly/issues], [Wobbly], [h
 AM_INIT_AUTOMAKE([foreign no-dist-gzip dist-xz subdir-objects no-define])
 AM_SILENT_RULES([yes])
 
-LT_INIT()
+
+AC_CANONICAL_HOST
+
 
 AC_PROG_CXX
 
@@ -26,10 +28,20 @@ AC_ARG_WITH(
             ]
 )
 
-
 PKG_CHECK_MODULES([VSSCRIPT], [vapoursynth-script])
 
 
+AS_CASE(
+        [$host_os],
+        [*linux*|gnu*|dragonfly*|*bsd*], # The BSDs are close enough, right?
+        [
+         AC_SUBST([FPIC], ["-fPIC"])
+        ],
+        [cygwin*|mingw*],
+        [
+         AC_SUBST([WINDOWS_SUBSYSTEM], ["-Wl,-subsystem,windows"])
+        ]
+)
 
 
 dnl Workaround for a bug in libtool

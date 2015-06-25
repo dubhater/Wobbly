@@ -1,6 +1,6 @@
 warningflags = -Wall -Wextra -Wshadow
 includeflags = -I$(srcdir)/src/shared
-commoncflags = -fPIC -O2 $(warningflags) $(includeflags)
+commoncflags = $(FPIC) -O2 $(warningflags) $(includeflags)
 AM_CXXFLAGS = -std=c++11 $(commoncflags)
 AM_CFLAGS = -std=c99 $(commoncflags)
 
@@ -32,7 +32,9 @@ wobbly_SOURCES = src/wobbly/PresetTextEdit.cpp \
 				 src/shared/WobblyException.h \
 				 $(moc_files)
 
-wobbly_LDFLAGS = $(QT5WIDGETS_LIBS) $(VSSCRIPT_LIBS)
+wobbly_LDADD = $(QT5WIDGETS_LIBS) $(VSSCRIPT_LIBS)
+
+wobbly_LDFLAGS = $(WINDOWS_SUBSYSTEM)
 
 wobbly_CPPFLAGS = $(QT5WIDGETS_CFLAGS) $(VSSCRIPT_CFLAGS)
 
