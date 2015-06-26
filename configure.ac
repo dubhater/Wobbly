@@ -11,8 +11,13 @@ AC_CANONICAL_HOST
 
 
 AC_PROG_CXX
+AC_PROG_GREP
 
 
+PKG_CHECK_MODULES([VSSCRIPT], [vapoursynth-script])
+
+
+qt_host_bins="$( eval $PKG_CONFIG --variable=host_bins Qt5Core )"
 
 PKG_CHECK_MODULES([QT5WIDGETS], [Qt5Widgets])
 
@@ -28,7 +33,21 @@ AC_ARG_WITH(
             ]
 )
 
-PKG_CHECK_MODULES([VSSCRIPT], [vapoursynth-script])
+AC_MSG_CHECKING([whether Qt is static])
+if [ `$PKG_CONFIG --variable=qt_config Qt5Core | $GREP 'static' > /dev/null` ]; then
+    static_qt="yes"
+else
+    static_qt="no"
+fi
+AC_MSG_RESULT([$static_qt])
+
+AS_IF(
+      [test "x$static_qt" = "xyes"],
+      [
+       PKG_CHECK_MODULES([QT5PLATFORMSUPPORT], [Qt5PlatformSupport])
+       AC_DEFINE([WOBBLY_STATIC_QT])
+      ]
+)
 
 
 AS_CASE(
@@ -40,6 +59,12 @@ AS_CASE(
         [cygwin*|mingw*],
         [
          AC_SUBST([WINDOWS_SUBSYSTEM], ["-Wl,-subsystem,windows"])
+
+         AS_IF([test "x$static_qt" = "xyes"],
+               [
+                AC_SUBST([QT5PLATFORMPLUGIN], ["$qt_host_bins/../plugins/platforms/libqwindows.a"])
+               ]
+         )
         ]
 )
 
