@@ -29,7 +29,11 @@ AC_ARG_WITH(
              QT_PATH="$( eval $PKG_CONFIG --variable=libdir Qt5Widgets )/qt5/bin"
              QT_PATH="$QT_PATH:$( eval $PKG_CONFIG --variable=libdir Qt5Widgets )/qt/bin"
              QT_PATH="$QT_PATH:$( eval $PKG_CONFIG --variable=exec_prefix Qt5Widgets )/bin"
-             AC_PATH_PROGS([MOC], [moc-qt5 moc], [moc], [$QT_PATH])
+             AC_PATH_PROGS([MOC], [moc-qt5 moc], [not_found], [$QT_PATH])
+             AS_IF(
+                   [test "x$MOC" = "x$not_found"],
+                   [AC_MSG_ERROR(["moc (Qt's meta object compiler) was not found."])]
+             )
             ]
 )
 
