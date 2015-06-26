@@ -24,12 +24,9 @@ PKG_CHECK_MODULES([QT5WIDGETS], [Qt5Widgets])
 AC_ARG_WITH(
             [moc],
             [AS_HELP_STRING([--with-moc], [Path of the Qt meta object compiler.])],
-            AC_SUBST([MOC], [$with_moc]),
+            [AC_SUBST([MOC], [$with_moc])],
             [
-             QT_PATH="$( eval $PKG_CONFIG --variable=libdir Qt5Widgets )/qt5/bin"
-             QT_PATH="$QT_PATH:$( eval $PKG_CONFIG --variable=libdir Qt5Widgets )/qt/bin"
-             QT_PATH="$QT_PATH:$( eval $PKG_CONFIG --variable=exec_prefix Qt5Widgets )/bin"
-             AC_PATH_PROGS([MOC], [moc-qt5 moc], [not_found], [$QT_PATH])
+             AC_PATH_PROGS([MOC], [moc-qt5 moc], [not_found], [$qt_host_bins])
              AS_IF(
                    [test "x$MOC" = "x$not_found"],
                    [AC_MSG_ERROR(["moc (Qt's meta object compiler) was not found."])]
