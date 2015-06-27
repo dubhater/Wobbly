@@ -354,6 +354,288 @@ void WobblyWindow::createPatternEditor() {
 }
 
 
+void WobblyWindow::createSectionsEditor() {
+    sections_table = new QTableWidget(0, 2, this);
+    sections_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    sections_table->setAlternatingRowColors(true);
+    sections_table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    // no tab navigation
+
+    QPushButton *delete_sections_button = new QPushButton("Delete");
+
+    short_sections_box = new QGroupBox("Show only short sections");
+    short_sections_box->setCheckable(true);
+    short_sections_box->setChecked(false);
+
+    short_sections_spin = new QSpinBox;
+    short_sections_spin->setValue(10);
+    short_sections_spin->setPrefix(QStringLiteral("Maximum: "));
+    short_sections_spin->setSuffix(QStringLiteral(" frames"));
+
+    section_presets_list = new QListWidget;
+    section_presets_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    QPushButton *move_preset_up_button = new QPushButton("Move up");
+    QPushButton *move_preset_down_button = new QPushButton("Move down");
+    QPushButton *remove_preset_button = new QPushButton("Remove");
+
+    preset_list = new QListWidget;
+    preset_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    QPushButton *append_presets_button = new QPushButton("Append");
+
+
+    connect(sections_table, &QTableWidget::cellDoubleClicked, [this] (int row, int column) {
+        (void)column;
+        QTableWidgetItem *item = sections_table->item(row, 0);
+        bool ok;
+        int frame = item->text().toInt(&ok);
+        if (ok)
+            displayFrame(frame);
+    });
+
+    connect(sections_table, &QTableWidget::currentCellChanged, [this] (int currentRow) {
+        if (currentRow < 0)
+            return;
+
+        section_presets_list->clear();
+        bool ok;
+        int frame = sections_table->item(currentRow, 0)->text().toInt(&ok);
+        if (ok) {
+            const Section *section = project->findSection(frame);
+            for (auto it = section->presets.cbegin(); it != section->presets.cend(); it++)
+                section_presets_list->addItem(QString::fromStdString(*it));
+        }
+    });
+
+    connect(delete_sections_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        auto selection = sections_table->selectedItems();
+        for (auto it = selection.cbegin(); it != selection.cend(); it++) {
+            if ((*it)->column() == 0) {
+                bool ok;
+                int frame = (*it)->text().toInt(&ok);
+                if (ok && frame != 0) {
+                    project->deleteSection(frame);
+                    sections_table->removeRow((*it)->row());
+                }
+            }
+        }
+        if (selection.size())
+            updateFrameDetails();
+    });
+
+    connect(short_sections_box, &QGroupBox::clicked, [this] (bool checked) {
+        if (!project)
+            return;
+
+        (void)checked;
+
+        initialiseSectionsList();
+    });
+
+    connect(short_sections_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
+        if (!project)
+            return;
+
+        (void)value;
+
+        initialiseSectionsList();
+    });
+
+    connect(move_preset_up_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        int sections_row = sections_table->currentRow();
+        auto selected_presets = section_presets_list->selectedItems();
+        bool ok;
+        int frame = sections_table->item(sections_row, 0)->text().toInt(&ok);
+        if (ok && selected_presets.size()) {
+            for (int i = 0; i < selected_presets.size(); i++) {
+                int preset_row = section_presets_list->row(selected_presets[i]);
+                if (preset_row == 0)
+                    break;
+                section_presets_list->insertItem(preset_row - 1, section_presets_list->takeItem(preset_row));
+                section_presets_list->item(preset_row)->setSelected(false);
+                section_presets_list->item(preset_row - 1)->setSelected(true);
+            }
+
+            Section *section = project->findSection(frame);
+            QString presets;
+            for (size_t i = 0; i < section->presets.size(); i++) {
+                section->presets[i] = section_presets_list->item(i)->text().toStdString();
+
+                if (i > 0)
+                    presets += ",";
+                presets += QString::fromStdString(section->presets[i]);
+            }
+            QTableWidgetItem *item = new QTableWidgetItem(presets);
+            sections_table->setItem(sections_row, 1, item);
+
+            updateFrameDetails();
+        }
+    });
+
+    connect(move_preset_down_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        int sections_row = sections_table->currentRow();
+        auto selected_presets = section_presets_list->selectedItems();
+        bool ok;
+        int frame = sections_table->item(sections_row, 0)->text().toInt(&ok);
+        if (ok && selected_presets.size()) {
+            for (int i = selected_presets.size() - 1; i >= 0; i--) {
+                int preset_row = section_presets_list->row(selected_presets[i]);
+                if (preset_row == section_presets_list->count() - 1)
+                    break;
+                section_presets_list->insertItem(preset_row + 1, section_presets_list->takeItem(preset_row));
+                section_presets_list->item(preset_row)->setSelected(false);
+                section_presets_list->item(preset_row + 1)->setSelected(true);
+            }
+
+            Section *section = project->findSection(frame);
+            QString presets;
+            for (size_t i = 0; i < section->presets.size(); i++) {
+                section->presets[i] = section_presets_list->item(i)->text().toStdString();
+
+                if (i > 0)
+                    presets += ",";
+                presets += QString::fromStdString(section->presets[i]);
+            }
+            QTableWidgetItem *item = new QTableWidgetItem(presets);
+            sections_table->setItem(sections_row, 1, item);
+
+            updateFrameDetails();
+        }
+    });
+
+    connect(remove_preset_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        int sections_row = sections_table->currentRow();
+        auto selected_presets = section_presets_list->selectedItems();
+        bool ok;
+        int frame = sections_table->item(sections_row, 0)->text().toInt(&ok);
+        if (ok && selected_presets.size()) {
+            Section *section = project->findSection(frame);
+            for (int i = selected_presets.size() - 1; i >= 0; i--) {
+                section->presets.erase(section->presets.cbegin() + section_presets_list->row(selected_presets[i]));
+            }
+            section_presets_list->clear();
+
+            QString presets;
+            for (size_t i = 0; i < section->presets.size(); i++) {
+                section_presets_list->addItem(QString::fromStdString(section->presets[i]));
+                if (i > 0)
+                    presets += ",";
+                presets += QString::fromStdString(section->presets[i]);
+            }
+            QTableWidgetItem *item = new QTableWidgetItem(presets);
+            sections_table->setItem(sections_row, 1, item);
+
+            updateFrameDetails();
+        }
+    });
+
+    connect(append_presets_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        auto selected_presets = preset_list->selectedItems();
+        auto selected_sections = sections_table->selectedItems();
+
+        if (selected_presets.size()) {
+            for (auto section = selected_sections.cbegin(); section != selected_sections.cend(); section++)
+                for (auto preset = selected_presets.cbegin(); preset != selected_presets.cend(); preset++) {
+                    bool ok;
+                    int frame = (*section)->text().toInt(&ok);
+                    if (ok) {
+                        project->assignPresetToSection((*preset)->text().toStdString(), frame);
+                        section_presets_list->addItem((*preset)->text());
+
+                        QTableWidgetItem *presets_item = sections_table->item((*section)->row(), 1);
+                        if (!presets_item) {
+                            presets_item = new QTableWidgetItem;
+                            sections_table->setItem((*section)->row(), 1, presets_item);
+                        }
+                        QString presets = presets_item->text();
+                        if (presets.size())
+                            presets += ",";
+                        presets_item->setText(presets + (*preset)->text());
+                    }
+                }
+            if (selected_sections.size())
+                updateFrameDetails();
+        }
+    });
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(new QLabel("Sections:"));
+    vbox->addWidget(sections_table, 1);
+
+    QVBoxLayout *vbox2 = new QVBoxLayout;
+    vbox2->addWidget(delete_sections_button);
+    vbox2->addStretch(1);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(short_sections_spin);
+    hbox->addStretch(1);
+    short_sections_box->setLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addLayout(vbox2);
+    hbox->addWidget(short_sections_box);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    QHBoxLayout *hbox2 = new QHBoxLayout;
+    hbox2->addLayout(vbox);
+
+    vbox = new QVBoxLayout;
+    vbox->addWidget(new QLabel("Section's presets:"));
+    vbox->addWidget(section_presets_list, 1);
+
+    vbox2 = new QVBoxLayout;
+    vbox2->addWidget(move_preset_up_button);
+    vbox2->addWidget(move_preset_down_button);
+    vbox2->addWidget(remove_preset_button);
+    hbox = new QHBoxLayout;
+    hbox->addLayout(vbox2);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+    hbox2->addLayout(vbox);
+
+    vbox = new QVBoxLayout;
+    vbox->addWidget(new QLabel("Available presets:"));
+    vbox->addWidget(preset_list, 1);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(append_presets_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+    hbox2->addLayout(vbox);
+
+
+    QWidget *sections_widget = new QWidget;
+    sections_widget->setLayout(hbox2);
+
+
+    QDockWidget *sections_dock = new QDockWidget("Sections editor", this);
+    sections_dock->setVisible(false);
+    sections_dock->setFloating(true);
+    sections_dock->setWidget(sections_widget);
+    addDockWidget(Qt::RightDockWidgetArea, sections_dock);
+    tools_menu->addAction(sections_dock->toggleViewAction());
+    connect(sections_dock, &QDockWidget::visibilityChanged, sections_dock, &QDockWidget::setEnabled);
+}
+
+
 void WobblyWindow::createUI() {
     createMenu();
     createShortcuts();
@@ -382,6 +664,7 @@ void WobblyWindow::createUI() {
     createCropAssistant();
     createPresetEditor();
     createPatternEditor();
+    createSectionsEditor();
 }
 
 
@@ -479,6 +762,34 @@ void WobblyWindow::checkRequiredFilters() {
 }
 
 
+void WobblyWindow::initialiseSectionsList() {
+    sections_table->setRowCount(0);
+    int rows = 0;
+    const Section *section = project->findSection(0);
+    while (section) {
+        if (!short_sections_box->isChecked() || project->getSectionEnd(section->start) - section->start <= short_sections_spin->value()) {
+            QTableWidgetItem *item;
+
+            rows++;
+            sections_table->setRowCount(rows);
+
+            item = new QTableWidgetItem(QString::number(section->start));
+            sections_table->setItem(rows - 1, 0, item);
+
+            if (section->presets.size()) {
+                QString presets = QString::fromStdString(section->presets[0]);
+                for (size_t i = 1; i < section->presets.size(); i++)
+                    presets += "," + QString::fromStdString(section->presets[i]);
+                item = new QTableWidgetItem(presets);
+                sections_table->setItem(rows - 1, 1, item);
+            }
+        }
+
+        section = project->findNextSection(section->start);
+    }
+}
+
+
 void WobblyWindow::initialiseUIFromProject() {
     // Crop.
     for (int i = 0; i < 4; i++)
@@ -513,13 +824,20 @@ void WobblyWindow::initialiseUIFromProject() {
 
 
     // Presets.
-    for (auto it = project->presets.cbegin(); it != project->presets.cend(); it++)
+    preset_combo->clear();
+    preset_list->clear();
+    for (auto it = project->presets.cbegin(); it != project->presets.cend(); it++) {
         preset_combo->addItem(QString::fromStdString(it->second.name));
+        preset_list->addItem(QString::fromStdString(it->second.name));
+    }
 
     if (preset_combo->count()) {
         preset_combo->setCurrentIndex(0);
         presetChanged(preset_combo->currentText());
     }
+
+
+    initialiseSectionsList();
 }
 
 
@@ -758,7 +1076,7 @@ void WobblyWindow::updateFrameDetails() {
 
     QString presets;
     for (auto it = current_section->presets.cbegin(); it != current_section->presets.cend(); it++)
-        presets.append(QString::fromStdString(*it));
+        presets.append(QString::fromStdString(*it) + "\n");
 
     if (presets.isNull())
         presets = "<none>";
@@ -788,6 +1106,9 @@ void WobblyWindow::updateFrameDetails() {
 
 
 void WobblyWindow::jumpRelative(int offset) {
+    if (!project)
+        return;
+
     int target = current_frame + offset;
 
     if (target < 0)
@@ -903,6 +1224,9 @@ void WobblyWindow::jumpToPreviousSectionStart() {
 
 
 void WobblyWindow::cycleMatchPCN() {
+    if (!project)
+        return;
+
     // N -> C -> P. This is the order Yatta uses, so we use it.
 
     char &match = project->matches[current_frame];
@@ -926,6 +1250,9 @@ void WobblyWindow::cycleMatchPCN() {
 
 
 void WobblyWindow::freezeForward() {
+    if (!project)
+        return;
+
     if (current_frame == project->num_frames[PostSource] - 1)
         return;
 
@@ -940,6 +1267,9 @@ void WobblyWindow::freezeForward() {
 
 
 void WobblyWindow::freezeBackward() {
+    if (!project)
+        return;
+
     if (current_frame == 0)
         return;
 
@@ -954,6 +1284,9 @@ void WobblyWindow::freezeBackward() {
 
 
 void WobblyWindow::freezeRange() {
+    if (!project)
+        return;
+
     static FreezeFrame ff = { -1, -1, -1 };
 
     // XXX Don't bother if first or last are part of a freezeframe.
@@ -977,6 +1310,9 @@ void WobblyWindow::freezeRange() {
 
 
 void WobblyWindow::deleteFreezeFrame() {
+    if (!project)
+        return;
+
     const FreezeFrame *ff = project->findFreezeFrame(current_frame);
     if (ff) {
         project->deleteFreezeFrame(ff->first);
@@ -987,6 +1323,9 @@ void WobblyWindow::deleteFreezeFrame() {
 
 
 void WobblyWindow::toggleDecimation() {
+    if (!project)
+        return;
+
     if (project->isDecimatedFrame(current_frame))
         project->deleteDecimatedFrame(current_frame);
     else
@@ -997,6 +1336,9 @@ void WobblyWindow::toggleDecimation() {
 
 
 void WobblyWindow::toggleCombed() {
+    if (!project)
+        return;
+
     if (project->isCombedFrame(current_frame))
         project->deleteCombedFrame(current_frame);
     else
@@ -1007,9 +1349,14 @@ void WobblyWindow::toggleCombed() {
 
 
 void WobblyWindow::addSection() {
+    if (!project)
+        return;
+
     const Section *section = project->findSection(current_frame);
     if (section->start != current_frame) {
         project->addSection(current_frame);
+
+        initialiseSectionsList();
 
         updateFrameDetails();
     }
@@ -1017,10 +1364,19 @@ void WobblyWindow::addSection() {
 
 
 void WobblyWindow::deleteSection() {
-    const Section *section = project->findSection(current_frame);
-    project->deleteSection(section->start);
+    if (!project)
+        return;
 
-    updateFrameDetails();
+    const Section *section = project->findSection(current_frame);
+    if (section->start != 0) {
+        project->deleteSection(section->start);
+
+        auto items = sections_table->findItems(QString::number(section->start), Qt::MatchFixedString);
+        if (items.size() == 1)
+            sections_table->removeRow(items[0]->row());
+
+        updateFrameDetails();
+    }
 }
 
 

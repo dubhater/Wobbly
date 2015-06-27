@@ -7,8 +7,10 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMainWindow>
 #include <QSpinBox>
+#include <QTableWidget>
 
 #include <VapourSynth.h>
 #include <VSScript.h>
@@ -58,6 +60,12 @@ private:
     QLineEdit *match_pattern_edit;
     QLineEdit *decimation_pattern_edit;
 
+    QTableWidget *sections_table;
+    QGroupBox *short_sections_box;
+    QSpinBox *short_sections_spin;
+    QListWidget *section_presets_list;
+    QListWidget *preset_list;
+
     // Other stuff.
 
     WobblyProject *project;
@@ -88,12 +96,15 @@ private:
     void createCropAssistant();
     void createPresetEditor();
     void createPatternEditor();
+    void createSectionsEditor();
     void createUI();
+
 
     void initialiseVapourSynth();
     void cleanUpVapourSynth();
     void checkRequiredFilters();
 
+    void initialiseSectionsList();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);

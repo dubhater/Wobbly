@@ -552,13 +552,13 @@ void WobblyProject::deleteSection(int section_start) {
         sections.erase(section_start);
 }
 
-const Section *WobblyProject::findSection(int frame) {
+Section *WobblyProject::findSection(int frame) {
     auto it = sections.upper_bound(frame);
     it--;
     return &it->second;
 }
 
-const Section *WobblyProject::findNextSection(int frame) {
+Section *WobblyProject::findNextSection(int frame) {
     auto it = sections.upper_bound(frame);
 
     if (it != sections.cend())
@@ -1174,11 +1174,12 @@ void WobblyProject::headerToScript(std::string &script) {
 void WobblyProject::presetsToScript(std::string &script) {
     for (auto it = presets.cbegin(); it != presets.cend(); it++) {
         script += "def " + it->second.name + "(clip):\n";
-        for (size_t start = 0, end = 0; end != std::string::npos; ) {
-            end = it->second.name.find('\n', start);
-            script += "    " + it->second.name.substr(start, end) + "\n";
+        size_t start = 0, end;
+        do {
+            end = it->second.contents.find('\n', start);
+            script += "    " + it->second.contents.substr(start, end - start) + "\n";
             start = end + 1;
-        }
+        } while (end != std::string::npos);
         script += "    return clip\n";
         script += "\n\n";
     }

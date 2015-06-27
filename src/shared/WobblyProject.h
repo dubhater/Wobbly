@@ -253,8 +253,8 @@ class WobblyProject {
         void addSection(int section_start);
         void addSection(const Section &section);
         void deleteSection(int section_start);
-        const Section *findSection(int frame);
-        const Section *findNextSection(int frame);
+        Section *findSection(int frame);
+        Section *findNextSection(int frame);
         int getSectionEnd(int frame);
         void setSectionMatchesFromPattern(int section_start, const std::string &pattern);
         void setSectionDecimationFromPattern(int section_start, const std::string &pattern);
