@@ -703,63 +703,67 @@ void WobblyWindow::cleanUpVapourSynth() {
 
 
 void WobblyWindow::checkRequiredFilters() {
-    const char *filters[][4] = {
+    struct Plugin {
+        std::string id;
+        std::vector<std::string> filters;
+        std::string plugin_not_found;
+        std::string filter_not_found;
+    };
+
+    std::vector<Plugin> plugins = {
         {
             "com.sources.d2vsource",
-            "Source",
+            { "Source" },
             "d2vsource plugin not found.",
             "I don't know."
         },
         {
             "com.nodame.fieldhint",
-            "FieldHint",
+            { "FieldHint" },
             "FieldHint plugin not found.",
             "FieldHint plugin is too old."
         },
         {
             "com.vapoursynth.std",
-            "FreezeFrames",
+            { "FreezeFrames", "DeleteFrames" },
             "VapourSynth standard filter library not found. This should never happen.",
-            "VapourSynth version is too old."
-        },
-        {
-            "com.vapoursynth.std",
-            "DeleteFrames",
-            "VapourSynth standard filter library not found. This should never happen.",
-            "VapourSynth version is too old."
+            "VapourSynth version is older than r24."
         },
         {
             "the.weather.channel",
-            "Colorspace",
+            { "Colorspace", "Depth", "Resize" },
             "zimg plugin not found.",
             "Arwen broke it."
-        },
-        {
-            "the.weather.channel",
-            "Depth",
-            "zimg plugin not found.",
-            "Arwen broke it."
-        },
-        {
-            "the.weather.channel",
-            "Resize",
-            "zimg plugin not found.",
-            "Arwen broke it."
-        },
-        {
-            nullptr
         }
     };
 
-    for (int i = 0; filters[i][0]; i++) {
-        VSPlugin *plugin = vsapi->getPluginById(filters[i][0], vscore);
-        if (!plugin)
-            throw WobblyException(std::string("Fatal error: ") + filters[i][2]);
+    std::string error;
 
-        VSMap *map = vsapi->getFunctions(plugin);
-        if (vsapi->propGetType(map, filters[i][1]) == ptUnset)
-            throw WobblyException(std::string("Fatal error: plugin found but it lacks filter '") + filters[i][1] + "'" + (filters[i][3] ? std::string(". Likely reason: ") + filters[i][3] : ""));
+    for (size_t i = 0; i < plugins.size(); i++) {
+        VSPlugin *plugin = vsapi->getPluginById(plugins[i].id.c_str(), vscore);
+        if (!plugin) {
+            error += "Fatal error: ";
+            error += plugins[i].plugin_not_found;
+            error += "\n";
+        } else {
+            VSMap *map = vsapi->getFunctions(plugin);
+            for (auto it = plugins[i].filters.cbegin(); it != plugins[i].filters.cend(); it++) {
+                if (vsapi->propGetType(map, it->c_str()) == ptUnset) {
+                    error += "Fatal error: plugin found but it lacks filter '";
+                    error += *it;
+                    error += "'.";
+                    if (plugins[i].filter_not_found.size()) {
+                        error += " Likely reason: ";
+                        error += plugins[i].filter_not_found;
+                    }
+                    error += "\n";
+                }
+            }
+        }
     }
+
+    if (error.size())
+        throw WobblyException(error);
 }
 
 
