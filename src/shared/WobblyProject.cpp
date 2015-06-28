@@ -17,7 +17,8 @@
 
 
 WobblyProject::WobblyProject(bool _is_wobbly)
-    : is_wobbly(_is_wobbly)
+    : last_visited_frame(0)
+    , is_wobbly(_is_wobbly)
 {
 
 }
@@ -52,6 +53,9 @@ void WobblyProject::writeProject(const std::string &path) {
 
 
     json_project.insert("zoom", zoom);
+
+
+    json_project.insert("last visited frame", last_visited_frame);
 
 
     QJsonArray json_trims;
@@ -229,6 +233,9 @@ void WobblyProject::readProject(const std::string &path) {
 
 
     zoom = (int)json_project["zoom"].toDouble(1);
+
+
+    last_visited_frame = (int)json_project["last visited frame"].toDouble(0);
 
 
     num_frames[PostSource] = 0;
@@ -819,6 +826,16 @@ void WobblyProject::setZoom(int ratio) {
         throw WobblyException("Can't set zoom to ratio " + std::to_string(ratio) + ": invalid value.");
 
     zoom = ratio;
+}
+
+
+int WobblyProject::getLastVisitedFrame() {
+    return last_visited_frame;
+}
+
+
+void WobblyProject::setLastVisitedFrame(int frame) {
+    last_visited_frame = frame;
 }
 
 

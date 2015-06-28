@@ -857,6 +857,8 @@ void WobblyWindow::openProject() {
                 delete project;
             project = tmp;
 
+            current_frame = project->getLastVisitedFrame();
+
             initialiseUIFromProject();
 
             vsscript_clearOutput(vsscript, 1);
@@ -880,6 +882,8 @@ void WobblyWindow::realSaveProject(const QString &path) {
     // The currently selected preset might not have been stored in the project yet.
     if (preset_combo->currentIndex() != -1)
         project->setPresetContents(preset_combo->currentText().toStdString(), preset_edit->toPlainText().toStdString());
+
+    project->setLastVisitedFrame(current_frame);
 
     project->writeProject(path.toStdString());
 

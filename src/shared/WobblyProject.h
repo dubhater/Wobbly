@@ -197,6 +197,7 @@ class WobblyProject {
         int height;
 
         int zoom;
+        int last_visited_frame;
 
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
@@ -296,6 +297,10 @@ class WobblyProject {
 
         int getZoom();
         void setZoom(int ratio);
+
+
+        int getLastVisitedFrame();
+        void setLastVisitedFrame(int frame);
 
 
         std::string frameToTime(int frame);
