@@ -181,6 +181,8 @@ public slots:
 
     void zoomIn();
     void zoomOut();
+
+    void closeActiveDockWidget();
 };
 
 #endif // WOBBLYWINDOW_H

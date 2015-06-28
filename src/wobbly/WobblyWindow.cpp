@@ -144,6 +144,7 @@ void WobblyWindow::createShortcuts() {
         { "Ctrl+P", &WobblyWindow::togglePreview },
         { "Ctrl++", &WobblyWindow::zoomIn },
         { "Ctrl+-", &WobblyWindow::zoomOut },
+        { "Escape", &WobblyWindow::closeActiveDockWidget },
         { nullptr, nullptr }
     };
 
@@ -1614,4 +1615,12 @@ void WobblyWindow::zoomIn() {
 
 void WobblyWindow::zoomOut() {
     zoom(false);
+}
+
+
+void WobblyWindow::closeActiveDockWidget() {
+    QWidget *active_window = QApplication::activeWindow();
+
+    if (active_window != this)
+        active_window->hide();
 }
