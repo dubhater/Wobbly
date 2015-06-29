@@ -1494,19 +1494,27 @@ void WobblyWindow::presetNew() {
     if (!project)
         return;
 
-    QString preset_name = QInputDialog::getText(this, QStringLiteral("New preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."));
+    bool ok = false;
+    QString preset_name;
 
-    if (!preset_name.isEmpty()) {
-        try {
-            project->addPreset(preset_name.toStdString());
+    while (!ok) {
+        preset_name = QInputDialog::getText(this, QStringLiteral("New preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."), QLineEdit::Normal, preset_name);
 
-            preset_combo->addItem(preset_name);
-            preset_combo->setCurrentText(preset_name);
+        if (!preset_name.isEmpty()) {
+            try {
+                project->addPreset(preset_name.toStdString());
 
-            presetChanged(preset_name);
-        } catch (WobblyException &e) {
-            errorPopup(e.what());
-        }
+                preset_combo->addItem(preset_name);
+                preset_combo->setCurrentText(preset_name);
+
+                presetChanged(preset_name);
+
+                ok = true;
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+            }
+        } else
+            ok = true;
     }
 }
 
@@ -1518,22 +1526,30 @@ void WobblyWindow::presetRename() {
     if (preset_combo->currentIndex() == -1)
         return;
 
-    QString preset_name = QInputDialog::getText(this, QStringLiteral("Rename preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."), QLineEdit::Normal, preset_combo->currentText());
+    bool ok = false;
+    QString preset_name = preset_combo->currentText();
 
-    if (!preset_name.isEmpty() && preset_name != preset_combo->currentText()) {
-        try {
-            project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
+    while (!ok) {
+        preset_name = QInputDialog::getText(this, QStringLiteral("Rename preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."), QLineEdit::Normal, preset_name);
 
-            preset_combo->setItemText(preset_combo->currentIndex(), preset_name);
+        if (!preset_name.isEmpty() && preset_name != preset_combo->currentText()) {
+            try {
+                project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
 
-            //presetChanged(preset_name);
+                preset_combo->setItemText(preset_combo->currentIndex(), preset_name);
+                preset_list->item(preset_combo->currentIndex())->setText(preset_name);
 
-            // If the preset's name was displayed in other places, update them.
-        } catch (WobblyException &e) {
-            errorPopup(e.what());
-        }
+                initialiseSectionsList();
+
+                updateFrameDetails();
+
+                ok = true;
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+            }
+        } else
+            ok = true;
     }
-
 }
 
 
