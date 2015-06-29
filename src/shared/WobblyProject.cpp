@@ -52,10 +52,10 @@ void WobblyProject::writeProject(const std::string &path) {
     json_project.insert("input resolution", json_resolution);
 
 
-    json_project.insert("zoom", zoom);
-
-
-    json_project.insert("last visited frame", last_visited_frame);
+    QJsonObject json_ui;
+    json_ui.insert("zoom", zoom);
+    json_ui.insert("last visited frame", last_visited_frame);
+    json_project.insert("user interface", json_ui);
 
 
     QJsonArray json_trims;
@@ -249,10 +249,9 @@ void WobblyProject::readProject(const std::string &path) {
     height = (int)json_project["input resolution"].toArray()[1].toDouble();
 
 
-    zoom = (int)json_project["zoom"].toDouble(1);
-
-
-    last_visited_frame = (int)json_project["last visited frame"].toDouble(0);
+    QJsonObject json_ui = json_project["user interface"].toObject();
+    zoom = (int)json_ui["zoom"].toDouble(1);
+    last_visited_frame = (int)json_ui["last visited frame"].toDouble(0);
 
 
     num_frames[PostSource] = 0;
