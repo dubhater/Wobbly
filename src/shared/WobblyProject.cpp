@@ -207,15 +207,32 @@ void WobblyProject::readProject(const std::string &path) {
     QFile file(QString::fromStdString(path));
 
     if (!file.open(QIODevice::ReadOnly))
-        throw WobblyException("Couldn't open project file. Error message: " + file.errorString());
+        throw WobblyException("Couldn't open project file '" + path + "'. Error message: " + file.errorString().toStdString());
 
     project_path = path;
 
     QByteArray data = file.readAll();
 
     QJsonDocument json_doc(QJsonDocument::fromJson(data));
+    if (json_doc.isNull())
+        throw WobblyException("Couldn't open project file '" + path + "': file is not a valid JSON document.");
+    if (!json_doc.isObject())
+        throw WobblyException("Couldn't open project file '" + path + "': file is not a valid Wobbly project.");
 
     QJsonObject json_project = json_doc.object();
+
+
+    const char *required_keys[] = {
+        "input file",
+        "input frame rate",
+        "input resolution",
+        "trim",
+        nullptr
+    };
+
+    for (int i = 0; required_keys[i]; i++)
+        if (!json_project.contains(required_keys[i]))
+            throw WobblyException("Couldn't open project file '" + path + "': project is missing JSON key '" + required_keys[i] + "'.");
 
 
     //int version = (int)json_project["wibbly wobbly version"].toDouble();
