@@ -198,6 +198,8 @@ class WobblyProject {
 
         int zoom;
         int last_visited_frame;
+        std::string ui_state;
+        std::string ui_geometry;
 
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
@@ -301,6 +303,14 @@ class WobblyProject {
 
         int getLastVisitedFrame();
         void setLastVisitedFrame(int frame);
+
+
+        std::string getUIState();
+        void setUIState(const std::string &state);
+
+
+        std::string getUIGeometry();
+        void setUIGeometry(const std::string &geometry);
 
 
         std::string frameToTime(int frame);

@@ -55,6 +55,8 @@ void WobblyProject::writeProject(const std::string &path) {
     QJsonObject json_ui;
     json_ui.insert("zoom", zoom);
     json_ui.insert("last visited frame", last_visited_frame);
+    json_ui.insert("geometry", QString::fromStdString(ui_geometry));
+    json_ui.insert("state", QString::fromStdString(ui_state));
     json_project.insert("user interface", json_ui);
 
 
@@ -252,6 +254,8 @@ void WobblyProject::readProject(const std::string &path) {
     QJsonObject json_ui = json_project["user interface"].toObject();
     zoom = (int)json_ui["zoom"].toDouble(1);
     last_visited_frame = (int)json_ui["last visited frame"].toDouble(0);
+    ui_state = json_ui["state"].toString().toStdString();
+    ui_geometry = json_ui["geometry"].toString().toStdString();
 
 
     num_frames[PostSource] = 0;
@@ -852,6 +856,26 @@ int WobblyProject::getLastVisitedFrame() {
 
 void WobblyProject::setLastVisitedFrame(int frame) {
     last_visited_frame = frame;
+}
+
+
+std::string WobblyProject::getUIState() {
+    return ui_state;
+}
+
+
+void WobblyProject::setUIState(const std::string &state) {
+    ui_state = state;
+}
+
+
+std::string WobblyProject::getUIGeometry() {
+    return ui_geometry;
+}
+
+
+void WobblyProject::setUIGeometry(const std::string &geometry) {
+    ui_geometry = geometry;
 }
 
 

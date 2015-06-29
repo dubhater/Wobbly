@@ -184,6 +184,7 @@ void WobblyWindow::createFrameDetailsViewer() {
     details_widget->setLayout(vbox);
 
     DockWidget *details_dock = new DockWidget("Frame details", this);
+    details_dock->setObjectName("frame details");
     details_dock->setFloating(false);
     details_dock->setWidget(details_widget);
     addDockWidget(Qt::LeftDockWidgetArea, details_dock);
@@ -258,6 +259,7 @@ void WobblyWindow::createCropAssistant() {
     crop_widget->setLayout(vbox);
 
     crop_dock = new DockWidget("Cropping/Resizing", this);
+    crop_dock->setObjectName("crop assistant");
     crop_dock->setVisible(false);
     crop_dock->setFloating(true);
     crop_dock->setWidget(crop_widget);
@@ -311,6 +313,7 @@ void WobblyWindow::createPresetEditor() {
 
 
     DockWidget *preset_dock = new DockWidget("Preset editor", this);
+    preset_dock->setObjectName("preset editor");
     preset_dock->setVisible(false);
     preset_dock->setFloating(true);
     preset_dock->setWidget(preset_widget);
@@ -345,6 +348,7 @@ void WobblyWindow::createPatternEditor() {
 
 
     DockWidget *pattern_dock = new DockWidget("Pattern editor", this);
+    pattern_dock->setObjectName("pattern editor");
     pattern_dock->setVisible(false);
     pattern_dock->setFloating(true);
     pattern_dock->setWidget(pattern_widget);
@@ -640,6 +644,7 @@ void WobblyWindow::createSectionsEditor() {
 
 
     DockWidget *sections_dock = new DockWidget("Sections editor", this);
+    sections_dock->setObjectName("sections editor");
     sections_dock->setVisible(false);
     sections_dock->setFloating(true);
     sections_dock->setWidget(sections_widget);
@@ -877,6 +882,13 @@ void WobblyWindow::openProject() {
 
             current_frame = project->getLastVisitedFrame();
 
+            const std::string &state = project->getUIState();
+            if (state.size())
+                restoreState(QByteArray::fromBase64(QByteArray(state.c_str(), state.size())));
+            const std::string &geometry = project->getUIGeometry();
+            if (geometry.size())
+                restoreGeometry(QByteArray::fromBase64(QByteArray(geometry.c_str(), geometry.size())));
+
             initialiseUIFromProject();
 
             vsscript_clearOutput(vsscript, 1);
@@ -902,6 +914,11 @@ void WobblyWindow::realSaveProject(const QString &path) {
         project->setPresetContents(preset_combo->currentText().toStdString(), preset_edit->toPlainText().toStdString());
 
     project->setLastVisitedFrame(current_frame);
+
+    const QByteArray &state = saveState().toBase64();
+    const QByteArray &geometry = saveGeometry().toBase64();
+    project->setUIState(std::string(state.constData(), state.size()));
+    project->setUIGeometry(std::string(geometry.constData(), geometry.size()));
 
     project->writeProject(path.toStdString());
 
