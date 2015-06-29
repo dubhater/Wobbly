@@ -10,12 +10,12 @@
 #include <QListWidget>
 #include <QMainWindow>
 #include <QSpinBox>
-#include <QTableWidget>
 
 #include <VapourSynth.h>
 #include <VSScript.h>
 
 #include "PresetTextEdit.h"
+#include "TableWidget.h"
 #include "WobblyProject.h"
 
 
@@ -60,7 +60,7 @@ private:
     QLineEdit *match_pattern_edit;
     QLineEdit *decimation_pattern_edit;
 
-    QTableWidget *sections_table;
+    TableWidget *sections_table;
     QGroupBox *short_sections_box;
     QSpinBox *short_sections_spin;
     QListWidget *section_presets_list;

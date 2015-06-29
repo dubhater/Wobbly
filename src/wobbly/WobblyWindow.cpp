@@ -133,10 +133,11 @@ void WobblyWindow::createShortcuts() {
         { "Ctrl+F", &WobblyWindow::freezeForward },
         { "Shift+F", &WobblyWindow::freezeBackward },
         { "F", &WobblyWindow::freezeRange },
-        { "Delete,F", &WobblyWindow::deleteFreezeFrame },
+        // Sequences starting with Delete prevent the sections table from receiving the key press event.
+        //{ "Delete,F", &WobblyWindow::deleteFreezeFrame },
         { "D", &WobblyWindow::toggleDecimation },
         { "I", &WobblyWindow::addSection },
-        { "Delete,I", &WobblyWindow::deleteSection },
+        //{ "Delete,I", &WobblyWindow::deleteSection },
         { "P", &WobblyWindow::toggleCombed },
         //{ "R", &WobblyWindow::resetRange },
         { "R,S", &WobblyWindow::resetSection },
@@ -356,7 +357,7 @@ void WobblyWindow::createPatternEditor() {
 
 
 void WobblyWindow::createSectionsEditor() {
-    sections_table = new QTableWidget(0, 2, this);
+    sections_table = new TableWidget(0, 2, this);
     sections_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     sections_table->setAlternatingRowColors(true);
     sections_table->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -391,7 +392,7 @@ void WobblyWindow::createSectionsEditor() {
     QPushButton *append_presets_button = new QPushButton("Append");
 
 
-    connect(sections_table, &QTableWidget::cellDoubleClicked, [this] (int row, int column) {
+    connect(sections_table, &TableWidget::cellDoubleClicked, [this] (int row, int column) {
         (void)column;
         QTableWidgetItem *item = sections_table->item(row, 0);
         bool ok;
@@ -400,7 +401,7 @@ void WobblyWindow::createSectionsEditor() {
             displayFrame(frame);
     });
 
-    connect(sections_table, &QTableWidget::currentCellChanged, [this] (int currentRow) {
+    connect(sections_table, &TableWidget::currentCellChanged, [this] (int currentRow) {
         if (currentRow < 0)
             return;
 
@@ -414,18 +415,26 @@ void WobblyWindow::createSectionsEditor() {
         }
     });
 
+    connect(sections_table, &TableWidget::deletePressed, delete_sections_button, &QPushButton::click);
+
     connect(delete_sections_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        auto selection = sections_table->selectedItems();
-        for (auto it = selection.cbegin(); it != selection.cend(); it++) {
-            if ((*it)->column() == 0) {
+        auto selection = sections_table->selectedRanges();
+
+        auto cmp = [] (const QTableWidgetSelectionRange &a, const QTableWidgetSelectionRange &b) -> bool {
+            return a.topRow() < b.topRow();
+        };
+        std::sort(selection.begin(), selection.end(), cmp);
+
+        for (int i = selection.size() - 1; i >= 0; i--) {
+            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
                 bool ok;
-                int frame = (*it)->text().toInt(&ok);
+                int frame = sections_table->item(j, 0)->text().toInt(&ok);
                 if (ok && frame != 0) {
                     project->deleteSection(frame);
-                    sections_table->removeRow((*it)->row());
+                    sections_table->removeRow(j);
                 }
             }
         }

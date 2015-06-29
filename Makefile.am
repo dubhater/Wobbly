@@ -17,6 +17,7 @@ moc_%.cpp : %.h
 bin_PROGRAMS = wobbly
 
 moc_files = src/wobbly/moc_PresetTextEdit.cpp \
+			src/wobbly/moc_TableWidget.cpp \
 			src/wobbly/moc_WobblyWindow.cpp
 
 
@@ -24,6 +25,8 @@ MOSTLYCLEANFILES = $(moc_files)
 
 wobbly_SOURCES = src/wobbly/PresetTextEdit.cpp \
 				 src/wobbly/PresetTextEdit.h \
+				 src/wobbly/TableWidget.cpp \
+				 src/wobbly/TableWidget.h \
 				 src/wobbly/Wobbly.cpp \
 				 src/wobbly/WobblyWindow.cpp \
 				 src/wobbly/WobblyWindow.h \
