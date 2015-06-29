@@ -14,6 +14,7 @@
 #include <VapourSynth.h>
 #include <VSScript.h>
 
+#include "DockWidget.h"
 #include "PresetTextEdit.h"
 #include "TableWidget.h"
 #include "WobblyProject.h"
@@ -48,7 +49,7 @@ private:
 
     QLabel *zoom_label;
 
-    QDockWidget *crop_dock;
+    DockWidget *crop_dock;
     QSpinBox *crop_spin[4];
     QGroupBox *crop_box;
     QSpinBox *resize_spin[2];

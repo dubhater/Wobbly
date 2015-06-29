@@ -1,6 +1,5 @@
 #include <QApplication>
 #include <QComboBox>
-#include <QDockWidget>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QMenuBar>
@@ -145,7 +144,6 @@ void WobblyWindow::createShortcuts() {
         { "Ctrl+P", &WobblyWindow::togglePreview },
         { "Ctrl++", &WobblyWindow::zoomIn },
         { "Ctrl+-", &WobblyWindow::zoomOut },
-        { "Escape", &WobblyWindow::closeActiveDockWidget },
         { nullptr, nullptr }
     };
 
@@ -185,7 +183,7 @@ void WobblyWindow::createFrameDetailsViewer() {
     QWidget *details_widget = new QWidget;
     details_widget->setLayout(vbox);
 
-    QDockWidget *details_dock = new QDockWidget("Frame details", this);
+    DockWidget *details_dock = new DockWidget("Frame details", this);
     details_dock->setFloating(false);
     details_dock->setWidget(details_widget);
     addDockWidget(Qt::LeftDockWidgetArea, details_dock);
@@ -259,14 +257,14 @@ void WobblyWindow::createCropAssistant() {
     QWidget *crop_widget = new QWidget;
     crop_widget->setLayout(vbox);
 
-    crop_dock = new QDockWidget("Cropping/Resizing", this);
+    crop_dock = new DockWidget("Cropping/Resizing", this);
     crop_dock->setVisible(false);
     crop_dock->setFloating(true);
     crop_dock->setWidget(crop_widget);
     addDockWidget(Qt::RightDockWidgetArea, crop_dock);
     tools_menu->addAction(crop_dock->toggleViewAction());
-    connect(crop_dock, &QDockWidget::visibilityChanged, crop_dock, &QDockWidget::setEnabled);
-    connect(crop_dock, &QDockWidget::visibilityChanged, [this] {
+    connect(crop_dock, &DockWidget::visibilityChanged, crop_dock, &DockWidget::setEnabled);
+    connect(crop_dock, &DockWidget::visibilityChanged, [this] {
         if (!project)
             return;
 
@@ -312,13 +310,13 @@ void WobblyWindow::createPresetEditor() {
     preset_widget->setLayout(vbox);
 
 
-    QDockWidget *preset_dock = new QDockWidget("Preset editor", this);
+    DockWidget *preset_dock = new DockWidget("Preset editor", this);
     preset_dock->setVisible(false);
     preset_dock->setFloating(true);
     preset_dock->setWidget(preset_widget);
     addDockWidget(Qt::RightDockWidgetArea, preset_dock);
     tools_menu->addAction(preset_dock->toggleViewAction());
-    connect(preset_dock, &QDockWidget::visibilityChanged, preset_dock, &QDockWidget::setEnabled);
+    connect(preset_dock, &DockWidget::visibilityChanged, preset_dock, &DockWidget::setEnabled);
 }
 
 
@@ -346,13 +344,13 @@ void WobblyWindow::createPatternEditor() {
     pattern_widget->setLayout(vbox);
 
 
-    QDockWidget *pattern_dock = new QDockWidget("Pattern editor", this);
+    DockWidget *pattern_dock = new DockWidget("Pattern editor", this);
     pattern_dock->setVisible(false);
     pattern_dock->setFloating(true);
     pattern_dock->setWidget(pattern_widget);
     addDockWidget(Qt::RightDockWidgetArea, pattern_dock);
     tools_menu->addAction(pattern_dock->toggleViewAction());
-    connect(pattern_dock, &QDockWidget::visibilityChanged, pattern_dock, &QDockWidget::setEnabled);
+    connect(pattern_dock, &DockWidget::visibilityChanged, pattern_dock, &DockWidget::setEnabled);
 }
 
 
@@ -641,13 +639,13 @@ void WobblyWindow::createSectionsEditor() {
     sections_widget->setLayout(hbox2);
 
 
-    QDockWidget *sections_dock = new QDockWidget("Sections editor", this);
+    DockWidget *sections_dock = new DockWidget("Sections editor", this);
     sections_dock->setVisible(false);
     sections_dock->setFloating(true);
     sections_dock->setWidget(sections_widget);
     addDockWidget(Qt::RightDockWidgetArea, sections_dock);
     tools_menu->addAction(sections_dock->toggleViewAction());
-    connect(sections_dock, &QDockWidget::visibilityChanged, sections_dock, &QDockWidget::setEnabled);
+    connect(sections_dock, &DockWidget::visibilityChanged, sections_dock, &DockWidget::setEnabled);
 }
 
 

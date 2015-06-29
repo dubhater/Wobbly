@@ -16,7 +16,8 @@ moc_%.cpp : %.h
 
 bin_PROGRAMS = wobbly
 
-moc_files = src/wobbly/moc_PresetTextEdit.cpp \
+moc_files = src/shared/moc_DockWidget.cpp \
+			src/wobbly/moc_PresetTextEdit.cpp \
 			src/wobbly/moc_TableWidget.cpp \
 			src/wobbly/moc_WobblyWindow.cpp
 
@@ -30,6 +31,8 @@ wobbly_SOURCES = src/wobbly/PresetTextEdit.cpp \
 				 src/wobbly/Wobbly.cpp \
 				 src/wobbly/WobblyWindow.cpp \
 				 src/wobbly/WobblyWindow.h \
+				 src/shared/DockWidget.cpp \
+				 src/shared/DockWidget.h \
 				 src/shared/WobblyProject.cpp \
 				 src/shared/WobblyProject.h \
 				 src/shared/WobblyException.h \
