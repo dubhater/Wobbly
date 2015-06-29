@@ -360,7 +360,12 @@ void WobblyWindow::createSectionsEditor() {
     sections_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     sections_table->setAlternatingRowColors(true);
     sections_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    // no tab navigation
+    sections_table->setHorizontalHeaderLabels({ "Start", "Presets" });
+    sections_table->setTabKeyNavigation(false);
+    sections_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    sections_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    sections_table->horizontalHeaderItem(0)->setTextAlignment(Qt::AlignLeft);
+    sections_table->horizontalHeaderItem(1)->setTextAlignment(Qt::AlignLeft);
 
     QPushButton *delete_sections_button = new QPushButton("Delete");
 
@@ -792,6 +797,8 @@ void WobblyWindow::initialiseSectionsList() {
 
         section = project->findNextSection(section->start);
     }
+
+    sections_table->resizeColumnsToContents();
 }
 
 
