@@ -120,6 +120,7 @@ private:
 
     void realSaveProject(const QString &path);
     void realSaveScript(const QString &path);
+    void realSaveTimecodes(const QString &path);
 
     void jumpRelative(int offset);
 
@@ -161,6 +162,8 @@ public slots:
     void saveProjectAs();
     void saveScript();
     void saveScriptAs();
+    void saveTimecodes();
+    void saveTimecodesAs();
 
     void cropChanged(int value);
     void cropToggled(bool checked);

@@ -1471,7 +1471,7 @@ std::string WobblyProject::generateTimecodesV1() {
             "Assume ";
 
     char buf[20] = { 0 };
-    sprintf(buf, "%.12f\n", 24000 / (double)1001);
+    snprintf(buf, sizeof(buf), "%.12f\n", 24000 / (double)1001);
 
     tc += buf;
 
@@ -1489,7 +1489,7 @@ std::string WobblyProject::generateTimecodesV1() {
 
             tc += std::to_string(frameNumberAfterDecimation(ranges[i].start)) + ",";
             tc += std::to_string(frameNumberAfterDecimation(end) - 1) + ",";
-            sprintf(buf, "%.12f\n", numerators[ranges[i].num_dropped] / (double)1001);
+            snprintf(buf, sizeof(buf), "%.12f\n", numerators[ranges[i].num_dropped] / (double)1001);
             char *comma = std::strchr(buf, ',');
             if (comma)
                 *comma = '.';

@@ -87,6 +87,8 @@ void WobblyWindow::createMenu() {
     QAction *projectSaveAs = new QAction("Save project &as", this);
     QAction *projectSaveScript = new QAction("Save script", this);
     QAction *projectSaveScriptAs = new QAction("Save script as", this);
+    QAction *projectSaveTimecodes = new QAction("Save timecodes", this);
+    QAction *projectSaveTimecodesAs = new QAction("Save timecodes as", this);
     QAction *projectQuit = new QAction("&Quit", this);
 
     projectOpen->setShortcut(QKeySequence::Open);
@@ -99,6 +101,8 @@ void WobblyWindow::createMenu() {
     connect(projectSaveAs, &QAction::triggered, this, &WobblyWindow::saveProjectAs);
     connect(projectSaveScript, &QAction::triggered, this, &WobblyWindow::saveScript);
     connect(projectSaveScriptAs, &QAction::triggered, this, &WobblyWindow::saveScriptAs);
+    connect(projectSaveTimecodes, &QAction::triggered, this, &WobblyWindow::saveTimecodes);
+    connect(projectSaveTimecodesAs, &QAction::triggered, this, &WobblyWindow::saveTimecodesAs);
     connect(projectQuit, &QAction::triggered, this, &QMainWindow::close);
 
     p->addAction(projectOpen);
@@ -106,6 +110,8 @@ void WobblyWindow::createMenu() {
     p->addAction(projectSaveAs);
     p->addAction(projectSaveScript);
     p->addAction(projectSaveScriptAs);
+    p->addAction(projectSaveTimecodes);
+    p->addAction(projectSaveTimecodesAs);
     p->addSeparator();
     p->addAction(projectQuit);
 
@@ -997,6 +1003,45 @@ void WobblyWindow::saveScriptAs() {
 
         if (!path.isNull())
             realSaveScript(path);
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
+}
+
+
+void WobblyWindow::realSaveTimecodes(const QString &path) {
+    std::string tc = project->generateTimecodesV1();
+
+    QFile file(path);
+
+    if (!file.open(QIODevice::WriteOnly))
+        throw WobblyException("Couldn't open timecodes file '" + path.toStdString() + "'. Error message: " + file.errorString().toStdString());
+
+    file.write(tc.c_str(), tc.size());
+}
+
+
+void WobblyWindow::saveTimecodes() {
+    try {
+        if (!project)
+            throw WobblyException("Can't save the timecodes because no project has been loaded.");
+
+        realSaveTimecodes(project_path + ".vfr.txt");
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
+}
+
+
+void WobblyWindow::saveTimecodesAs() {
+    try {
+        if (!project)
+            throw WobblyException("Can't save the timecodes because no project has been loaded.");
+
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save timecodes"), project_path + ".vfr.txt", QString(), nullptr, QFileDialog::DontUseNativeDialog);
+
+        if (!path.isNull())
+            realSaveTimecodes(path);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
