@@ -17,8 +17,16 @@
 
 
 WobblyProject::WobblyProject(bool _is_wobbly)
-    : last_visited_frame(0)
+    : num_frames{ 0, 0, 0 }
+    , fps_num(0)
+    , fps_den(0)
+    , width(0)
+    , height(0)
+    , zoom(1)
+    , last_visited_frame(0)
     , is_wobbly(_is_wobbly)
+    , resize{ false, 0, 0 }
+    , crop{ false, 0, 0, 0, 0 }
 {
 
 }
