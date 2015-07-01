@@ -64,15 +64,9 @@ struct Preset {
 struct Section {
     int start;
     std::vector<std::string> presets; // Preset names, in user-defined order.
-    int64_t fps_num;
-    int64_t fps_den;
-    int num_frames; // If the presets don't change the frame count, this is the same as the original number of frames. Or -1?
 
-    Section(int _start, int64_t _fps_num = 0, int64_t _fps_den = 0, int _num_frames = 0)
+    Section(int _start)
         : start(_start)
-        , fps_num(_fps_num)
-        , fps_den(_fps_den)
-        , num_frames(_num_frames)
     { }
 };
 

@@ -143,9 +143,6 @@ void WobblyProject::writeProject(const std::string &path) {
         for (size_t i = 0; i < it->second.presets.size(); i++)
             json_presets.append(QString::fromStdString(it->second.presets[i]));
         json_section.insert("presets", json_presets);
-        json_section.insert("fps_num", (qint64)it->second.fps_num);
-        json_section.insert("fps_den", (qint64)it->second.fps_den);
-        json_section.insert("num_frames", it->second.num_frames);
 
         json_sections.append(json_section);
     }
@@ -373,10 +370,7 @@ void WobblyProject::readProject(const std::string &path) {
     for (int j = 0; j < json_sections.size(); j++) {
         QJsonObject json_section = json_sections[j].toObject();
         int section_start = (int)json_section["start"].toDouble();
-        int section_fps_num = (int)json_section["fps_num"].toDouble();
-        int section_fps_den = (int)json_section["fps_den"].toDouble();
-        int section_num_frames = (int)json_section["num_frames"].toDouble();
-        Section section(section_start, section_fps_num, section_fps_den, section_num_frames);
+        Section section(section_start);
         json_presets = json_section["presets"].toArray();
         section.presets.resize(json_presets.size());
         for (int k = 0; k < json_presets.size(); k++)
