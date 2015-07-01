@@ -260,8 +260,9 @@ class WobblyProject {
         const std::array<int16_t, 5> &getMics(int frame);
 
 
-        char &getMatch(int frame);
+        char getMatch(int frame);
         void setMatch(int frame, char match);
+        void cycleMatchPCN(int frame);
 
 
         void addSection(int section_start);

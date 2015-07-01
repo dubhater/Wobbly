@@ -1363,23 +1363,7 @@ void WobblyWindow::cycleMatchPCN() {
     if (!project)
         return;
 
-    // N -> C -> P. This is the order Yatta uses, so we use it.
-
-    char &match = project->getMatch(current_frame);
-
-    if (match == 'n')
-        match = 'c';
-    else if (match == 'c') {
-        if (current_frame == 0)
-            match = 'n';
-        else
-            match = 'p';
-    } else if (match == 'p') {
-        if (current_frame == project->getNumFrames(PostSource) - 1)
-            match = 'c';
-        else
-            match = 'n';
-    }
+    project->cycleMatchPCN(current_frame);
 
     evaluateMainDisplayScript();
 }

@@ -579,12 +579,35 @@ const std::array<int16_t, 5> &WobblyProject::getMics(int frame) {
 }
 
 
-char &WobblyProject::getMatch(int frame) {
+char WobblyProject::getMatch(int frame) {
     return matches[frame];
 }
 
 
 void WobblyProject::setMatch(int frame, char match) {
+    matches[frame] = match;
+}
+
+
+void WobblyProject::cycleMatchPCN(int frame) {
+    // N -> C -> P. This is the order Yatta uses, so we use it.
+
+    char match = matches[frame];
+
+    if (match == 'n')
+        match = 'c';
+    else if (match == 'c') {
+        if (frame == 0)
+            match = 'n';
+        else
+            match = 'p';
+    } else if (match == 'p') {
+        if (frame == getNumFrames(PostSource) - 1)
+            match = 'c';
+        else
+            match = 'n';
+    }
+
     matches[frame] = match;
 }
 
