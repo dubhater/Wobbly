@@ -186,7 +186,7 @@ enum DropDuplicate {
 
 
 class WobblyProject {
-    public:
+    private:
         std::string project_path;
         int num_frames[3];
 
@@ -226,10 +226,17 @@ class WobblyProject {
         Resize resize;
         Crop crop;
 
-
         // Only functions below.
 
+        bool isNameSafeForPython(const std::string &name);
+        int maybeTranslate(int frame, bool is_end, PositionInFilterChain position);
+
+    public:
         WobblyProject(bool _is_wobbly);
+
+        const std::string &getProjectPath();
+
+        int getNumFrames(PositionInFilterChain position);
 
         void writeProject(const std::string &path);
         void readProject(const std::string &path);
@@ -250,6 +257,10 @@ class WobblyProject {
         void assignPresetToSection(const std::string &preset_name, int section_start);
 
 
+        const std::array<int16_t, 5> &getMics(int frame);
+
+
+        char &getMatch(int frame);
         void setMatch(int frame, char match);
 
 
@@ -267,10 +278,14 @@ class WobblyProject {
         void resetRangeMatches(int start, int end);
 
 
+        const std::vector<CustomList> &getCustomLists();
         void addCustomList(const std::string &list_name);
         void addCustomList(const CustomList &list);
         void deleteCustomList(const std::string &list_name);
         void deleteCustomList(int list_index);
+
+
+        int getDecimateMetric(int frame);
 
 
         void addDecimatedFrame(int frame);
@@ -288,10 +303,12 @@ class WobblyProject {
         bool isCombedFrame(int frame);
 
 
+        const Resize &getResize();
         void setResize(int new_width, int new_height);
         void setResizeEnabled(bool enabled);
         bool isResizeEnabled();
 
+        const Crop &getCrop();
         void setCrop(int left, int top, int right, int bottom);
         void setCropEnabled(bool enabled);
         bool isCropEnabled();
@@ -342,10 +359,6 @@ class WobblyProject {
         std::string generateMainDisplayScript(bool show_crop);
 
         std::string generateTimecodesV1();
-
-    private:
-        bool isNameSafeForPython(const std::string &name);
-        int maybeTranslate(int frame, bool is_end, PositionInFilterChain position);
 };
 
 #endif // WOBBLYPROJECT_H

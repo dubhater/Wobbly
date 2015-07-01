@@ -32,6 +32,16 @@ WobblyProject::WobblyProject(bool _is_wobbly)
 }
 
 
+const std::string &WobblyProject::getProjectPath() {
+    return project_path;
+}
+
+
+int WobblyProject::getNumFrames(PositionInFilterChain position) {
+    return num_frames[position];
+}
+
+
 void WobblyProject::writeProject(const std::string &path) {
     QFile file(QString::fromStdString(path));
 
@@ -564,6 +574,16 @@ void WobblyProject::assignPresetToSection(const std::string &preset_name, int se
 }
 
 
+const std::array<int16_t, 5> &WobblyProject::getMics(int frame) {
+    return mics[frame];
+}
+
+
+char &WobblyProject::getMatch(int frame) {
+    return matches[frame];
+}
+
+
 void WobblyProject::setMatch(int frame, char match) {
     matches[frame] = match;
 }
@@ -655,6 +675,11 @@ void WobblyProject::resetSectionMatches(int section_start) {
 }
 
 
+const std::vector<CustomList> &WobblyProject::getCustomLists() {
+    return custom_lists;
+}
+
+
 void WobblyProject::addCustomList(const std::string &list_name) {
     CustomList list(list_name);
     addCustomList(list);
@@ -692,6 +717,11 @@ void WobblyProject::deleteCustomList(int list_index) {
         throw WobblyException("Can't delete custom list with index " + std::to_string(list_index) + ": index out of range.");
 
     custom_lists.erase(custom_lists.cbegin() + list_index);
+}
+
+
+int WobblyProject::getDecimateMetric(int frame) {
+    return decimate_metrics[frame];
 }
 
 
@@ -804,6 +834,11 @@ bool WobblyProject::isCombedFrame(int frame) {
 }
 
 
+const Resize &WobblyProject::getResize() {
+    return resize;
+}
+
+
 void WobblyProject::setResize(int new_width, int new_height) {
     if (new_width <= 0 || new_height <= 0)
         throw WobblyException("Can't resize to " + std::to_string(new_width) + "x" + std::to_string(new_height) + ": dimensions must be positive.");
@@ -820,6 +855,11 @@ void WobblyProject::setResizeEnabled(bool enabled) {
 
 bool WobblyProject::isResizeEnabled() {
     return resize.enabled;
+}
+
+
+const Crop &WobblyProject::getCrop() {
+    return crop;
 }
 
 

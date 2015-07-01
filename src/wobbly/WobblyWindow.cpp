@@ -831,10 +831,11 @@ void WobblyWindow::initialiseUIFromProject() {
     for (int i = 0; i < 4; i++)
         crop_spin[i]->blockSignals(true);
 
-    crop_spin[0]->setValue(project->crop.left);
-    crop_spin[1]->setValue(project->crop.top);
-    crop_spin[2]->setValue(project->crop.right);
-    crop_spin[3]->setValue(project->crop.bottom);
+    const Crop &crop = project->getCrop();
+    crop_spin[0]->setValue(crop.left);
+    crop_spin[1]->setValue(crop.top);
+    crop_spin[2]->setValue(crop.right);
+    crop_spin[3]->setValue(crop.bottom);
 
     for (int i = 0; i < 4; i++)
         crop_spin[i]->blockSignals(false);
@@ -846,8 +847,9 @@ void WobblyWindow::initialiseUIFromProject() {
     for (int i = 0; i < 2; i++)
         resize_spin[i]->blockSignals(true);
 
-    resize_spin[0]->setValue(project->resize.width);
-    resize_spin[1]->setValue(project->resize.height);
+    const Resize &resize = project->getResize();
+    resize_spin[0]->setValue(resize.width);
+    resize_spin[1]->setValue(resize.height);
 
     for (int i = 0; i < 2; i++)
         resize_spin[i]->blockSignals(false);
@@ -862,9 +864,10 @@ void WobblyWindow::initialiseUIFromProject() {
     // Presets.
     preset_combo->clear();
     preset_list->clear();
-    for (auto it = project->presets.cbegin(); it != project->presets.cend(); it++) {
-        preset_combo->addItem(QString::fromStdString(it->second.name));
-        preset_list->addItem(QString::fromStdString(it->second.name));
+    const auto &presets = project->getPresets();
+    for (size_t i = 0; i < presets.size(); i++) {
+        preset_combo->addItem(QString::fromStdString(presets[i]));
+        preset_list->addItem(QString::fromStdString(presets[i]));
     }
 
     if (preset_combo->count()) {
@@ -1056,7 +1059,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
     else
         script = project->generateMainDisplayScript(crop_dock->isVisible());
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->project_path.c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->getProjectPath().c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
@@ -1094,8 +1097,8 @@ void WobblyWindow::displayFrame(int n) {
 
     if (n < 0)
         n = 0;
-    if (n >= project->num_frames[PostSource])
-        n = project->num_frames[PostSource] - 1;
+    if (n >= project->getNumFrames(PostSource))
+        n = project->getNumFrames(PostSource) - 1;
 
     std::vector<char> error(1024);
     const VSFrameRef *frame = vsapi->getFrame(preview ? project->frameNumberAfterDecimation(n): n, vsnode[(int)preview], error.data(), 1024);
@@ -1152,11 +1155,11 @@ void WobblyWindow::updateFrameDetails() {
 
 
     int matches_start = std::max(0, current_frame - 10);
-    int matches_end = std::min(current_frame + 10, project->num_frames[PostSource] - 1);
+    int matches_end = std::min(current_frame + 10, project->getNumFrames(PostSource) - 1);
 
     QString matches("Matches: ");
     for (int i = matches_start; i <= matches_end; i++) {
-        char match = project->matches[i];
+        char match = project->getMatch(i);
 
         bool is_decimated = project->isDecimatedFrame(i);
 
@@ -1185,16 +1188,16 @@ void WobblyWindow::updateFrameDetails() {
         combed_label->clear();
 
 
-    decimate_metric_label->setText(QStringLiteral("DMetric: ") + QString::number(project->decimate_metrics[current_frame]));
+    decimate_metric_label->setText(QStringLiteral("DMetric: ") + QString::number(project->getDecimateMetric(current_frame)));
 
 
-    int match_index = matchCharToIndex(project->matches[current_frame]);
+    int match_index = matchCharToIndex(project->getMatch(current_frame));
     QString mics("Mics: ");
     for (int i = 0; i < 5; i++) {
         if (i == match_index)
             mics += "<b>";
 
-        mics += QStringLiteral("%1 ").arg((int)project->mics[current_frame][i]);
+        mics += QStringLiteral("%1 ").arg((int)project->getMics(current_frame)[i]);
 
         if (i == match_index)
             mics += "</b>";
@@ -1217,7 +1220,8 @@ void WobblyWindow::updateFrameDetails() {
 
 
     QString custom_lists;
-    for (auto it = project->custom_lists.cbegin(); it != project->custom_lists.cend(); it++) {
+    const std::vector<CustomList> &lists = project->getCustomLists();
+    for (auto it = lists.cbegin(); it != lists.cend(); it++) {
         const FrameRange *range = it->findFrameRange(current_frame);
         if (range)
             custom_lists += QStringLiteral("%1: [%2,%3]\n").arg(QString::fromStdString(it->name)).arg(range->first).arg(range->last);
@@ -1245,14 +1249,14 @@ void WobblyWindow::jumpRelative(int offset) {
 
     if (target < 0)
         target = 0;
-    if (target >= project->num_frames[PostSource])
-        target = project->num_frames[PostSource] - 1;
+    if (target >= project->getNumFrames(PostSource))
+        target = project->getNumFrames(PostSource) - 1;
 
     if (preview) {
         int skip = offset < 0 ? -1 : 1;
 
         while (true) {
-            if (target == 0 || target == project->num_frames[PostSource] - 1)
+            if (target == 0 || target == project->getNumFrames(PostSource) - 1)
                 skip = -skip;
 
             if (!project->isDecimatedFrame(target))
@@ -1300,7 +1304,7 @@ void WobblyWindow::jumpALotBackward() {
     if (!project)
         return;
 
-    int twenty_percent = project->num_frames[PostSource] * 20 / 100;
+    int twenty_percent = project->getNumFrames(PostSource) * 20 / 100;
 
     jumpRelative(-twenty_percent);
 }
@@ -1310,7 +1314,7 @@ void WobblyWindow::jumpALotForward() {
     if (!project)
         return;
 
-    int twenty_percent = project->num_frames[PostSource] * 20 / 100;
+    int twenty_percent = project->getNumFrames(PostSource) * 20 / 100;
 
     jumpRelative(twenty_percent);
 }
@@ -1325,7 +1329,7 @@ void WobblyWindow::jumpToEnd() {
     if (!project)
         return;
 
-    jumpRelative(project->num_frames[PostSource] - current_frame);
+    jumpRelative(project->getNumFrames(PostSource) - current_frame);
 }
 
 
@@ -1361,7 +1365,7 @@ void WobblyWindow::cycleMatchPCN() {
 
     // N -> C -> P. This is the order Yatta uses, so we use it.
 
-    char &match = project->matches[current_frame];
+    char &match = project->getMatch(current_frame);
 
     if (match == 'n')
         match = 'c';
@@ -1371,7 +1375,7 @@ void WobblyWindow::cycleMatchPCN() {
         else
             match = 'p';
     } else if (match == 'p') {
-        if (current_frame == project->num_frames[PostSource] - 1)
+        if (current_frame == project->getNumFrames(PostSource) - 1)
             match = 'c';
         else
             match = 'n';
@@ -1385,7 +1389,7 @@ void WobblyWindow::freezeForward() {
     if (!project)
         return;
 
-    if (current_frame == project->num_frames[PostSource] - 1)
+    if (current_frame == project->getNumFrames(PostSource) - 1)
         return;
 
     try {
