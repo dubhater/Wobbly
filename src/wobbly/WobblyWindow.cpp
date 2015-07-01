@@ -84,7 +84,9 @@ void WobblyWindow::createMenu() {
 
     QAction *projectOpen = new QAction("&Open project", this);
     QAction *projectSave = new QAction("&Save project", this);
-    QAction *projectSaveAs = new QAction("&Save project as", this);
+    QAction *projectSaveAs = new QAction("Save project &as", this);
+    QAction *projectSaveScript = new QAction("Save script", this);
+    QAction *projectSaveScriptAs = new QAction("Save script as", this);
     QAction *projectQuit = new QAction("&Quit", this);
 
     projectOpen->setShortcut(QKeySequence::Open);
@@ -95,11 +97,15 @@ void WobblyWindow::createMenu() {
     connect(projectOpen, &QAction::triggered, this, &WobblyWindow::openProject);
     connect(projectSave, &QAction::triggered, this, &WobblyWindow::saveProject);
     connect(projectSaveAs, &QAction::triggered, this, &WobblyWindow::saveProjectAs);
-    connect(projectQuit, &QAction::triggered, this, &QWidget::close);
+    connect(projectSaveScript, &QAction::triggered, this, &WobblyWindow::saveScript);
+    connect(projectSaveScriptAs, &QAction::triggered, this, &WobblyWindow::saveScriptAs);
+    connect(projectQuit, &QAction::triggered, this, &QMainWindow::close);
 
     p->addAction(projectOpen);
     p->addAction(projectSave);
     p->addAction(projectSaveAs);
+    p->addAction(projectSaveScript);
+    p->addAction(projectSaveScriptAs);
     p->addSeparator();
     p->addAction(projectQuit);
 
@@ -910,8 +916,7 @@ void WobblyWindow::realSaveProject(const QString &path) {
         return;
 
     // The currently selected preset might not have been stored in the project yet.
-    if (preset_combo->currentIndex() != -1)
-        project->setPresetContents(preset_combo->currentText().toStdString(), preset_edit->toPlainText().toStdString());
+    presetEdited();
 
     project->setLastVisitedFrame(current_frame);
 
@@ -950,6 +955,48 @@ void WobblyWindow::saveProjectAs() {
 
         if (!path.isNull())
             realSaveProject(path);
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
+}
+
+
+void WobblyWindow::realSaveScript(const QString &path) {
+    // The currently selected preset might not have been stored in the project yet.
+    presetEdited();
+
+    std::string script = project->generateFinalScript(false);
+
+    QFile file(path);
+
+    if (!file.open(QIODevice::WriteOnly))
+        throw WobblyException("Couldn't open script '" + path.toStdString() + "'. Error message: " + file.errorString().toStdString());
+
+    file.write(script.c_str(), script.size());
+}
+
+
+void WobblyWindow::saveScript() {
+    try {
+        if (!project)
+            throw WobblyException("Can't save the script because no project has been loaded.");
+
+        realSaveScript(project_path + ".py");
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
+}
+
+
+void WobblyWindow::saveScriptAs() {
+    try {
+        if (!project)
+            throw WobblyException("Can't save the script because no project has been loaded.");
+
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save script"), project_path + ".py", QString(), nullptr, QFileDialog::DontUseNativeDialog);
+
+        if (!path.isNull())
+            realSaveScript(path);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }

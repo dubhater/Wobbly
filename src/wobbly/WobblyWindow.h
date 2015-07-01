@@ -119,6 +119,7 @@ private:
     void closeEvent(QCloseEvent *event);
 
     void realSaveProject(const QString &path);
+    void realSaveScript(const QString &path);
 
     void jumpRelative(int offset);
 
@@ -158,6 +159,8 @@ public slots:
     void openProject();
     void saveProject();
     void saveProjectAs();
+    void saveScript();
+    void saveScriptAs();
 
     void cropChanged(int value);
     void cropToggled(bool checked);
