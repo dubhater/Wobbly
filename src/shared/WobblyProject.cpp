@@ -52,7 +52,7 @@ void WobblyProject::writeProject(const std::string &path) {
 
     QJsonObject json_project;
 
-    json_project.insert("wibbly wobbly version", 42); // XXX use real version
+    json_project.insert("wobbly version", PACKAGE_VERSION);
 
 
     json_project.insert("input file", QString::fromStdString(input_file));
@@ -252,7 +252,7 @@ void WobblyProject::readProject(const std::string &path) {
             throw WobblyException("Couldn't open project file '" + path + "': project is missing JSON key '" + required_keys[i] + "'.");
 
 
-    //int version = (int)json_project["wibbly wobbly version"].toDouble();
+    //int version = (int)json_project["wobbly version"].toDouble();
 
 
     input_file = json_project["input file"].toString().toStdString();

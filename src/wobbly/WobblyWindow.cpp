@@ -670,7 +670,7 @@ void WobblyWindow::createUI() {
     createMenu();
     createShortcuts();
 
-    setWindowTitle(QStringLiteral("Wobbly IVTC Assistant"));
+    setWindowTitle(QStringLiteral("Wobbly IVTC Assistant v%1").arg(PACKAGE_VERSION));
 
     statusBar()->setSizeGripEnabled(true);
 
