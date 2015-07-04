@@ -498,6 +498,9 @@ void WobblyProject::addPreset(const std::string &preset_name, const std::string 
 }
 
 void WobblyProject::renamePreset(const std::string &old_name, const std::string &new_name) {
+    if (old_name == new_name)
+        return;
+
     if (!presets.count(old_name))
         throw WobblyException("Can't rename preset '" + old_name + "' to '" + new_name + "': no such preset.");
 
@@ -561,12 +564,6 @@ void WobblyProject::setPresetContents(const std::string &preset_name, const std:
     Preset &preset = presets.at(preset_name);
     preset.contents = preset_contents;
 }
-
-void WobblyProject::assignPresetToSection(const std::string &preset_name, int section_start) {
-    // The user may want to assign the same preset twice.
-    sections.at(section_start).presets.push_back(preset_name);
-}
-
 
 const std::array<int16_t, 5> &WobblyProject::getMics(int frame) {
     return mics[frame];
@@ -647,6 +644,11 @@ int WobblyProject::getSectionEnd(int frame) {
         return num_frames[PostSource];
 }
 
+void WobblyProject::setSectionPreset(int section_start, const std::string &preset_name) {
+    // The user may want to assign the same preset twice.
+    sections.at(section_start).presets.push_back(preset_name);
+}
+
 void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
     int section_end = getSectionEnd(section_start);
 
@@ -719,6 +721,31 @@ void WobblyProject::addCustomList(const CustomList &list) {
     custom_lists.push_back(list);
 }
 
+void WobblyProject::renameCustomList(const std::string &old_name, const std::string &new_name) {
+    if (old_name == new_name)
+        return;
+
+    size_t index = custom_lists.size();
+
+    for (size_t i = 0; i < custom_lists.size(); i++)
+        if (custom_lists[i].name == old_name) {
+            index = i;
+            break;
+        }
+
+    if (index == custom_lists.size())
+        throw WobblyException("Can't rename custom list '" + old_name + "': no such list.");
+
+    for (size_t i = 0; i < custom_lists.size(); i++)
+        if (custom_lists[i].name == new_name)
+            throw WobblyException("Can't rename custom list '" + old_name + "' to '" + new_name + "': new name is already in use.");
+
+    if (!isNameSafeForPython(new_name))
+        throw WobblyException("Can't rename custom list '" + old_name + "' to '" + new_name + "': new name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
+
+    custom_lists[index].name = new_name;
+}
+
 void WobblyProject::deleteCustomList(const std::string &list_name) {
     for (size_t i = 0; i < custom_lists.size(); i++)
         if (custom_lists[i].name == list_name) {
@@ -734,6 +761,78 @@ void WobblyProject::deleteCustomList(int list_index) {
         throw WobblyException("Can't delete custom list with index " + std::to_string(list_index) + ": index out of range.");
 
     custom_lists.erase(custom_lists.cbegin() + list_index);
+}
+
+
+void WobblyProject::moveCustomListUp(int list_index) {
+    if (list_index < 0 || list_index >= (int)custom_lists.size())
+        throw WobblyException("Can't move up custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    if (list_index == 0)
+        return;
+
+    std::swap(custom_lists[list_index - 1], custom_lists[list_index]);
+}
+
+
+void WobblyProject::moveCustomListDown(int list_index) {
+    if (list_index < 0 || list_index >= (int)custom_lists.size())
+        throw WobblyException("Can't move down custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    if (list_index == (int)custom_lists.size() - 1)
+        return;
+
+    std::swap(custom_lists[list_index], custom_lists[list_index + 1]);
+}
+
+
+void WobblyProject::setCustomListPreset(int list_index, const std::string &preset_name) {
+    if (list_index < 0 || list_index >= (int)custom_lists.size())
+        throw WobblyException("Can't assign preset '" + preset_name + "' to custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    if (!presets.count(preset_name))
+        throw WobblyException("Can't assign preset '" + preset_name + "' to custom list '" + custom_lists[list_index].name + "': no such preset.");
+
+    custom_lists[list_index].preset = preset_name;
+}
+
+
+void WobblyProject::setCustomListPosition(int list_index, PositionInFilterChain position) {
+    if (list_index < 0 || list_index >= (int)custom_lists.size())
+        throw WobblyException("Can't set the position of the custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    if (position < 0 || position > 2)
+        throw WobblyException("Can't put custom list '" + custom_lists[list_index].name + "' in position " + std::to_string(position) + ": position out of range.");
+
+    custom_lists[list_index].position = position;
+}
+
+
+void WobblyProject::addCustomListRange(int list_index, int first, int last) {
+    if (list_index < 0 || list_index >= (int)custom_lists.size())
+        throw WobblyException("Can't add a new range to custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    if (first < 0 || first >= getNumFrames(PostSource) ||
+        last < 0 || last >= getNumFrames(PostSource))
+        throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + custom_lists[list_index].name + "': values out of range.");
+
+    custom_lists[list_index].addFrameRange(first, last);
+}
+
+
+void WobblyProject::deleteCustomListRange(int list_index, int first) {
+    if (list_index < 0 || list_index >= (int)custom_lists.size())
+        throw WobblyException("Can't delete a range from custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    custom_lists[list_index].deleteFrameRange(first);
+}
+
+
+const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) {
+    if (list_index < 0 || list_index >= (int)custom_lists.size())
+        throw WobblyException("Can't find a range in custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    return custom_lists[list_index].findFrameRange(frame);
 }
 
 

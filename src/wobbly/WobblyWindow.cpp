@@ -1,10 +1,12 @@
 #include <QApplication>
+#include <QButtonGroup>
 #include <QComboBox>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QRegExpValidator>
 #include <QShortcut>
 #include <QSpinBox>
@@ -293,6 +295,7 @@ void WobblyWindow::createCropAssistant() {
 
 void WobblyWindow::createPresetEditor() {
     preset_combo = new QComboBox;
+    preset_combo->setModel(presets_model);
     connect(preset_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), this, &WobblyWindow::presetChanged);
 
     preset_edit = new PresetTextEdit;
@@ -379,8 +382,8 @@ void WobblyWindow::createSectionsEditor() {
     sections_table->setTabKeyNavigation(false);
     sections_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     sections_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-    sections_table->horizontalHeaderItem(0)->setTextAlignment(Qt::AlignLeft);
-    sections_table->horizontalHeaderItem(1)->setTextAlignment(Qt::AlignLeft);
+    for (int i = 0; i < sections_table->columnCount(); i++)
+        sections_table->horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
 
     QPushButton *delete_sections_button = new QPushButton("Delete");
 
@@ -393,14 +396,15 @@ void WobblyWindow::createSectionsEditor() {
     short_sections_spin->setPrefix(QStringLiteral("Maximum: "));
     short_sections_spin->setSuffix(QStringLiteral(" frames"));
 
-    section_presets_list = new QListWidget;
+    ListWidget *section_presets_list = new ListWidget;
     section_presets_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     QPushButton *move_preset_up_button = new QPushButton("Move up");
     QPushButton *move_preset_down_button = new QPushButton("Move down");
     QPushButton *remove_preset_button = new QPushButton("Remove");
 
-    preset_list = new QListWidget;
+    QListView *preset_list = new QListView;
+    preset_list->setModel(presets_model);
     preset_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     QPushButton *append_presets_button = new QPushButton("Append");
@@ -415,7 +419,7 @@ void WobblyWindow::createSectionsEditor() {
             displayFrame(frame);
     });
 
-    connect(sections_table, &TableWidget::currentCellChanged, [this] (int currentRow) {
+    connect(sections_table, &TableWidget::currentCellChanged, [this, section_presets_list] (int currentRow) {
         if (currentRow < 0)
             return;
 
@@ -462,7 +466,7 @@ void WobblyWindow::createSectionsEditor() {
 
         (void)checked;
 
-        initialiseSectionsList();
+        initialiseSectionsEditor();
     });
 
     connect(short_sections_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
@@ -471,10 +475,12 @@ void WobblyWindow::createSectionsEditor() {
 
         (void)value;
 
-        initialiseSectionsList();
+        initialiseSectionsEditor();
     });
 
-    connect(move_preset_up_button, &QPushButton::clicked, [this] () {
+    connect(section_presets_list, &ListWidget::deletePressed, remove_preset_button, &QPushButton::click);
+
+    connect(move_preset_up_button, &QPushButton::clicked, [this, section_presets_list] () {
         if (!project)
             return;
 
@@ -508,7 +514,7 @@ void WobblyWindow::createSectionsEditor() {
         }
     });
 
-    connect(move_preset_down_button, &QPushButton::clicked, [this] () {
+    connect(move_preset_down_button, &QPushButton::clicked, [this, section_presets_list] () {
         if (!project)
             return;
 
@@ -542,7 +548,7 @@ void WobblyWindow::createSectionsEditor() {
         }
     });
 
-    connect(remove_preset_button, &QPushButton::clicked, [this] () {
+    connect(remove_preset_button, &QPushButton::clicked, [this, section_presets_list] () {
         if (!project)
             return;
 
@@ -571,31 +577,35 @@ void WobblyWindow::createSectionsEditor() {
         }
     });
 
-    connect(append_presets_button, &QPushButton::clicked, [this] () {
+    connect(append_presets_button, &QPushButton::clicked, [this, section_presets_list, preset_list] () {
         if (!project)
             return;
 
-        auto selected_presets = preset_list->selectedItems();
+        auto selected_presets = preset_list->selectionModel()->selectedRows();
         auto selected_sections = sections_table->selectedItems();
 
         if (selected_presets.size()) {
+            QStringList presets = presets_model->stringList();
+
             for (auto section = selected_sections.cbegin(); section != selected_sections.cend(); section++)
-                for (auto preset = selected_presets.cbegin(); preset != selected_presets.cend(); preset++) {
+                for (auto model_index = selected_presets.cbegin(); model_index != selected_presets.cend(); model_index++) {
                     bool ok;
                     int frame = (*section)->text().toInt(&ok);
                     if (ok) {
-                        project->assignPresetToSection((*preset)->text().toStdString(), frame);
-                        section_presets_list->addItem((*preset)->text());
+                        const QString &preset = presets[model_index->row()];
+
+                        project->setSectionPreset(frame, preset.toStdString());
+                        section_presets_list->addItem(preset);
 
                         QTableWidgetItem *presets_item = sections_table->item((*section)->row(), 1);
                         if (!presets_item) {
                             presets_item = new QTableWidgetItem;
                             sections_table->setItem((*section)->row(), 1, presets_item);
                         }
-                        QString presets = presets_item->text();
-                        if (presets.size())
-                            presets += ",";
-                        presets_item->setText(presets + (*preset)->text());
+                        QString presets_text = presets_item->text();
+                        if (presets_text.size())
+                            presets_text += ",";
+                        presets_item->setText(presets_text + preset);
                     }
                 }
             if (selected_sections.size())
@@ -666,6 +676,388 @@ void WobblyWindow::createSectionsEditor() {
 }
 
 
+void WobblyWindow::createCustomListsEditor() {
+    cl_table = new TableWidget(0, 3, this);
+    cl_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    cl_table->setAlternatingRowColors(true);
+    cl_table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    cl_table->setHorizontalHeaderLabels({ "Name", "Preset", "Position" });
+    cl_table->setTabKeyNavigation(false);
+    cl_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    cl_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    for (int i = 0; i < cl_table->columnCount(); i++)
+        cl_table->horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
+
+
+    QPushButton *cl_new_button = new QPushButton("New");
+    QPushButton *cl_rename_button = new QPushButton("Rename");
+    QPushButton *cl_delete_button = new QPushButton("Delete");
+    QPushButton *cl_move_up_button = new QPushButton("Move up");
+    QPushButton *cl_move_down_button = new QPushButton("Move down");
+
+
+    QComboBox *cl_presets_box = new QComboBox;
+    cl_presets_box->setModel(presets_model);
+
+
+    QGroupBox *cl_position_box = new QGroupBox("Position in the filter chain");
+
+    const char *positions[] = {
+        "Post source",
+        "Post field match",
+        "Post decimate"
+    };
+
+    QButtonGroup *cl_position_group = new QButtonGroup(this);
+    for (int i = 0; i < 3; i++)
+        cl_position_group->addButton(new QRadioButton(positions[i]), i);
+    cl_position_group->button(PostSource)->setChecked(true);
+
+
+    ListWidget *cl_ranges_list = new ListWidget;
+    cl_ranges_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+
+    QPushButton *cl_delete_range_button = new QPushButton("Delete");
+
+    QPushButton *cl_send_range_button = new QPushButton("Send to list");
+    cl_send_range_menu = new QMenu(this);
+    cl_send_range_button->setMenu(cl_send_range_menu);
+
+    QPushButton *cl_copy_range_button = new QPushButton("Copy to list");
+    cl_copy_range_menu = new QMenu(this);
+    cl_copy_range_button->setMenu(cl_copy_range_menu);
+
+
+    connect(cl_table, &TableWidget::deletePressed, cl_delete_button, &QPushButton::click);
+
+    connect(cl_table, &TableWidget::currentCellChanged, [this, cl_position_group, cl_presets_box, cl_ranges_list] (int currentRow) {
+        if (currentRow < 0)
+            return;
+
+        auto cl = project->getCustomLists();
+
+        if (!cl.size())
+            return;
+
+        cl_position_group->button(cl[currentRow].position)->setChecked(true);
+
+        cl_presets_box->setCurrentText(QString::fromStdString(cl[currentRow].preset));
+
+        cl_ranges_list->clear();
+        for (auto it = cl[currentRow].frames.cbegin(); it != cl[currentRow].frames.cend(); it++) {
+            QListWidgetItem *item = new QListWidgetItem(QStringLiteral("%1,%2").arg(it->second.first).arg(it->second.last));
+            item->setData(Qt::UserRole, it->second.first);
+            cl_ranges_list->addItem(item);
+        }
+    });
+
+    connect(cl_new_button, &QPushButton::clicked, [this, positions] () {
+        if (!project)
+            return;
+
+        bool ok = false;
+        QString cl_name;
+
+        while (!ok) {
+            cl_name = QInputDialog::getText(
+                        this,
+                        QStringLiteral("New custom list"),
+                        QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."),
+                        QLineEdit::Normal,
+                        cl_name);
+
+            if (!cl_name.isEmpty()) {
+                try {
+                    project->addCustomList(cl_name.toStdString());
+
+                    int row = cl_table->rowCount();
+                    cl_table->setRowCount(row + 1);
+
+                    auto cl = project->getCustomLists();
+
+                    QTableWidgetItem *item = new QTableWidgetItem(cl_name);
+                    cl_table->setItem(row, 0, item);
+
+                    item = new QTableWidgetItem(QString::fromStdString(cl[row].preset));
+                    cl_table->setItem(row, 1, item);
+
+                    item = new QTableWidgetItem(positions[cl[row].position]);
+                    cl_table->setItem(row, 2, item);
+
+                    ok = true;
+                } catch (WobblyException &e) {
+                    errorPopup(e.what());
+                }
+            } else
+                ok = true;
+        }
+    });
+
+    connect(cl_rename_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        int cl_index = cl_table->currentRow();
+        if (cl_index < 0)
+            return;
+
+        QString old_name = cl_table->item(cl_index, 0)->text();
+
+        bool ok = false;
+        QString new_name = old_name;
+
+        while (!ok) {
+            new_name = QInputDialog::getText(
+                        this,
+                        QStringLiteral("Rename custom list"),
+                        QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."),
+                        QLineEdit::Normal,
+                        new_name);
+
+            if (!new_name.isEmpty()) {
+                try {
+                    project->renameCustomList(old_name.toStdString(), new_name.toStdString());
+
+                    cl_table->item(cl_index, 0)->setText(new_name);
+
+                    updateFrameDetails();
+
+                    ok = true;
+                } catch (WobblyException &e) {
+                    errorPopup(e.what());
+                }
+            } else
+                ok = true;
+        }
+    });
+
+    auto cmp = [] (const QTableWidgetSelectionRange &a, const QTableWidgetSelectionRange &b) -> bool {
+        return a.topRow() < b.topRow();
+    };
+
+    connect(cl_delete_button, &QPushButton::clicked, [this, cmp] () {
+        if (!project)
+            return;
+
+        auto selection = cl_table->selectedRanges();
+
+        std::sort(selection.begin(), selection.end(), cmp);
+
+        for (int i = selection.size() - 1; i >= 0; i--) {
+            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
+                project->deleteCustomList(j);
+                cl_table->removeRow(j);
+            }
+        }
+
+        updateFrameDetails();
+    });
+
+    connect(cl_move_up_button, &QPushButton::clicked, [this, cmp] () {
+        if (!project)
+            return;
+
+        auto selection = cl_table->selectedRanges();
+        if (selection.isEmpty())
+            return;
+
+        std::sort(selection.begin(), selection.end(), cmp);
+
+        if (selection.first().topRow() == 0)
+            return;
+
+        for (int i = 0; i < selection.size(); i++)
+            for (int j = selection[i].topRow(); j <= selection[i].bottomRow(); j++)
+                project->moveCustomListUp(j);
+
+        initialiseCustomListsEditor();
+
+        for (int i = 0; i < selection.size(); i++) {
+            QTableWidgetSelectionRange range(selection[i].topRow() - 1, 0, selection[i].bottomRow() - 1, 2);
+            cl_table->setRangeSelected(range, true);
+        }
+
+        updateFrameDetails();
+    });
+
+    connect(cl_move_down_button, &QPushButton::clicked, [this, cmp] () {
+        if (!project)
+            return;
+
+        auto selection = cl_table->selectedRanges();
+        if (selection.isEmpty())
+            return;
+
+        std::sort(selection.begin(), selection.end(), cmp);
+
+        if (selection.last().bottomRow() == cl_table->rowCount() - 1)
+            return;
+
+        for (int i = selection.size() - 1; i >= 0; i--)
+            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--)
+                project->moveCustomListDown(j);
+
+        initialiseCustomListsEditor();
+
+        for (int i = 0; i < selection.size(); i++) {
+            QTableWidgetSelectionRange range(selection[i].topRow() + 1, 0, selection[i].bottomRow() + 1, 2);
+            cl_table->setRangeSelected(range, true);
+        }
+
+        updateFrameDetails();
+    });
+
+    connect(cl_presets_box, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), [this] (const QString &text) {
+        if (!project)
+            return;
+
+        int cl_index = cl_table->currentRow();
+        if (cl_index < 0)
+            return;
+
+        project->setCustomListPreset(cl_index, text.toStdString());
+
+        cl_table->item(cl_index, 1)->setText(text);
+    });
+
+    connect(cl_position_group, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this, positions] (int id) {
+        if (!project)
+            return;
+
+        int cl_index = cl_table->currentRow();
+        if (cl_index < 0)
+            return;
+
+        project->setCustomListPosition(cl_index, (PositionInFilterChain)id);
+
+        cl_table->item(cl_index, 2)->setText(positions[id]);
+    });
+
+    connect(cl_ranges_list, &ListWidget::deletePressed, cl_delete_range_button, &QPushButton::click);
+
+    connect(cl_ranges_list, &ListWidget::itemDoubleClicked, [this] (QListWidgetItem *item) {
+        if (!project)
+            return;
+
+        displayFrame(item->data(Qt::UserRole).toInt());
+    });
+
+    connect(cl_delete_range_button, &QPushButton::clicked, [this, cl_ranges_list] () {
+        if (!project)
+            return;
+
+        int cl_index = cl_table->currentRow();
+        if (cl_index < 0)
+            return;
+
+        auto selected_ranges = cl_ranges_list->selectedItems();
+        for (int i = 0; i < selected_ranges.size(); i++) {
+            project->deleteCustomListRange(cl_index, selected_ranges[i]->data(Qt::UserRole).toInt());
+            delete selected_ranges[i];
+        }
+
+        updateFrameDetails();
+    });
+
+    connect(cl_send_range_menu, &QMenu::triggered, [this, cl_ranges_list, cl_delete_range_button] (QAction *action) {
+        if (!project)
+            return;
+
+        int cl_src_index = cl_table->currentRow();
+        if (cl_src_index < 0)
+            return;
+
+        int cl_dst_index = action->data().toInt();
+        if (cl_src_index == cl_dst_index)
+            return;
+
+        auto selected_ranges = cl_ranges_list->selectedItems();
+        for (int i = 0; i < selected_ranges.size(); i++) {
+            auto range = project->findCustomListRange(cl_src_index, selected_ranges[i]->data(Qt::UserRole).toInt());
+            project->addCustomListRange(cl_dst_index, range->first, range->last);
+        }
+
+        cl_delete_range_button->click();
+    });
+
+    connect(cl_copy_range_menu, &QMenu::triggered, [this, cl_ranges_list] (QAction *action) {
+        if (!project)
+            return;
+
+        int cl_src_index = cl_table->currentRow();
+        if (cl_src_index < 0)
+            return;
+
+        int cl_dst_index = action->data().toInt();
+        if (cl_src_index == cl_dst_index)
+            return;
+
+        auto selected_ranges = cl_ranges_list->selectedItems();
+        for (int i = 0; i < selected_ranges.size(); i++) {
+            auto range = project->findCustomListRange(cl_src_index, selected_ranges[i]->data(Qt::UserRole).toInt());
+            project->addCustomListRange(cl_dst_index, range->first, range->last);
+        }
+    });
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(cl_table);
+
+    QVBoxLayout *vbox2 = new QVBoxLayout;
+    vbox2->addWidget(cl_new_button);
+    vbox2->addWidget(cl_rename_button);
+    vbox2->addWidget(cl_delete_button);
+    vbox2->addWidget(cl_move_up_button);
+    vbox2->addWidget(cl_move_down_button);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addLayout(vbox2);
+
+    vbox2 = new QVBoxLayout;
+    for (int i = 0; i < 3; i++)
+        vbox2->addWidget(cl_position_group->button(i));
+    cl_position_box->setLayout(vbox2);
+
+    vbox2 = new QVBoxLayout;
+    vbox2->addWidget(cl_presets_box);
+    vbox2->addWidget(cl_position_box);
+
+    hbox->addLayout(vbox2);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    QHBoxLayout *hbox2 = new QHBoxLayout;
+    hbox2->addLayout(vbox);
+
+    vbox = new QVBoxLayout;
+    vbox->addWidget(cl_ranges_list);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(cl_delete_range_button);
+    hbox->addWidget(cl_send_range_button);
+    hbox->addWidget(cl_copy_range_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox2->addLayout(vbox);
+
+
+    QWidget *cl_widget = new QWidget;
+    cl_widget->setLayout(hbox2);
+
+
+    DockWidget *cl_dock = new DockWidget("Custom lists editor", this);
+    cl_dock->setObjectName("custom lists editor");
+    cl_dock->setVisible(false);
+    cl_dock->setFloating(true);
+    cl_dock->setWidget(cl_widget);
+    addDockWidget(Qt::RightDockWidgetArea, cl_dock);
+    tools_menu->addAction(cl_dock->toggleViewAction());
+    connect(cl_dock, &DockWidget::visibilityChanged, cl_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::createUI() {
     createMenu();
     createShortcuts();
@@ -689,12 +1081,14 @@ void WobblyWindow::createUI() {
     */
     setCentralWidget(frame_label);
 
+    presets_model = new QStringListModel(this);
 
     createFrameDetailsViewer();
     createCropAssistant();
     createPresetEditor();
     createPatternEditor();
     createSectionsEditor();
+    createCustomListsEditor();
 }
 
 
@@ -796,7 +1190,7 @@ void WobblyWindow::checkRequiredFilters() {
 }
 
 
-void WobblyWindow::initialiseSectionsList() {
+void WobblyWindow::initialiseSectionsEditor() {
     sections_table->setRowCount(0);
     int rows = 0;
     const Section *section = project->findSection(0);
@@ -823,6 +1217,43 @@ void WobblyWindow::initialiseSectionsList() {
     }
 
     sections_table->resizeColumnsToContents();
+}
+
+
+void WobblyWindow::initialiseCustomListsEditor() {
+    cl_table->setRowCount(0);
+
+    cl_copy_range_menu->clear();
+    cl_send_range_menu->clear();
+
+    auto cl = project->getCustomLists();
+
+    cl_table->setRowCount(cl.size());
+
+    for (size_t i = 0; i < cl.size(); i++) {
+        QString cl_name = QString::fromStdString(cl[i].name);
+
+        QTableWidgetItem *item = new QTableWidgetItem(cl_name);
+        cl_table->setItem(i, 0, item);
+
+        item = new QTableWidgetItem(QString::fromStdString(cl[i].preset));
+        cl_table->setItem(i, 1, item);
+
+        const char *positions[] = {
+            "Post source",
+            "Post field match",
+            "Post decimate"
+        };
+        item = new QTableWidgetItem(positions[cl[i].position]);
+        cl_table->setItem(i, 2, item);
+
+        QAction *copy_action = cl_copy_range_menu->addAction(cl_name);
+        QAction *send_action = cl_send_range_menu->addAction(cl_name);
+        copy_action->setData((int)i);
+        send_action->setData((int)i);
+    }
+
+    cl_table->resizeColumnsToContents();
 }
 
 
@@ -862,13 +1293,13 @@ void WobblyWindow::initialiseUIFromProject() {
 
 
     // Presets.
-    preset_combo->clear();
-    preset_list->clear();
     const auto &presets = project->getPresets();
+    QStringList preset_list;
+    preset_list.reserve(presets.size());
     for (size_t i = 0; i < presets.size(); i++) {
-        preset_combo->addItem(QString::fromStdString(presets[i]));
-        preset_list->addItem(QString::fromStdString(presets[i]));
+        preset_list.append(QString::fromStdString(presets[i]));
     }
+    presets_model->setStringList(preset_list);
 
     if (preset_combo->count()) {
         preset_combo->setCurrentIndex(0);
@@ -876,7 +1307,8 @@ void WobblyWindow::initialiseUIFromProject() {
     }
 
 
-    initialiseSectionsList();
+    initialiseSectionsEditor();
+    initialiseCustomListsEditor();
 }
 
 
@@ -1210,8 +1642,11 @@ void WobblyWindow::updateFrameDetails() {
     int section_end = project->getSectionEnd(section_start) - 1;
 
     QString presets;
-    for (auto it = current_section->presets.cbegin(); it != current_section->presets.cend(); it++)
-        presets.append(QString::fromStdString(*it) + "\n");
+    for (auto it = current_section->presets.cbegin(); it != current_section->presets.cend(); it++) {
+        if (!presets.isEmpty())
+            presets += "\n";
+        presets += QString::fromStdString(*it);
+    }
 
     if (presets.isNull())
         presets = "<none>";
@@ -1223,8 +1658,11 @@ void WobblyWindow::updateFrameDetails() {
     const std::vector<CustomList> &lists = project->getCustomLists();
     for (auto it = lists.cbegin(); it != lists.cend(); it++) {
         const FrameRange *range = it->findFrameRange(current_frame);
-        if (range)
-            custom_lists += QStringLiteral("%1: [%2,%3]\n").arg(QString::fromStdString(it->name)).arg(range->first).arg(range->last);
+        if (range) {
+            if (!custom_lists.isEmpty())
+                custom_lists += "\n";
+            custom_lists += QStringLiteral("%1: [%2,%3]").arg(QString::fromStdString(it->name)).arg(range->first).arg(range->last);
+        }
     }
 
     if (custom_lists.isNull())
@@ -1476,7 +1914,7 @@ void WobblyWindow::addSection() {
     if (section->start != current_frame) {
         project->addSection(current_frame);
 
-        initialiseSectionsList();
+        initialiseSectionsEditor();
 
         updateFrameDetails();
     }
@@ -1584,7 +2022,10 @@ void WobblyWindow::presetNew() {
             try {
                 project->addPreset(preset_name.toStdString());
 
-                preset_combo->addItem(preset_name);
+                QStringList preset_list = presets_model->stringList();
+                preset_list.append(preset_name);
+                presets_model->setStringList(preset_list);
+
                 preset_combo->setCurrentText(preset_name);
 
                 presetChanged(preset_name);
@@ -1616,10 +2057,11 @@ void WobblyWindow::presetRename() {
             try {
                 project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
 
-                preset_combo->setItemText(preset_combo->currentIndex(), preset_name);
-                preset_list->item(preset_combo->currentIndex())->setText(preset_name);
+                QStringList preset_list = presets_model->stringList();
+                preset_list[preset_combo->currentIndex()] = preset_name;
+                presets_model->setStringList(preset_list);
 
-                initialiseSectionsList();
+                initialiseSectionsEditor();
 
                 updateFrameDetails();
 
@@ -1642,7 +2084,9 @@ void WobblyWindow::presetDelete() {
 
     project->deletePreset(preset_combo->currentText().toStdString());
 
-    preset_combo->removeItem(preset_combo->currentIndex());
+    QStringList preset_list = presets_model->stringList();
+    preset_list.removeAt(preset_combo->currentIndex());
+    presets_model->setStringList(preset_list);
 
     presetChanged(preset_combo->currentText());
 }

@@ -10,11 +10,13 @@
 #include <QListWidget>
 #include <QMainWindow>
 #include <QSpinBox>
+#include <QStringListModel>
 
 #include <VapourSynth.h>
 #include <VSScript.h>
 
 #include "DockWidget.h"
+#include "ListWidget.h"
 #include "PresetTextEdit.h"
 #include "TableWidget.h"
 #include "WobblyProject.h"
@@ -64,8 +66,16 @@ private:
     TableWidget *sections_table;
     QGroupBox *short_sections_box;
     QSpinBox *short_sections_spin;
-    QListWidget *section_presets_list;
-    QListWidget *preset_list;
+
+    TableWidget *cl_table;
+    QMenu *cl_send_range_menu;
+    QMenu *cl_copy_range_menu;
+
+
+    // Widget-related
+
+    QStringListModel *presets_model;
+
 
     // Other stuff.
 
@@ -98,6 +108,7 @@ private:
     void createPresetEditor();
     void createPatternEditor();
     void createSectionsEditor();
+    void createCustomListsEditor();
     void createUI();
 
 
@@ -105,7 +116,8 @@ private:
     void cleanUpVapourSynth();
     void checkRequiredFilters();
 
-    void initialiseSectionsList();
+    void initialiseSectionsEditor();
+    void initialiseCustomListsEditor();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);

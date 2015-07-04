@@ -103,7 +103,7 @@ struct CustomList {
         }
 
         if (overlap)
-            throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + name + "': overlaps (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + ").");
+            throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + name + "': overlaps range (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + ").");
 
         FrameRange range = { first, last };
         frames.insert(std::make_pair(range.first, range));
@@ -118,6 +118,9 @@ struct CustomList {
             return nullptr;
 
         auto it = frames.upper_bound(frame);
+
+        if (it == frames.cbegin())
+            return nullptr;
 
         it--;
 
@@ -248,7 +251,6 @@ class WobblyProject {
         std::vector<std::string> getPresets();
         const std::string &getPresetContents(const std::string &preset_name);
         void setPresetContents(const std::string &preset_name, const std::string &preset_contents);
-        void assignPresetToSection(const std::string &preset_name, int section_start);
 
 
         const std::array<int16_t, 5> &getMics(int frame);
@@ -265,6 +267,7 @@ class WobblyProject {
         Section *findSection(int frame);
         Section *findNextSection(int frame);
         int getSectionEnd(int frame);
+        void setSectionPreset(int section_start, const std::string &preset_name);
         void setSectionMatchesFromPattern(int section_start, const std::string &pattern);
         void setSectionDecimationFromPattern(int section_start, const std::string &pattern);
 
@@ -276,8 +279,16 @@ class WobblyProject {
         const std::vector<CustomList> &getCustomLists();
         void addCustomList(const std::string &list_name);
         void addCustomList(const CustomList &list);
+        void renameCustomList(const std::string &old_name, const std::string &new_name);
         void deleteCustomList(const std::string &list_name);
         void deleteCustomList(int list_index);
+        void moveCustomListUp(int list_index);
+        void moveCustomListDown(int list_index);
+        void setCustomListPreset(int list_index, const std::string &preset_name);
+        void setCustomListPosition(int list_index, PositionInFilterChain position);
+        void addCustomListRange(int list_index, int first, int last);
+        void deleteCustomListRange(int list_index, int first);
+        const FrameRange *findCustomListRange(int list_index, int frame);
 
 
         int getDecimateMetric(int frame);
