@@ -1091,6 +1091,81 @@ void WobblyWindow::createFrameRatesViewer() {
 }
 
 
+void WobblyWindow::createFrozenFramesViewer() {
+    frozen_frames_table = new TableWidget(0, 3, this);
+    frozen_frames_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    frozen_frames_table->setAlternatingRowColors(true);
+    frozen_frames_table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    frozen_frames_table->setHorizontalHeaderLabels({ "First", "Last", "Replacement" });
+    frozen_frames_table->setTabKeyNavigation(false);
+    frozen_frames_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    frozen_frames_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    for (int i = 0; i < frozen_frames_table->columnCount(); i++)
+        frozen_frames_table->horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
+
+    QPushButton *delete_button = new QPushButton("Delete");
+
+
+    connect(frozen_frames_table, &TableWidget::cellDoubleClicked, [this] (int row) {
+        QTableWidgetItem *item = frozen_frames_table->item(row, 0);
+        bool ok;
+        int frame = item->text().toInt(&ok);
+        if (ok)
+            displayFrame(frame);
+    });
+
+    connect(frozen_frames_table, &TableWidget::deletePressed, delete_button, &QPushButton::click);
+
+    connect(delete_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        auto selection = frozen_frames_table->selectedRanges();
+
+        auto cmp = [] (const QTableWidgetSelectionRange &a, const QTableWidgetSelectionRange &b) -> bool {
+            return a.topRow() < b.topRow();
+        };
+        std::sort(selection.begin(), selection.end(), cmp);
+
+        for (int i = selection.size() - 1; i >= 0; i--) {
+            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
+                bool ok;
+                int frame = frozen_frames_table->item(j, 0)->text().toInt(&ok);
+                if (ok && frame != 0) {
+                    project->deleteFreezeFrame(frame);
+                    frozen_frames_table->removeRow(j);
+                }
+            }
+        }
+        if (selection.size())
+            evaluateMainDisplayScript();
+    });
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(frozen_frames_table);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(delete_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+
+    QWidget *frozen_frames_widget = new QWidget;
+    frozen_frames_widget->setLayout(vbox);
+
+
+    DockWidget *frozen_frames_dock = new DockWidget("Frozen frames", this);
+    frozen_frames_dock->setObjectName("frozen frames viewer");
+    frozen_frames_dock->setVisible(false);
+    frozen_frames_dock->setFloating(true);
+    frozen_frames_dock->setWidget(frozen_frames_widget);
+    addDockWidget(Qt::RightDockWidgetArea, frozen_frames_dock);
+    tools_menu->addAction(frozen_frames_dock->toggleViewAction());
+    connect(frozen_frames_dock, &DockWidget::visibilityChanged, frozen_frames_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::createUI() {
     createMenu();
     createShortcuts();
@@ -1123,6 +1198,7 @@ void WobblyWindow::createUI() {
     createSectionsEditor();
     createCustomListsEditor();
     createFrameRatesViewer();
+    createFrozenFramesViewer();
 }
 
 
@@ -1329,6 +1405,32 @@ void WobblyWindow::initialiseFrameRatesViewer() {
 }
 
 
+void WobblyWindow::initialiseFrozenFramesViewer() {
+
+    frozen_frames_table->setRowCount(0);
+
+    const auto &ff = project->getFreezeFrames();
+
+    frozen_frames_table->setRowCount(ff.size());
+
+    for (size_t i = 0; i < ff.size(); i++) {
+        QTableWidgetItem *item = new QTableWidgetItem(QString::number(ff[i].first));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        frozen_frames_table->setItem(i, 0, item);
+
+        item = new QTableWidgetItem(QString::number(ff[i].last));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        frozen_frames_table->setItem(i, 1, item);
+
+        item = new QTableWidgetItem(QString::number(ff[i].replacement));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        frozen_frames_table->setItem(i, 2, item);
+    }
+
+    frozen_frames_table->resizeColumnsToContents();
+}
+
+
 void WobblyWindow::initialiseUIFromProject() {
     // Crop.
     for (int i = 0; i < 4; i++)
@@ -1382,6 +1484,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialiseSectionsEditor();
     initialiseCustomListsEditor();
     initialiseFrameRatesViewer();
+    initialiseFrozenFramesViewer();
 }
 
 
@@ -1891,6 +1994,8 @@ void WobblyWindow::freezeForward() {
         project->addFreezeFrame(current_frame, current_frame, current_frame + 1);
 
         evaluateMainDisplayScript();
+
+        initialiseFrozenFramesViewer();
     } catch (WobblyException &) {
         // XXX Maybe don't be silent.
     }
@@ -1908,6 +2013,8 @@ void WobblyWindow::freezeBackward() {
         project->addFreezeFrame(current_frame, current_frame, current_frame - 1);
 
         evaluateMainDisplayScript();
+
+        initialiseFrozenFramesViewer();
     } catch (WobblyException &) {
 
     }
@@ -1931,6 +2038,8 @@ void WobblyWindow::freezeRange() {
             project->addFreezeFrame(ff.first, ff.last, ff.replacement);
 
             evaluateMainDisplayScript();
+
+            initialiseFrozenFramesViewer();
         } catch (WobblyException &) {
 
         }
@@ -1949,6 +2058,8 @@ void WobblyWindow::deleteFreezeFrame() {
         project->deleteFreezeFrame(ff->first);
 
         evaluateMainDisplayScript();
+
+        initialiseFrozenFramesViewer();
     }
 }
 

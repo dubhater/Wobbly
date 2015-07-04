@@ -73,6 +73,8 @@ private:
 
     TableWidget *frame_rates_table;
 
+    TableWidget *frozen_frames_table;
+
 
     // Widget-related
 
@@ -112,6 +114,7 @@ private:
     void createSectionsEditor();
     void createCustomListsEditor();
     void createFrameRatesViewer();
+    void createFrozenFramesViewer();
     void createUI();
 
 
@@ -122,6 +125,7 @@ private:
     void initialiseSectionsEditor();
     void initialiseCustomListsEditor();
     void initialiseFrameRatesViewer();
+    void initialiseFrozenFramesViewer();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);

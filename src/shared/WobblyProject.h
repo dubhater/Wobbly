@@ -242,6 +242,7 @@ class WobblyProject {
         void addFreezeFrame(int first, int last, int replacement);
         void deleteFreezeFrame(int frame);
         const FreezeFrame *findFreezeFrame(int frame);
+        std::vector<FreezeFrame> getFreezeFrames();
 
 
         void addPreset(const std::string &preset_name);

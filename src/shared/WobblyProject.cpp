@@ -467,6 +467,19 @@ const FreezeFrame *WobblyProject::findFreezeFrame(int frame) {
 }
 
 
+std::vector<FreezeFrame> WobblyProject::getFreezeFrames() {
+
+    std::vector<FreezeFrame> ff;
+
+    ff.reserve(frozen_frames.size());
+
+    for (auto it = frozen_frames.cbegin(); it != frozen_frames.cend(); it++)
+        ff.push_back(it->second);
+
+    return ff;
+}
+
+
 void WobblyProject::addPreset(const std::string &preset_name) {
     std::string contents =
             "# The preset is a Python function. It takes a single parameter, called 'clip'.\n"
