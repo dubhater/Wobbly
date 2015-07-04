@@ -71,6 +71,8 @@ private:
     QMenu *cl_send_range_menu;
     QMenu *cl_copy_range_menu;
 
+    TableWidget *frame_rates_table;
+
 
     // Widget-related
 
@@ -109,6 +111,7 @@ private:
     void createPatternEditor();
     void createSectionsEditor();
     void createCustomListsEditor();
+    void createFrameRatesViewer();
     void createUI();
 
 
@@ -118,6 +121,7 @@ private:
 
     void initialiseSectionsEditor();
     void initialiseCustomListsEditor();
+    void initialiseFrameRatesViewer();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);
@@ -200,8 +204,6 @@ public slots:
 
     void zoomIn();
     void zoomOut();
-
-    void closeActiveDockWidget();
 };
 
 #endif // WOBBLYWINDOW_H

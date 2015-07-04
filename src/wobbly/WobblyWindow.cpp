@@ -1058,6 +1058,39 @@ void WobblyWindow::createCustomListsEditor() {
 }
 
 
+void WobblyWindow::createFrameRatesViewer() {
+    frame_rates_table = new TableWidget(0, 3, this);
+    frame_rates_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    frame_rates_table->setAlternatingRowColors(true);
+    frame_rates_table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    frame_rates_table->setHorizontalHeaderLabels({ "Start", "End", "Frame rate" });
+    frame_rates_table->setTabKeyNavigation(false);
+    frame_rates_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    frame_rates_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    for (int i = 0; i < frame_rates_table->columnCount(); i++)
+        frame_rates_table->horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
+
+
+    connect(frame_rates_table, &TableWidget::cellDoubleClicked, [this] (int row) {
+        QTableWidgetItem *item = frame_rates_table->item(row, 0);
+        bool ok;
+        int frame = item->text().toInt(&ok);
+        if (ok)
+            displayFrame(frame);
+    });
+
+
+    DockWidget *frame_rates_dock = new DockWidget("Frame rates", this);
+    frame_rates_dock->setObjectName("frame rates viewer");
+    frame_rates_dock->setVisible(false);
+    frame_rates_dock->setFloating(true);
+    frame_rates_dock->setWidget(frame_rates_table);
+    addDockWidget(Qt::RightDockWidgetArea, frame_rates_dock);
+    tools_menu->addAction(frame_rates_dock->toggleViewAction());
+    connect(frame_rates_dock, &DockWidget::visibilityChanged, frame_rates_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::createUI() {
     createMenu();
     createShortcuts();
@@ -1089,6 +1122,7 @@ void WobblyWindow::createUI() {
     createPatternEditor();
     createSectionsEditor();
     createCustomListsEditor();
+    createFrameRatesViewer();
 }
 
 
@@ -1257,6 +1291,44 @@ void WobblyWindow::initialiseCustomListsEditor() {
 }
 
 
+void WobblyWindow::initialiseFrameRatesViewer() {
+    frame_rates_table->setRowCount(0);
+
+    auto ranges = project->getDecimationRanges();
+
+    frame_rates_table->setRowCount(ranges.size());
+
+    for (size_t i = 0; i < ranges.size(); i++) {
+        QTableWidgetItem *item = new QTableWidgetItem(QString::number(ranges[i].start));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        frame_rates_table->setItem(i, 0, item);
+
+        int range_end;
+        if (i < ranges.size() - 1)
+            range_end = ranges[i + 1].start - 1;
+        else
+            range_end = project->getNumFrames(PostSource) - 1;
+
+        item = new QTableWidgetItem(QString::number(range_end));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        frame_rates_table->setItem(i, 1, item);
+
+        const char *rates[] = {
+            "30000/1001",
+            "24000/1001",
+            "18000/1001",
+            "12000/1001",
+            "6000/1001"
+        };
+        item = new QTableWidgetItem(rates[ranges[i].num_dropped]);
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        frame_rates_table->setItem(i, 2, item);
+    }
+
+    frame_rates_table->resizeColumnsToContents();
+}
+
+
 void WobblyWindow::initialiseUIFromProject() {
     // Crop.
     for (int i = 0; i < 4; i++)
@@ -1309,6 +1381,7 @@ void WobblyWindow::initialiseUIFromProject() {
 
     initialiseSectionsEditor();
     initialiseCustomListsEditor();
+    initialiseFrameRatesViewer();
 }
 
 
@@ -1890,6 +1963,8 @@ void WobblyWindow::toggleDecimation() {
         project->addDecimatedFrame(current_frame);
 
     updateFrameDetails();
+
+    initialiseFrameRatesViewer();
 }
 
 
@@ -2132,6 +2207,8 @@ void WobblyWindow::rotateAndSetPatterns() {
     project->setSectionDecimationFromPattern(section->start, decimation_pattern.toStdString());
 
     evaluateMainDisplayScript();
+
+    initialiseFrameRatesViewer();
 }
 
 
@@ -2194,12 +2271,4 @@ void WobblyWindow::zoomIn() {
 
 void WobblyWindow::zoomOut() {
     zoom(false);
-}
-
-
-void WobblyWindow::closeActiveDockWidget() {
-    QWidget *active_window = QApplication::activeWindow();
-
-    if (active_window != this)
-        active_window->hide();
 }
