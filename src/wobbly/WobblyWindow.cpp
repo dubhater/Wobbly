@@ -22,7 +22,8 @@
 
 
 WobblyWindow::WobblyWindow()
-    : project(nullptr)
+    : splash_image(720, 480, QImage::Format_RGB32)
+    , project(nullptr)
     , current_frame(0)
     , match_pattern("ccnnc")
     , decimation_pattern("kkkkd")
@@ -1168,6 +1169,79 @@ void WobblyWindow::createFrozenFramesViewer() {
 }
 
 
+void WobblyWindow::drawColorBars() {
+    auto drawRect = [this] (int left, int top, int width, int height, int red, int green, int blue) {
+        uint8_t *ptr = splash_image.bits();
+        int stride = splash_image.bytesPerLine();
+        ptr += stride * top;
+
+        for (int x = left; x < left + width; x++) {
+            ptr[x*4] = blue;
+            ptr[x*4 + 1] = green;
+            ptr[x*4 + 2] = red;
+            ptr[x*4 + 3] = 255;
+        }
+
+        for (int y = 1; y < height; y++)
+            memcpy(ptr + y * stride + left * 4, ptr + left * 4, width * 4);
+    };
+
+    auto drawGrayHorizontalGradient = [this] (int left, int top, int width, int height, int start, int end) {
+        uint8_t *ptr = splash_image.bits();
+        int stride = splash_image.bytesPerLine();
+        ptr += stride * top;
+
+        for (int x = left; x < left + width; x++) {
+            float weight_end = (x - left) / (float)width;
+            float weight_start = 1.0f - weight_end;
+
+            int value = start * weight_start + end * weight_end;
+
+            ptr[x*4] = value;
+            ptr[x*4 + 1] = value;
+            ptr[x*4 + 2] = value;
+            ptr[x*4 + 3] = 255;
+        }
+
+        for (int y = 1; y < height; y++)
+            memcpy(ptr + y * stride + left * 4, ptr + left * 4, width * 4);
+    };
+
+    drawRect(  0,   0,  90, 280, 104, 104, 104);
+    drawRect( 90,   0,  77, 280, 180, 180, 180);
+    drawRect(167,   0,  77, 280, 180, 180,  16);
+    drawRect(244,   0,  77, 280,  16, 180, 180);
+    drawRect(321,   0,  78, 280,  16, 180,  16);
+    drawRect(399,   0,  77, 280, 180,  16, 180);
+    drawRect(476,   0,  77, 280, 180,  16,  16);
+    drawRect(553,   0,  77, 280,  16,  16, 180);
+    drawRect(630,   0,  90, 280, 104, 104, 104);
+
+    drawRect(  0, 280,  90,  40,  16, 235, 235);
+    drawRect( 90, 280,  77,  40, 235, 235, 235);
+    drawRect(167, 280, 463,  40, 180, 180, 180);
+    drawRect(630, 280,  90,  40,  16,  16, 235);
+
+    drawRect(  0, 320,  90,  40, 235, 235,  16);
+    drawRect( 90, 320,  77,  40,  16,  16,  16);
+    drawGrayHorizontalGradient(167, 320, 386, 40, 17, 234);
+    drawRect(553, 320,  77,  40, 235, 235, 235);
+    drawRect(630, 320,  90,  40, 235,  16,  16);
+
+    drawRect(  0, 360,  90, 120,  49,  49,  49);
+    drawRect( 90, 360, 116, 120,  16,  16,  16);
+    drawRect(206, 360, 154, 120, 235, 235, 235);
+    drawRect(360, 360,  64, 120,  16,  16,  16);
+    drawRect(424, 360,  25, 120,  12,  12,  12);
+    drawRect(449, 360,  27, 120,  16,  16,  16);
+    drawRect(476, 360,  25, 120,  20,  20,  20);
+    drawRect(501, 360,  27, 120,  16,  16,  16);
+    drawRect(528, 360,  25, 120,  25,  25,  25);
+    drawRect(553, 360,  77, 120,  16,  16,  16);
+    drawRect(630, 360,  90, 120,  49,  49,  49);
+}
+
+
 void WobblyWindow::createUI() {
     createMenu();
     createShortcuts();
@@ -1179,9 +1253,10 @@ void WobblyWindow::createUI() {
     zoom_label = new QLabel(QStringLiteral("Zoom: 1x"));
     statusBar()->addPermanentWidget(zoom_label);
 
+    drawColorBars();
+
     frame_label = new QLabel;
-    frame_label->setTextFormat(Qt::PlainText);
-    frame_label->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+    frame_label->setPixmap(QPixmap::fromImage(splash_image));
 
     frame_slider = new QSlider(Qt::Horizontal);
     frame_slider->setTracking(false);

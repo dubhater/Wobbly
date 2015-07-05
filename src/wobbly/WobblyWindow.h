@@ -82,6 +82,8 @@ private:
 
     QStringListModel *presets_model;
 
+    QImage splash_image;
+
 
     // Other stuff.
 
@@ -117,6 +119,7 @@ private:
     void createCustomListsEditor();
     void createFrameRatesViewer();
     void createFrozenFramesViewer();
+    void drawColorBars();
     void createUI();
 
 
