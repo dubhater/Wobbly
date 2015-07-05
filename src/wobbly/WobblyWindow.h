@@ -129,6 +129,10 @@ private:
     void cleanUpVapourSynth();
     void checkRequiredFilters();
 
+    void initialisePresets();
+
+    void initialiseCropAssistant();
+    void initialisePresetEditor();
     void initialiseSectionsEditor();
     void initialiseCustomListsEditor();
     void initialiseFrameRatesViewer();

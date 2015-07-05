@@ -1406,6 +1406,59 @@ void WobblyWindow::checkRequiredFilters() {
 }
 
 
+void WobblyWindow::initialisePresets() {
+    // Presets.
+    const auto &presets = project->getPresets();
+    QStringList preset_list;
+    preset_list.reserve(presets.size());
+    for (size_t i = 0; i < presets.size(); i++) {
+        preset_list.append(QString::fromStdString(presets[i]));
+    }
+    presets_model->setStringList(preset_list);
+}
+
+
+void WobblyWindow::initialiseCropAssistant() {
+    // Crop.
+    for (int i = 0; i < 4; i++)
+        crop_spin[i]->blockSignals(true);
+
+    const Crop &crop = project->getCrop();
+    crop_spin[0]->setValue(crop.left);
+    crop_spin[1]->setValue(crop.top);
+    crop_spin[2]->setValue(crop.right);
+    crop_spin[3]->setValue(crop.bottom);
+
+    for (int i = 0; i < 4; i++)
+        crop_spin[i]->blockSignals(false);
+
+    crop_box->setChecked(project->isCropEnabled());
+    crop_early_check->setChecked(project->isCropEarly());
+
+
+    // Resize.
+    for (int i = 0; i < 2; i++)
+        resize_spin[i]->blockSignals(true);
+
+    const Resize &resize = project->getResize();
+    resize_spin[0]->setValue(resize.width);
+    resize_spin[1]->setValue(resize.height);
+
+    for (int i = 0; i < 2; i++)
+        resize_spin[i]->blockSignals(false);
+
+    resize_box->setChecked(project->isResizeEnabled());
+}
+
+
+void WobblyWindow::initialisePresetEditor() {
+    if (preset_combo->count()) {
+        preset_combo->setCurrentIndex(0);
+        presetChanged(preset_combo->currentText());
+    }
+}
+
+
 void WobblyWindow::initialiseSectionsEditor() {
     sections_table->setRowCount(0);
     int rows = 0;
@@ -1541,56 +1594,14 @@ void WobblyWindow::initialiseUIFromProject() {
     frame_slider->setRange(0, project->getNumFrames(PostSource));
     frame_slider->setPageStep(project->getNumFrames(PostSource) * 20 / 100);
 
-    // Crop.
-    for (int i = 0; i < 4; i++)
-        crop_spin[i]->blockSignals(true);
-
-    const Crop &crop = project->getCrop();
-    crop_spin[0]->setValue(crop.left);
-    crop_spin[1]->setValue(crop.top);
-    crop_spin[2]->setValue(crop.right);
-    crop_spin[3]->setValue(crop.bottom);
-
-    for (int i = 0; i < 4; i++)
-        crop_spin[i]->blockSignals(false);
-
-    crop_box->setChecked(project->isCropEnabled());
-    crop_early_check->setChecked(project->isCropEarly());
-
-
-    // Resize.
-    for (int i = 0; i < 2; i++)
-        resize_spin[i]->blockSignals(true);
-
-    const Resize &resize = project->getResize();
-    resize_spin[0]->setValue(resize.width);
-    resize_spin[1]->setValue(resize.height);
-
-    for (int i = 0; i < 2; i++)
-        resize_spin[i]->blockSignals(false);
-
-    resize_box->setChecked(project->isResizeEnabled());
-
-
     // Zoom.
     zoom_label->setText(QStringLiteral("Zoom: %1x").arg(project->getZoom()));
 
 
-    // Presets.
-    const auto &presets = project->getPresets();
-    QStringList preset_list;
-    preset_list.reserve(presets.size());
-    for (size_t i = 0; i < presets.size(); i++) {
-        preset_list.append(QString::fromStdString(presets[i]));
-    }
-    presets_model->setStringList(preset_list);
+    initialisePresets();
 
-    if (preset_combo->count()) {
-        preset_combo->setCurrentIndex(0);
-        presetChanged(preset_combo->currentText());
-    }
-
-
+    initialiseCropAssistant();
+    initialisePresetEditor();
     initialiseSectionsEditor();
     initialiseCustomListsEditor();
     initialiseFrameRatesViewer();
