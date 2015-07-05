@@ -288,7 +288,7 @@ void WobblyWindow::createCropAssistant() {
     QWidget *crop_widget = new QWidget;
     crop_widget->setLayout(vbox);
 
-    crop_dock = new DockWidget("Cropping/Resizing", this);
+    crop_dock = new DockWidget("Cropping, resizing", this);
     crop_dock->setObjectName("crop assistant");
     crop_dock->setVisible(false);
     crop_dock->setFloating(true);
@@ -343,7 +343,7 @@ void WobblyWindow::createPresetEditor() {
     preset_widget->setLayout(vbox);
 
 
-    DockWidget *preset_dock = new DockWidget("Preset editor", this);
+    DockWidget *preset_dock = new DockWidget("Presets", this);
     preset_dock->setObjectName("preset editor");
     preset_dock->setVisible(false);
     preset_dock->setFloating(true);
@@ -681,7 +681,7 @@ void WobblyWindow::createSectionsEditor() {
     sections_widget->setLayout(hbox2);
 
 
-    DockWidget *sections_dock = new DockWidget("Sections editor", this);
+    DockWidget *sections_dock = new DockWidget("Sections", this);
     sections_dock->setObjectName("sections editor");
     sections_dock->setVisible(false);
     sections_dock->setFloating(true);
@@ -1063,7 +1063,7 @@ void WobblyWindow::createCustomListsEditor() {
     cl_widget->setLayout(hbox2);
 
 
-    DockWidget *cl_dock = new DockWidget("Custom lists editor", this);
+    DockWidget *cl_dock = new DockWidget("Custom lists", this);
     cl_dock->setObjectName("custom lists editor");
     cl_dock->setVisible(false);
     cl_dock->setFloating(true);
