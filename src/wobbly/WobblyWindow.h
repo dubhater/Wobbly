@@ -191,6 +191,7 @@ public slots:
     void saveScriptAs();
     void saveTimecodes();
     void saveTimecodesAs();
+    void saveScreenshot();
 
     void cropChanged(int value);
     void cropToggled(bool checked);

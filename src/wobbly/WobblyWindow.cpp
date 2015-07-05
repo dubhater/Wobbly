@@ -92,6 +92,7 @@ void WobblyWindow::createMenu() {
     QAction *projectSaveScriptAs = new QAction("Save script as", this);
     QAction *projectSaveTimecodes = new QAction("Save timecodes", this);
     QAction *projectSaveTimecodesAs = new QAction("Save timecodes as", this);
+    QAction *projectSaveScreenshot = new QAction("Save screenshot", this);
     QAction *projectQuit = new QAction("&Quit", this);
 
     projectOpen->setShortcut(QKeySequence::Open);
@@ -106,6 +107,7 @@ void WobblyWindow::createMenu() {
     connect(projectSaveScriptAs, &QAction::triggered, this, &WobblyWindow::saveScriptAs);
     connect(projectSaveTimecodes, &QAction::triggered, this, &WobblyWindow::saveTimecodes);
     connect(projectSaveTimecodesAs, &QAction::triggered, this, &WobblyWindow::saveTimecodesAs);
+    connect(projectSaveScreenshot, &QAction::triggered, this, &WobblyWindow::saveScreenshot);
     connect(projectQuit, &QAction::triggered, this, &QMainWindow::close);
 
     p->addAction(projectOpen);
@@ -115,6 +117,7 @@ void WobblyWindow::createMenu() {
     p->addAction(projectSaveScriptAs);
     p->addAction(projectSaveTimecodes);
     p->addAction(projectSaveTimecodesAs);
+    p->addAction(projectSaveScreenshot);
     p->addSeparator();
     p->addAction(projectQuit);
 
@@ -1752,6 +1755,20 @@ void WobblyWindow::saveTimecodesAs() {
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
+}
+
+
+void WobblyWindow::saveScreenshot() {
+    QString path;
+    if (project_path.isNull())
+        path = "wobbly.png";
+    else
+        path = project_path + ".png";
+
+    path = QFileDialog::getSaveFileName(this, QStringLiteral("Save screenshot"), path, QString(), nullptr, QFileDialog::DontUseNativeDialog);
+
+    if (!path.isNull())
+        frame_label->pixmap()->save(path, "png");
 }
 
 
