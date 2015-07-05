@@ -141,6 +141,7 @@ struct Resize {
 
 struct Crop {
     bool enabled;
+    bool early;
     int left;
     int top;
     int right;
@@ -319,6 +320,8 @@ class WobblyProject {
         void setCrop(int left, int top, int right, int bottom);
         void setCropEnabled(bool enabled);
         bool isCropEnabled();
+        void setCropEarly(bool early);
+        bool isCropEarly();
 
 
         int getZoom();

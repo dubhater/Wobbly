@@ -238,6 +238,16 @@ void WobblyWindow::createCropAssistant() {
         vbox->addWidget(crop_spin[i]);
     }
 
+    crop_early_check = new QCheckBox("Crop early");
+    connect(crop_early_check, &QCheckBox::clicked, [this] (bool checked) {
+        if (!project)
+            return;
+
+        project->setCropEarly(checked);
+    });
+
+    vbox->addWidget(crop_early_check);
+
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->addLayout(vbox);
     hbox->addStretch(1);
@@ -1545,6 +1555,7 @@ void WobblyWindow::initialiseUIFromProject() {
         crop_spin[i]->blockSignals(false);
 
     crop_box->setChecked(project->isCropEnabled());
+    crop_early_check->setChecked(project->isCropEarly());
 
 
     // Resize.

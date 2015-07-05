@@ -2,6 +2,7 @@
 #define WOBBLYWINDOW_H
 
 
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QGroupBox>
@@ -56,6 +57,7 @@ private:
     DockWidget *crop_dock;
     QSpinBox *crop_spin[4];
     QGroupBox *crop_box;
+    QCheckBox *crop_early_check;
     QSpinBox *resize_spin[2];
     QGroupBox *resize_box;
 

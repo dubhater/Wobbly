@@ -26,7 +26,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , last_visited_frame(0)
     , is_wobbly(_is_wobbly)
     , resize{ false, 0, 0 }
-    , crop{ false, 0, 0, 0, 0 }
+    , crop{ false, false, 0, 0, 0, 0 }
 {
 
 }
@@ -205,6 +205,7 @@ void WobblyProject::writeProject(const std::string &path) {
 
         if (crop.enabled) {
             QJsonObject json_crop;
+            json_crop.insert("early", crop.early);
             json_crop.insert("left", crop.left);
             json_crop.insert("top", crop.top);
             json_crop.insert("right", crop.right);
@@ -413,6 +414,7 @@ void WobblyProject::readProject(const std::string &path) {
 
     json_crop = json_project["crop"].toObject();
     crop.enabled = !json_crop.isEmpty();
+    crop.early = json_crop["early"].toBool();
     crop.left = (int)json_crop["left"].toDouble();
     crop.top = (int)json_crop["top"].toDouble();
     crop.right = (int)json_crop["right"].toDouble();
@@ -1013,6 +1015,16 @@ bool WobblyProject::isCropEnabled() {
 }
 
 
+void WobblyProject::setCropEarly(bool early) {
+    crop.early = early;
+}
+
+
+bool WobblyProject::isCropEarly() {
+    return crop.early;
+}
+
+
 int WobblyProject::getZoom() {
     return zoom;
 }
@@ -1571,6 +1583,9 @@ std::string WobblyProject::generateFinalScript(bool for_preview) {
 
     sourceToScript(script);
 
+    if (crop.early && crop.enabled)
+        cropToScript(script);
+
     trimToScript(script);
 
     customListsToScript(script, PostSource);
@@ -1598,7 +1613,7 @@ std::string WobblyProject::generateFinalScript(bool for_preview) {
 
     customListsToScript(script, PostDecimate);
 
-    if (crop.enabled)
+    if (!crop.early && crop.enabled)
         cropToScript(script);
 
     if (resize.enabled)
