@@ -142,6 +142,7 @@ void WobblyWindow::createShortcuts() {
         { "PgUp", &WobblyWindow::jumpALotForward },
         { "Ctrl+Up", &WobblyWindow::jumpToNextSectionStart },
         { "Ctrl+Down", &WobblyWindow::jumpToPreviousSectionStart },
+        { "G", &WobblyWindow::jumpToFrame },
         { "S", &WobblyWindow::cycleMatchPCN },
         { "Ctrl+F", &WobblyWindow::freezeForward },
         { "Shift+F", &WobblyWindow::freezeBackward },
@@ -1994,6 +1995,17 @@ void WobblyWindow::jumpToPreviousSectionStart() {
         section = project->findSection(current_frame - 1);
 
     jumpRelative(section->start - current_frame);
+}
+
+
+void WobblyWindow::jumpToFrame() {
+    if (!project)
+        return;
+
+    bool ok;
+    int frame = QInputDialog::getInt(this, QStringLiteral("Jump to frame"), QStringLiteral("Destination frame:"), current_frame, 0, project->getNumFrames(PostSource) - 1, 1, &ok);
+    if (ok)
+        displayFrame(frame);
 }
 
 

@@ -164,6 +164,8 @@ public slots:
     void jumpToNextSectionStart();
     void jumpToPreviousSectionStart();
 
+    void jumpToFrame();
+
     void freezeForward();
     void freezeBackward();
     void freezeRange();
