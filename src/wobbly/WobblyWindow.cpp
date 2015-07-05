@@ -2468,7 +2468,7 @@ void WobblyWindow::zoom(bool in) {
         zoom += in ? 1 : -1;
         project->setZoom(zoom);
         try {
-            evaluateScript(preview);
+            displayFrame(current_frame);
         } catch (WobblyException &e) {
             errorPopup(e.what());
         }
@@ -2480,6 +2480,9 @@ void WobblyWindow::zoom(bool in) {
         int width = vsapi->getFrameWidth(vsframe, 0);
         int height = vsapi->getFrameHeight(vsframe, 0);
 
+        // Who the hell even knows the minimum combination of these that works.
+        QApplication::processEvents();
+        resize(width, height);
         QApplication::processEvents();
         resize(width, height);
     }
