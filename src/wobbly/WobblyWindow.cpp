@@ -172,8 +172,9 @@ void WobblyWindow::createFrameDetailsViewer() {
     frame_num_label = new QLabel;
     frame_num_label->setTextFormat(Qt::RichText);
     time_label = new QLabel;
-    matches_label = new QLabel("                     ");
+    matches_label = new QLabel;
     matches_label->setTextFormat(Qt::RichText);
+    matches_label->setMinimumWidth(QFontMetrics(matches_label->font()).width("CCCCCCCCCCCCCCCCCCCCC"));
     section_label = new QLabel;
     custom_list_label = new QLabel;
     freeze_label = new QLabel;
@@ -1181,15 +1182,31 @@ void WobblyWindow::createUI() {
     frame_label->setTextFormat(Qt::PlainText);
     frame_label->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 
-    /*
+    frame_slider = new QSlider(Qt::Horizontal);
+    frame_slider->setTracking(false);
+    frame_slider->setFocusPolicy(Qt::NoFocus);
+
+
+    connect(frame_slider, &QSlider::valueChanged, [this] (int value) {
+        if (!project)
+            return;
+
+        displayFrame(value);
+    });
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(frame_label);
+    vbox->addWidget(frame_slider);
+
     QWidget *central_widget = new QWidget;
-    central_widget->setLayout(hbox);
+    central_widget->setLayout(vbox);
 
     setCentralWidget(central_widget);
-    */
-    setCentralWidget(frame_label);
+
 
     presets_model = new QStringListModel(this);
+
 
     createFrameDetailsViewer();
     createCropAssistant();
@@ -1432,6 +1449,9 @@ void WobblyWindow::initialiseFrozenFramesViewer() {
 
 
 void WobblyWindow::initialiseUIFromProject() {
+    frame_slider->setRange(0, project->getNumFrames(PostSource));
+    frame_slider->setPageStep(project->getNumFrames(PostSource) * 20 / 100);
+
     // Crop.
     for (int i = 0; i < 4; i++)
         crop_spin[i]->blockSignals(true);
@@ -1730,6 +1750,10 @@ void WobblyWindow::displayFrame(int n) {
     vsframe = frame;
 
     current_frame = n;
+
+    frame_slider->blockSignals(true);
+    frame_slider->setValue(n);
+    frame_slider->blockSignals(false);
 
     updateFrameDetails();
 }

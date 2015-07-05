@@ -9,6 +9,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
+#include <QSlider>
 #include <QSpinBox>
 #include <QStringListModel>
 
@@ -38,6 +39,7 @@ private:
     // Widgets.
 
     QLabel *frame_label;
+    QSlider *frame_slider;
 
     QLabel *frame_num_label;
     QLabel *time_label;
