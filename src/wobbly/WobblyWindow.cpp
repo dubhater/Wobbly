@@ -214,6 +214,11 @@ void WobblyWindow::createFrameDetailsViewer() {
 
 
 void WobblyWindow::createCropAssistant() {
+    // Crop.
+    crop_box = new QGroupBox(QStringLiteral("Crop"));
+    crop_box->setCheckable(true);
+    crop_box->setChecked(true);
+
     const char *crop_prefixes[4] = {
         "Left: ",
         "Top: ",
@@ -221,53 +226,30 @@ void WobblyWindow::createCropAssistant() {
         "Bottom: "
     };
 
-    const char *resize_prefixes[2] = {
-        "Width: ",
-        "Height: "
-    };
-
-    QVBoxLayout *vbox = new QVBoxLayout;
-
     for (int i = 0; i < 4; i++) {
         crop_spin[i] = new QSpinBox;
         crop_spin[i]->setRange(0, 99999);
         crop_spin[i]->setPrefix(crop_prefixes[i]);
         crop_spin[i]->setSuffix(QStringLiteral(" px"));
-        connect(crop_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &WobblyWindow::cropChanged);
-
-        vbox->addWidget(crop_spin[i]);
     }
 
     crop_early_check = new QCheckBox("Crop early");
-    connect(crop_early_check, &QCheckBox::clicked, [this] (bool checked) {
-        if (!project)
-            return;
 
-        project->setCropEarly(checked);
-    });
+    const char *resize_prefixes[2] = {
+        "Width: ",
+        "Height: "
+    };
 
-    vbox->addWidget(crop_early_check);
-
-    QHBoxLayout *hbox = new QHBoxLayout;
-    hbox->addLayout(vbox);
-    hbox->addStretch(1);
-
-    crop_box = new QGroupBox(QStringLiteral("Crop"));
-    crop_box->setCheckable(true);
-    crop_box->setChecked(true);
-    crop_box->setLayout(hbox);
-    connect(crop_box, &QGroupBox::clicked, this, &WobblyWindow::cropToggled);
-
-    vbox = new QVBoxLayout;
+    // Resize.
+    resize_box = new QGroupBox(QStringLiteral("Resize"));
+    resize_box->setCheckable(true);
+    resize_box->setChecked(false);
 
     for (int i = 0; i < 2; i++) {
         resize_spin[i] = new QSpinBox;
         resize_spin[i]->setRange(1, 999999);
         resize_spin[i]->setPrefix(resize_prefixes[i]);
         resize_spin[i]->setSuffix(QStringLiteral(" px"));
-        connect(resize_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &WobblyWindow::resizeChanged);
-
-        vbox->addWidget(resize_spin[i]);
     }
 
     resize_filter_combo = new QComboBox;
@@ -280,24 +262,11 @@ void WobblyWindow::createCropAssistant() {
                                       "Lanczos"
                                   });
     resize_filter_combo->setCurrentIndex(3);
-    connect(resize_filter_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), [this] (const QString &text) {
-        if (!project)
-            return;
 
-        project->setResize(resize_spin[0]->value(), resize_spin[1]->value(), text.toLower().toStdString());
-    });
-
-    vbox->addWidget(resize_filter_combo);
-
-    hbox = new QHBoxLayout;
-    hbox->addLayout(vbox);
-    hbox->addStretch(1);
-
-    resize_box = new QGroupBox(QStringLiteral("Resize"));
-    resize_box->setCheckable(true);
-    resize_box->setChecked(false);
-    resize_box->setLayout(hbox);
-    connect(resize_box, &QGroupBox::clicked, this, &WobblyWindow::resizeToggled);
+    // Bit depth.
+    depth_box = new QGroupBox(QStringLiteral("Bit depth"));
+    depth_box->setCheckable(true);
+    depth_box->setChecked(false);
 
     depth_bits_combo = new QComboBox;
     depth_bits_combo->addItems({
@@ -310,6 +279,7 @@ void WobblyWindow::createCropAssistant() {
                                    "32 bits, float"
                                });
     depth_bits_combo->setCurrentIndex(0);
+
     depth_dither_combo = new QComboBox;
     depth_dither_combo->addItems({
                                      "No dithering",
@@ -319,9 +289,88 @@ void WobblyWindow::createCropAssistant() {
                                  });
     depth_dither_combo->setCurrentIndex(2);
 
+
+    // Crop.
+    connect(crop_box, &QGroupBox::clicked, [this] (bool checked) {
+        if (!project)
+            return;
+
+        project->setCropEnabled(checked);
+
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &) {
+
+        }
+    });
+
+    auto cropChanged = [this] () {
+        if (!project)
+            return;
+
+        project->setCrop(crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value());
+
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &) {
+
+        }
+    };
+    for (int i = 0; i < 4; i++)
+        connect(crop_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), cropChanged);
+
+    connect(crop_early_check, &QCheckBox::clicked, [this] (bool checked) {
+        if (!project)
+            return;
+
+        project->setCropEarly(checked);
+    });
+
+    // Resize.
+    connect(resize_box, &QGroupBox::toggled, [this] (bool checked) {
+        if (!project)
+            return;
+
+        project->setResizeEnabled(checked);
+
+        if (checked && !depth_box->isChecked())
+            depth_box->setChecked(true);
+    });
+
+    auto resizeChanged = [this] () {
+        if (!project)
+            return;
+
+        project->setResize(resize_spin[0]->value(), resize_spin[1]->value(), resize_filter_combo->currentText().toLower().toStdString());
+    };
+    for (int i = 0; i < 2; i++)
+        connect(resize_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), resizeChanged);
+
+    connect(resize_filter_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), [this] (const QString &text) {
+        if (!project)
+            return;
+
+        project->setResize(resize_spin[0]->value(), resize_spin[1]->value(), text.toLower().toStdString());
+    });
+
+    // Bit depth.
     int index_to_bits[] = { 8, 9, 10, 12, 16, 16, 32 };
     bool index_to_float_samples[] = { false, false, false, false, false, true, true };
     const char *index_to_dither[] = { "none", "ordered", "random", "error_diffusion" };
+
+    connect(depth_box, &QGroupBox::toggled, [this, index_to_bits, index_to_float_samples, index_to_dither] (bool checked) {
+        if (!project)
+            return;
+
+        if (!checked && resize_box->isChecked())
+            resize_box->setChecked(false);
+
+        int bits_index = depth_bits_combo->currentIndex();
+        int dither_index = depth_dither_combo->currentIndex();
+
+        project->setBitDepth(index_to_bits[bits_index], index_to_float_samples[bits_index], index_to_dither[dither_index]);
+        project->setBitDepthEnabled(checked);
+    });
 
     connect(depth_bits_combo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [this, index_to_bits, index_to_float_samples, index_to_dither] (int index) {
         if (!project)
@@ -341,38 +390,51 @@ void WobblyWindow::createCropAssistant() {
         project->setBitDepth(index_to_bits[bits_index], index_to_float_samples[bits_index], index_to_dither[index]);
     });
 
+
+    // Crop.
+    QVBoxLayout *vbox = new QVBoxLayout;
+    for (int i = 0; i < 4; i++) {
+        vbox->addWidget(crop_spin[i]);
+    }
+    vbox->addWidget(crop_early_check);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addLayout(vbox);
+    hbox->addStretch(1);
+
+    crop_box->setLayout(hbox);
+
+    // Resize.
     vbox = new QVBoxLayout;
-    vbox->addWidget(depth_bits_combo);
-    vbox->addWidget(depth_dither_combo);
+    for (int i = 0; i < 2; i++) {
+        vbox->addWidget(resize_spin[i]);
+    }
+    vbox->addWidget(resize_filter_combo);
+
     hbox = new QHBoxLayout;
     hbox->addLayout(vbox);
     hbox->addStretch(1);
 
-    depth_box = new QGroupBox(QStringLiteral("Bit depth"));
-    depth_box->setCheckable(true);
-    depth_box->setChecked(false);
+    resize_box->setLayout(hbox);
+
+    // Bit depth.
+    vbox = new QVBoxLayout;
+    vbox->addWidget(depth_bits_combo);
+    vbox->addWidget(depth_dither_combo);
+
+    hbox = new QHBoxLayout;
+    hbox->addLayout(vbox);
+    hbox->addStretch(1);
+
     depth_box->setLayout(hbox);
-    connect(depth_box, &QGroupBox::toggled, [this, index_to_bits, index_to_float_samples, index_to_dither] (bool checked) {
-        if (!project)
-            return;
 
-        if (!checked && resize_box->isChecked()) {
-            resize_box->setChecked(false);
-            resizeToggled(false);
-        }
-
-        int bits_index = depth_bits_combo->currentIndex();
-        int dither_index = depth_dither_combo->currentIndex();
-
-        project->setBitDepth(index_to_bits[bits_index], index_to_float_samples[bits_index], index_to_dither[dither_index]);
-        project->setBitDepthEnabled(checked);
-    });
 
     vbox = new QVBoxLayout;
     vbox->addWidget(crop_box);
     vbox->addWidget(resize_box);
     vbox->addWidget(depth_box);
     vbox->addStretch(1);
+
 
     QWidget *crop_widget = new QWidget;
     crop_widget->setLayout(vbox);
@@ -1536,7 +1598,9 @@ void WobblyWindow::initialiseCropAssistant() {
     for (int i = 0; i < 2; i++)
         resize_spin[i]->blockSignals(false);
 
+    resize_box->blockSignals(true);
     resize_box->setChecked(project->isResizeEnabled());
+    resize_box->blockSignals(false);
 
     QString filter = QString::fromStdString(resize.filter);
     filter[0] = filter[0].toUpper();
@@ -2383,57 +2447,6 @@ void WobblyWindow::deleteSection() {
 
         updateFrameDetails();
     }
-}
-
-
-void WobblyWindow::cropChanged(int value) {
-    (void)value;
-
-    if (!project)
-        return;
-
-    project->setCrop(crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value());
-
-    try {
-        evaluateMainDisplayScript();
-    } catch (WobblyException &) {
-
-    }
-}
-
-
-void WobblyWindow::cropToggled(bool checked) {
-    if (!project)
-        return;
-
-    project->setCropEnabled(checked);
-
-    try {
-        evaluateMainDisplayScript();
-    } catch (WobblyException &) {
-
-    }
-}
-
-
-void WobblyWindow::resizeChanged(int value) {
-    (void)value;
-
-    if (!project)
-        return;
-
-    project->setResize(resize_spin[0]->value(), resize_spin[1]->value(), resize_filter_combo->currentText().toLower().toStdString());
-}
-
-
-void WobblyWindow::resizeToggled(bool checked) {
-    if (!project)
-        return;
-
-    project->setResizeEnabled(checked);
-
-    if (checked && !depth_box->isChecked())
-        depth_box->setChecked(true);
 }
 
 

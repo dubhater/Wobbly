@@ -204,11 +204,6 @@ public slots:
     void saveTimecodesAs();
     void saveScreenshot();
 
-    void cropChanged(int value);
-    void cropToggled(bool checked);
-    void resizeChanged(int value);
-    void resizeToggled(bool checked);
-
     void presetChanged(const QString &text);
     void presetEdited();
     void presetNew();
