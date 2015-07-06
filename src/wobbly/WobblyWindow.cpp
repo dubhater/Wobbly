@@ -270,6 +270,25 @@ void WobblyWindow::createCropAssistant() {
         vbox->addWidget(resize_spin[i]);
     }
 
+    resize_filter_combo = new QComboBox;
+    resize_filter_combo->addItems({
+                                      "Point",
+                                      "Bilinear",
+                                      "Bicubic",
+                                      "Spline16",
+                                      "Spline36",
+                                      "Lanczos"
+                                  });
+    resize_filter_combo->setCurrentIndex(3);
+    connect(resize_filter_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), [this] (const QString &text) {
+        if (!project)
+            return;
+
+        project->setResize(resize_spin[0]->value(), resize_spin[1]->value(), text.toLower().toStdString());
+    });
+
+    vbox->addWidget(resize_filter_combo);
+
     hbox = new QHBoxLayout;
     hbox->addLayout(vbox);
     hbox->addStretch(1);
@@ -280,15 +299,85 @@ void WobblyWindow::createCropAssistant() {
     resize_box->setLayout(hbox);
     connect(resize_box, &QGroupBox::clicked, this, &WobblyWindow::resizeToggled);
 
+    depth_bits_combo = new QComboBox;
+    depth_bits_combo->addItems({
+                                   "8 bits",
+                                   "9 bits",
+                                   "10 bits",
+                                   "12 bits",
+                                   "16 bits, integer",
+                                   "16 bits, float",
+                                   "32 bits, float"
+                               });
+    depth_bits_combo->setCurrentIndex(0);
+    depth_dither_combo = new QComboBox;
+    depth_dither_combo->addItems({
+                                     "No dithering",
+                                     "Ordered dithering",
+                                     "Random dithering",
+                                     "Error diffusion"
+                                 });
+    depth_dither_combo->setCurrentIndex(2);
+
+    int index_to_bits[] = { 8, 9, 10, 12, 16, 16, 32 };
+    bool index_to_float_samples[] = { false, false, false, false, false, true, true };
+    const char *index_to_dither[] = { "none", "ordered", "random", "error_diffusion" };
+
+    connect(depth_bits_combo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [this, index_to_bits, index_to_float_samples, index_to_dither] (int index) {
+        if (!project)
+            return;
+
+        int dither_index = depth_dither_combo->currentIndex();
+
+        project->setBitDepth(index_to_bits[index], index_to_float_samples[index], index_to_dither[dither_index]);
+    });
+
+    connect(depth_dither_combo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [this, index_to_bits, index_to_float_samples, index_to_dither] (int index) {
+        if (!project)
+            return;
+
+        int bits_index = depth_bits_combo->currentIndex();
+
+        project->setBitDepth(index_to_bits[bits_index], index_to_float_samples[bits_index], index_to_dither[index]);
+    });
+
+    vbox = new QVBoxLayout;
+    vbox->addWidget(depth_bits_combo);
+    vbox->addWidget(depth_dither_combo);
+    hbox = new QHBoxLayout;
+    hbox->addLayout(vbox);
+    hbox->addStretch(1);
+
+    depth_box = new QGroupBox(QStringLiteral("Bit depth"));
+    depth_box->setCheckable(true);
+    depth_box->setChecked(false);
+    depth_box->setLayout(hbox);
+    connect(depth_box, &QGroupBox::toggled, [this, index_to_bits, index_to_float_samples, index_to_dither] (bool checked) {
+        if (!project)
+            return;
+
+        if (!checked && resize_box->isChecked()) {
+            resize_box->setChecked(false);
+            resizeToggled(false);
+        }
+
+        int bits_index = depth_bits_combo->currentIndex();
+        int dither_index = depth_dither_combo->currentIndex();
+
+        project->setBitDepth(index_to_bits[bits_index], index_to_float_samples[bits_index], index_to_dither[dither_index]);
+        project->setBitDepthEnabled(checked);
+    });
+
     vbox = new QVBoxLayout;
     vbox->addWidget(crop_box);
     vbox->addWidget(resize_box);
+    vbox->addWidget(depth_box);
     vbox->addStretch(1);
 
     QWidget *crop_widget = new QWidget;
     crop_widget->setLayout(vbox);
 
-    crop_dock = new DockWidget("Cropping, resizing", this);
+    crop_dock = new DockWidget("Cropping, resizing, bit depth", this);
     crop_dock->setObjectName("crop assistant");
     crop_dock->setVisible(false);
     crop_dock->setFloating(true);
@@ -1448,6 +1537,29 @@ void WobblyWindow::initialiseCropAssistant() {
         resize_spin[i]->blockSignals(false);
 
     resize_box->setChecked(project->isResizeEnabled());
+
+    QString filter = QString::fromStdString(resize.filter);
+    filter[0] = filter[0].toUpper();
+    resize_filter_combo->setCurrentText(filter);
+
+
+    // Bit depth.
+    std::unordered_map<int, int> bits_to_index[2] = {
+        { { 8, 0 }, { 9, 1 }, {10, 2 }, { 12, 3 }, { 16, 4 } },
+        { { 16, 5 }, { 32, 6 } }
+    };
+    std::unordered_map<std::string, int> dither_to_index = {
+        { "none", 0 },
+        { "ordered", 1 },
+        { "random", 2 },
+        { "error_diffusion", 3 }
+    };
+    const Depth &depth = project->getBitDepth();
+    depth_box->blockSignals(true);
+    depth_box->setChecked(depth.enabled);
+    depth_box->blockSignals(false);
+    depth_bits_combo->setCurrentIndex(bits_to_index[(int)depth.float_samples][depth.bits]);
+    depth_dither_combo->setCurrentIndex(dither_to_index[depth.dither]);
 }
 
 
@@ -2310,7 +2422,7 @@ void WobblyWindow::resizeChanged(int value) {
     if (!project)
         return;
 
-    project->setResize(resize_spin[0]->value(), resize_spin[1]->value());
+    project->setResize(resize_spin[0]->value(), resize_spin[1]->value(), resize_filter_combo->currentText().toLower().toStdString());
 }
 
 
@@ -2319,6 +2431,9 @@ void WobblyWindow::resizeToggled(bool checked) {
         return;
 
     project->setResizeEnabled(checked);
+
+    if (checked && !depth_box->isChecked())
+        depth_box->setChecked(true);
 }
 
 

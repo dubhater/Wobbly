@@ -136,6 +136,7 @@ struct Resize {
     bool enabled;
     int width;
     int height;
+    std::string filter;
 };
 
 
@@ -146,6 +147,14 @@ struct Crop {
     int top;
     int right;
     int bottom;
+};
+
+
+struct Depth {
+    bool enabled;
+    int bits;
+    bool float_samples;
+    std::string dither;
 };
 
 
@@ -223,6 +232,7 @@ class WobblyProject {
 
         Resize resize;
         Crop crop;
+        Depth depth;
 
         // Only functions below.
 
@@ -312,7 +322,7 @@ class WobblyProject {
 
 
         const Resize &getResize();
-        void setResize(int new_width, int new_height);
+        void setResize(int new_width, int new_height, const std::string &filter);
         void setResizeEnabled(bool enabled);
         bool isResizeEnabled();
 
@@ -322,6 +332,11 @@ class WobblyProject {
         bool isCropEnabled();
         void setCropEarly(bool early);
         bool isCropEarly();
+
+        const Depth &getBitDepth();
+        void setBitDepth(int bits, bool float_samples, const std::string &dither);
+        void setBitDepthEnabled(bool enabled);
+        bool isBitDepthEnabled();
 
 
         int getZoom();
@@ -362,6 +377,7 @@ class WobblyProject {
         void cropToScript(std::string &script);
         void showCropToScript(std::string &script);
         void resizeToScript(std::string &script);
+        void bitDepthToScript(std::string &script);
         void rgbConversionToScript(std::string &script);
         void setOutputToScript(std::string &script);
 

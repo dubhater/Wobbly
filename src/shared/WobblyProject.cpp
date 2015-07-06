@@ -25,8 +25,9 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , zoom(1)
     , last_visited_frame(0)
     , is_wobbly(_is_wobbly)
-    , resize{ false, 0, 0 }
+    , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
+    , depth{false, 8, false, "random" }
 {
 
 }
@@ -200,6 +201,7 @@ void WobblyProject::writeProject(const std::string &path) {
             QJsonObject json_resize;
             json_resize.insert("width", resize.width);
             json_resize.insert("height", resize.height);
+            json_resize.insert("filter", QString::fromStdString(resize.filter));
             json_project.insert("resize", json_resize);
         }
 
@@ -211,6 +213,14 @@ void WobblyProject::writeProject(const std::string &path) {
             json_crop.insert("right", crop.right);
             json_crop.insert("bottom", crop.bottom);
             json_project.insert("crop", json_crop);
+        }
+
+        if (depth.enabled) {
+            QJsonObject json_depth;
+            json_depth.insert("bits", depth.bits);
+            json_depth.insert("float samples", depth.float_samples);
+            json_depth.insert("dither", QString::fromStdString(depth.dither));
+            json_project.insert("depth", json_depth);
         }
     }
 
@@ -405,12 +415,13 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    QJsonObject json_resize, json_crop;
+    QJsonObject json_resize, json_crop, json_depth;
 
     json_resize = json_project["resize"].toObject();
     resize.enabled = !json_resize.isEmpty();
     resize.width = (int)json_resize["width"].toDouble(width);
     resize.height = (int)json_resize["height"].toDouble(height);
+    resize.filter = json_resize["filter"].toString().toStdString();
 
     json_crop = json_project["crop"].toObject();
     crop.enabled = !json_crop.isEmpty();
@@ -419,6 +430,14 @@ void WobblyProject::readProject(const std::string &path) {
     crop.top = (int)json_crop["top"].toDouble();
     crop.right = (int)json_crop["right"].toDouble();
     crop.bottom = (int)json_crop["bottom"].toDouble();
+
+    json_depth = json_project["depth"].toObject();
+    depth.enabled = !json_depth.isEmpty();
+    if (depth.enabled) {
+        depth.bits = (int)json_depth["bits"].toDouble();
+        depth.float_samples = json_depth["float samples"].toBool();
+        depth.dither = json_depth["dither"].toString().toStdString();
+    }
 }
 
 void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
@@ -970,12 +989,13 @@ const Resize &WobblyProject::getResize() {
 }
 
 
-void WobblyProject::setResize(int new_width, int new_height) {
+void WobblyProject::setResize(int new_width, int new_height, const std::string &filter) {
     if (new_width <= 0 || new_height <= 0)
         throw WobblyException("Can't resize to " + std::to_string(new_width) + "x" + std::to_string(new_height) + ": dimensions must be positive.");
 
     resize.width = new_width;
     resize.height = new_height;
+    resize.filter = filter;
 }
 
 
@@ -1022,6 +1042,28 @@ void WobblyProject::setCropEarly(bool early) {
 
 bool WobblyProject::isCropEarly() {
     return crop.early;
+}
+
+
+const Depth &WobblyProject::getBitDepth() {
+    return depth;
+}
+
+
+void WobblyProject::setBitDepth(int bits, bool float_samples, const std::string &dither) {
+    depth.bits = bits;
+    depth.float_samples = float_samples;
+    depth.dither = dither;
+}
+
+
+void WobblyProject::setBitDepthEnabled(bool enabled) {
+    depth.enabled = enabled;
+}
+
+
+bool WobblyProject::isBitDepthEnabled() {
+    return depth.enabled;
 }
 
 
@@ -1556,14 +1598,29 @@ void WobblyProject::showCropToScript(std::string &script) {
 }
 
 void WobblyProject::resizeToScript(std::string &script) {
-    script += "src = c.resize.Bicubic(clip=src, width=";
-    script += std::to_string(resize.width) + ", height=";
-    script += std::to_string(resize.height) + ")\n\n";
+    script += "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n";
+    script += "src = c.z.Resize(clip=src";
+    script += ", width=" + std::to_string(resize.width);
+    script += ", height=" + std::to_string(resize.height);
+    script += ", filter='" + resize.filter + "'";
+    script += ")\n\n";
+}
+
+void WobblyProject::bitDepthToScript(std::string &script) {
+    script += "src = c.z.Depth(clip=src";
+    script += ", depth=" + std::to_string(depth.bits);
+    script += ", sample=" + std::string(depth.float_samples ? "vs.FLOAT" : "vs.INTEGER");
+    script += ", dither='" + depth.dither + "'";
+    script += ")\n\n";
 }
 
 void WobblyProject::rgbConversionToScript(std::string &script) {
-    // XXX use zimg
+    // BT 601
     script +=
+            "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n"
+            "src = c.z.Resize(clip=src, width=src.width, height=src.height, filter_uv='bicubic', subsample_w=0, subsample_h=0)\n"
+            "src = c.z.Colorspace(clip=src, matrix_in=5, transfer_in=6, primaries_in=6, matrix_out=0)\n"
+            "src = c.z.Depth(clip=src, depth=8, sample=vs.INTEGER, dither='random')\n"
             "src = c.std.FlipVertical(clip=src)\n"
             "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
             "\n";
@@ -1618,6 +1675,9 @@ std::string WobblyProject::generateFinalScript(bool for_preview) {
 
     if (resize.enabled)
         resizeToScript(script);
+
+    if (depth.enabled)
+        bitDepthToScript(script);
 
     // Maybe this doesn't belong here after all.
     if (for_preview)

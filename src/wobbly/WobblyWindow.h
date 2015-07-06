@@ -60,6 +60,11 @@ private:
     QCheckBox *crop_early_check;
     QSpinBox *resize_spin[2];
     QGroupBox *resize_box;
+    QComboBox *resize_filter_combo;
+    QGroupBox *depth_box;
+    QComboBox *depth_bits_combo;
+    QComboBox *depth_dither_combo;
+
 
     QComboBox *preset_combo;
     PresetTextEdit *preset_edit;
