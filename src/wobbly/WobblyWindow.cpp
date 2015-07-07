@@ -1011,7 +1011,7 @@ void WobblyWindow::createCustomListsEditor() {
         return a.topRow() < b.topRow();
     };
 
-    connect(cl_delete_button, &QPushButton::clicked, [this, cmp] () {
+    connect(cl_delete_button, &QPushButton::clicked, [this, cmp, cl_ranges_list] () {
         if (!project)
             return;
 
@@ -1028,6 +1028,9 @@ void WobblyWindow::createCustomListsEditor() {
 
         if (cl_table->rowCount())
             cl_table->selectRow(cl_table->currentRow());
+
+        if (!cl_table->rowCount())
+            cl_ranges_list->clear();
 
         updateFrameDetails();
     });
