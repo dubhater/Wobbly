@@ -2561,15 +2561,20 @@ void WobblyWindow::presetDelete() {
     if (!project)
         return;
 
-    if (preset_combo->currentIndex() == -1)
+    int index = preset_combo->currentIndex();
+    if (index == -1)
         return;
 
     project->deletePreset(preset_combo->currentText().toStdString());
 
     QStringList preset_list = presets_model->stringList();
-    preset_list.removeAt(preset_combo->currentIndex());
+    preset_list.removeAt(index);
     presets_model->setStringList(preset_list);
 
+    if (preset_list.size()) {
+        index = std::min(index, preset_list.size() - 1);
+        preset_combo->setCurrentIndex(index);
+    }
     presetChanged(preset_combo->currentText());
 }
 
