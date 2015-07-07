@@ -623,6 +623,10 @@ void WobblyWindow::createSectionsEditor() {
                 }
             }
         }
+
+        if (sections_table->rowCount())
+            sections_table->selectRow(sections_table->currentRow());
+
         if (selection.size())
             updateFrameDetails();
     });
@@ -1022,6 +1026,9 @@ void WobblyWindow::createCustomListsEditor() {
             }
         }
 
+        if (cl_table->rowCount())
+            cl_table->selectRow(cl_table->currentRow());
+
         updateFrameDetails();
     });
 
@@ -1308,6 +1315,10 @@ void WobblyWindow::createFrozenFramesViewer() {
                 }
             }
         }
+
+        if (frozen_frames_table->rowCount())
+            frozen_frames_table->selectRow(frozen_frames_table->currentRow());
+
         if (selection.size())
             evaluateMainDisplayScript();
     });
