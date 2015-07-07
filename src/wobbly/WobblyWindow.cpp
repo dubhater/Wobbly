@@ -907,6 +907,10 @@ void WobblyWindow::createCustomListsEditor() {
         if (!cl.size())
             return;
 
+        // When deleting a custom list, currentRow has the wrong value somehow.
+        if (currentRow >= (int)cl.size())
+            currentRow = cl.size() - 1;
+
         cl_position_group->button(cl[currentRow].position)->setChecked(true);
 
         cl_presets_box->setCurrentText(QString::fromStdString(cl[currentRow].preset));
