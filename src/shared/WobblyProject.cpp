@@ -1479,6 +1479,9 @@ void WobblyProject::headerToScript(std::string &script) {
 
 void WobblyProject::presetsToScript(std::string &script) {
     for (auto it = presets.cbegin(); it != presets.cend(); it++) {
+        if (!isPresetInUse(it->second.name))
+            continue;
+
         script += "def " + it->second.name + "(clip):\n";
         size_t start = 0, end;
         do {
