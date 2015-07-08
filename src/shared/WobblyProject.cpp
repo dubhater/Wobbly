@@ -1241,8 +1241,8 @@ void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_t
 
             for (int i = section_start; i < std::min(section_end, num_frames[PostSource] - 1); i++) {
                 if (i % 5 == best) {
-                    int16_t mic_n = mics[i][2];
-                    int16_t mic_c = mics[i + 1][1];
+                    int16_t mic_n = mics[i][matchCharToIndex('n')];
+                    int16_t mic_c = mics[i + 1][matchCharToIndex('c')];
                     if (mic_n > mic_c)
                         drop_n++;
                     else
@@ -1277,8 +1277,8 @@ void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_t
                 }
 
                 if (drop == -1) {
-                    int16_t mic_n = mics[i * 5 + best][2];
-                    int16_t mic_c = mics[i * 5 + best + 1][1];
+                    int16_t mic_n = mics[i * 5 + best][matchCharToIndex('n')];
+                    int16_t mic_c = mics[i * 5 + best + 1][matchCharToIndex('c')];
                     if (mic_n > mic_c)
                         drop = best;
                     else
@@ -1320,7 +1320,9 @@ void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_t
                 clearDecimatedFramesFromCycle(i * 5);
             }
 
-            addDecimatedFrame(i * 5 + drop);
+            int drop_frame = i * 5 + drop;
+            if (drop_frame >= section_start && drop_frame < section_end)
+                addDecimatedFrame(drop_frame);
         }
 
 
@@ -1334,8 +1336,8 @@ void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_t
 
         for (int i = section_start; i < section_end; i++) {
             if (use_third_n_match == UseThirdNMatchIfPrettier && pattern[i % 5] == 'c' && pattern[(i + 1) % 5] == 'n') {
-                int16_t mic_n = mics[i][2];
-                int16_t mic_c = mics[i][1];
+                int16_t mic_n = mics[i][matchCharToIndex('n')];
+                int16_t mic_c = mics[i][matchCharToIndex('c')];
                 if (mic_n < mic_c)
                     matches[i] = 'n';
                 else
@@ -1348,7 +1350,7 @@ void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_t
         // If the last frame of the section has much higher mic with c/n matches than with p match, use the p match.
         char match_index = matchCharToIndex(matches[section_end - 1]);
         int16_t mic_cn = mics[section_end - 1][match_index];
-        int16_t mic_p = mics[section_end - 1][0];
+        int16_t mic_p = mics[section_end - 1][matchCharToIndex('p')];
         if (mic_cn > mic_p * 2)
             matches[section_end - 1] = 'p';
     }
