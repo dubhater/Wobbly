@@ -542,15 +542,7 @@ void WobblyWindow::createPatternEditor() {
 
 void WobblyWindow::createSectionsEditor() {
     sections_table = new TableWidget(0, 2, this);
-    sections_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    sections_table->setAlternatingRowColors(true);
-    sections_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     sections_table->setHorizontalHeaderLabels({ "Start", "Presets" });
-    sections_table->setTabKeyNavigation(false);
-    sections_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    sections_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-    for (int i = 0; i < sections_table->columnCount(); i++)
-        sections_table->horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
 
     QPushButton *delete_sections_button = new QPushButton("Delete");
 
@@ -607,11 +599,6 @@ void WobblyWindow::createSectionsEditor() {
             return;
 
         auto selection = sections_table->selectedRanges();
-
-        auto cmp = [] (const QTableWidgetSelectionRange &a, const QTableWidgetSelectionRange &b) -> bool {
-            return a.topRow() < b.topRow();
-        };
-        std::sort(selection.begin(), selection.end(), cmp);
 
         for (int i = selection.size() - 1; i >= 0; i--) {
             for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
@@ -849,15 +836,7 @@ void WobblyWindow::createSectionsEditor() {
 
 void WobblyWindow::createCustomListsEditor() {
     cl_table = new TableWidget(0, 3, this);
-    cl_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    cl_table->setAlternatingRowColors(true);
-    cl_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     cl_table->setHorizontalHeaderLabels({ "Name", "Preset", "Position" });
-    cl_table->setTabKeyNavigation(false);
-    cl_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    cl_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-    for (int i = 0; i < cl_table->columnCount(); i++)
-        cl_table->horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
 
 
     QPushButton *cl_new_button = new QPushButton("New");
@@ -1007,17 +986,11 @@ void WobblyWindow::createCustomListsEditor() {
         }
     });
 
-    auto cmp = [] (const QTableWidgetSelectionRange &a, const QTableWidgetSelectionRange &b) -> bool {
-        return a.topRow() < b.topRow();
-    };
-
-    connect(cl_delete_button, &QPushButton::clicked, [this, cmp, cl_ranges_list] () {
+    connect(cl_delete_button, &QPushButton::clicked, [this, cl_ranges_list] () {
         if (!project)
             return;
 
         auto selection = cl_table->selectedRanges();
-
-        std::sort(selection.begin(), selection.end(), cmp);
 
         for (int i = selection.size() - 1; i >= 0; i--) {
             for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
@@ -1035,15 +1008,13 @@ void WobblyWindow::createCustomListsEditor() {
         updateFrameDetails();
     });
 
-    connect(cl_move_up_button, &QPushButton::clicked, [this, cmp] () {
+    connect(cl_move_up_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
         auto selection = cl_table->selectedRanges();
         if (selection.isEmpty())
             return;
-
-        std::sort(selection.begin(), selection.end(), cmp);
 
         if (selection.first().topRow() == 0)
             return;
@@ -1062,15 +1033,13 @@ void WobblyWindow::createCustomListsEditor() {
         updateFrameDetails();
     });
 
-    connect(cl_move_down_button, &QPushButton::clicked, [this, cmp] () {
+    connect(cl_move_down_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
         auto selection = cl_table->selectedRanges();
         if (selection.isEmpty())
             return;
-
-        std::sort(selection.begin(), selection.end(), cmp);
 
         if (selection.last().bottomRow() == cl_table->rowCount() - 1)
             return;
@@ -1241,15 +1210,7 @@ void WobblyWindow::createCustomListsEditor() {
 
 void WobblyWindow::createFrameRatesViewer() {
     frame_rates_table = new TableWidget(0, 3, this);
-    frame_rates_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    frame_rates_table->setAlternatingRowColors(true);
-    frame_rates_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     frame_rates_table->setHorizontalHeaderLabels({ "Start", "End", "Frame rate" });
-    frame_rates_table->setTabKeyNavigation(false);
-    frame_rates_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    frame_rates_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-    for (int i = 0; i < frame_rates_table->columnCount(); i++)
-        frame_rates_table->horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
 
 
     connect(frame_rates_table, &TableWidget::cellDoubleClicked, [this] (int row) {
@@ -1274,15 +1235,7 @@ void WobblyWindow::createFrameRatesViewer() {
 
 void WobblyWindow::createFrozenFramesViewer() {
     frozen_frames_table = new TableWidget(0, 3, this);
-    frozen_frames_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    frozen_frames_table->setAlternatingRowColors(true);
-    frozen_frames_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     frozen_frames_table->setHorizontalHeaderLabels({ "First", "Last", "Replacement" });
-    frozen_frames_table->setTabKeyNavigation(false);
-    frozen_frames_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    frozen_frames_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-    for (int i = 0; i < frozen_frames_table->columnCount(); i++)
-        frozen_frames_table->horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
 
     QPushButton *delete_button = new QPushButton("Delete");
 
@@ -1302,11 +1255,6 @@ void WobblyWindow::createFrozenFramesViewer() {
             return;
 
         auto selection = frozen_frames_table->selectedRanges();
-
-        auto cmp = [] (const QTableWidgetSelectionRange &a, const QTableWidgetSelectionRange &b) -> bool {
-            return a.topRow() < b.topRow();
-        };
-        std::sort(selection.begin(), selection.end(), cmp);
 
         for (int i = selection.size() - 1; i >= 0; i--) {
             for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
