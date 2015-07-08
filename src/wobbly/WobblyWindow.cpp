@@ -557,6 +557,7 @@ void WobblyWindow::createSectionsEditor() {
 
     ListWidget *section_presets_list = new ListWidget;
     section_presets_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    section_presets_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     QPushButton *move_preset_up_button = new QPushButton("Move up");
     QPushButton *move_preset_down_button = new QPushButton("Move down");
@@ -565,6 +566,7 @@ void WobblyWindow::createSectionsEditor() {
     QListView *preset_list = new QListView;
     preset_list->setModel(presets_model);
     preset_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    preset_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     QPushButton *append_presets_button = new QPushButton("Append");
 
@@ -866,6 +868,7 @@ void WobblyWindow::createCustomListsEditor() {
 
     ListWidget *cl_ranges_list = new ListWidget;
     cl_ranges_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    cl_ranges_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
 
     QPushButton *cl_delete_range_button = new QPushButton("Delete");
