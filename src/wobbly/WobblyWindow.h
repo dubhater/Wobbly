@@ -126,6 +126,7 @@ private:
     void createCustomListsEditor();
     void createFrameRatesViewer();
     void createFrozenFramesViewer();
+    void createPatternGuessingWindow();
     void drawColorBars();
     void createUI();
 
@@ -142,6 +143,7 @@ private:
     void initialiseCustomListsEditor();
     void initialiseFrameRatesViewer();
     void initialiseFrozenFramesViewer();
+    void initialisePatternGuessingWindow();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);

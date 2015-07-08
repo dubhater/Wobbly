@@ -1302,6 +1302,115 @@ void WobblyWindow::createFrozenFramesViewer() {
 }
 
 
+void WobblyWindow::createPatternGuessingWindow() {
+    QSpinBox *pg_length_spin = new QSpinBox;
+    pg_length_spin->setMaximum(999);
+    pg_length_spin->setPrefix(QStringLiteral("Minimum length: "));
+    pg_length_spin->setSuffix(QStringLiteral(" frames"));
+    pg_length_spin->setValue(10);
+
+    // XXX Tooltips explaining these.
+    QGroupBox *pg_n_match_group = new QGroupBox(QStringLiteral("Use third N match"));
+
+    const char *third_n_match[] = {
+        "Always",
+        "Never",
+        "If it has lower mic"
+    };
+    QButtonGroup *pg_n_match_buttons = new QButtonGroup(this);
+    for (int i = 0; i < 3; i++)
+        pg_n_match_buttons->addButton(new QRadioButton(third_n_match[i]), i);
+    pg_n_match_buttons->button(UseThirdNMatchNever)->setChecked(true);
+
+    QGroupBox *pg_decimate_group = new QGroupBox(QStringLiteral("Decimate"));
+
+    const char *decimate[] = {
+        "First duplicate",
+        "Second duplicate",
+        "Duplicate with higher mic per cycle",
+        "Duplicate with higher mic per section"
+    };
+    QButtonGroup *pg_decimate_buttons = new QButtonGroup(this);
+    for (int i = 0; i < 4; i++)
+        pg_decimate_buttons->addButton(new QRadioButton(decimate[i]), i);
+    pg_decimate_buttons->button(DropFirstDuplicate)->setChecked(true);
+
+    QPushButton *pg_process_section_button = new QPushButton(QStringLiteral("Process current section"));
+
+    QPushButton *pg_process_project_button = new QPushButton(QStringLiteral("Process project"));
+
+
+    connect(pg_process_section_button, &QPushButton::clicked, [this, pg_length_spin, pg_n_match_buttons, pg_decimate_buttons] () {
+        if (!project)
+            return;
+
+        int section_start = project->findSection(current_frame)->start;
+        int section_end = project->getSectionEnd(current_frame);
+
+        if (section_end - section_start >= pg_length_spin->value()) {
+            project->guessSectionPatternsFromMatches(section_start, pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
+
+            evaluateMainDisplayScript();
+        }
+    });
+
+    connect(pg_process_project_button, &QPushButton::clicked, [this, pg_length_spin, pg_n_match_buttons, pg_decimate_buttons] () {
+        if (!project)
+            return;
+
+        project->guessProjectPatternsFromMatches(pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
+
+        evaluateMainDisplayScript();
+    });
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    for (int i = 0; i < 3; i++)
+        vbox->addWidget(pg_n_match_buttons->button(i));
+    pg_n_match_group->setLayout(vbox);
+
+    vbox = new QVBoxLayout;
+    for (int i = 0; i < 4; i++)
+        vbox->addWidget(pg_decimate_buttons->button(i));
+    pg_decimate_group->setLayout(vbox);
+
+    vbox = new QVBoxLayout;
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(pg_n_match_group);
+    hbox->addWidget(pg_decimate_group);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(pg_length_spin);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(pg_process_section_button);
+    hbox->addWidget(pg_process_project_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    vbox->addStretch(1);
+
+
+    QWidget *pg_widget = new QWidget;
+    pg_widget->setLayout(vbox);
+
+
+    DockWidget *pg_dock = new DockWidget("Pattern guessing", this);
+    pg_dock->setObjectName("pattern guessing window");
+    pg_dock->setVisible(false);
+    pg_dock->setFloating(true);
+    pg_dock->setWidget(pg_widget);
+    addDockWidget(Qt::RightDockWidgetArea, pg_dock);
+    tools_menu->addAction(pg_dock->toggleViewAction());
+    connect(pg_dock, &DockWidget::visibilityChanged, pg_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::drawColorBars() {
     auto drawRect = [this] (int left, int top, int width, int height, int red, int green, int blue) {
         uint8_t *ptr = splash_image.bits();
@@ -1425,6 +1534,7 @@ void WobblyWindow::createUI() {
     createCustomListsEditor();
     createFrameRatesViewer();
     createFrozenFramesViewer();
+    createPatternGuessingWindow();
 }
 
 
@@ -1742,6 +1852,11 @@ void WobblyWindow::initialiseFrozenFramesViewer() {
 
     if (ff.size())
         frozen_frames_table->selectRow(0);
+}
+
+
+void WobblyWindow::initialisePatternGuessingWindow() {
+
 }
 
 
