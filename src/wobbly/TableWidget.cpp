@@ -6,6 +6,7 @@
 TableWidget::TableWidget(int rows, int columns, QWidget *parent)
     : QTableWidget(rows, columns, parent)
 {
+    setAutoScroll(false);
     setEditTriggers(QAbstractItemView::NoEditTriggers);
     setAlternatingRowColors(true);
     setSelectionBehavior(QAbstractItemView::SelectRows);
