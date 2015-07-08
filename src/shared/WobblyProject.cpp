@@ -106,7 +106,7 @@ void WobblyProject::writeProject(const std::string &path) {
     json_project.insert("vdecimate parameters", json_vdecimate_parameters);
 
 
-    QJsonArray json_mics, json_matches, json_combed_frames, json_decimated_frames, json_decimate_metrics;
+    QJsonArray json_mics, json_matches, json_original_matches, json_combed_frames, json_decimated_frames, json_decimate_metrics;
 
     for (size_t i = 0; i < mics.size(); i++) {
         QJsonArray json_mic;
@@ -117,6 +117,9 @@ void WobblyProject::writeProject(const std::string &path) {
 
     for (size_t i = 0; i < matches.size(); i++)
         json_matches.append(QString(matches[i]));
+
+    for (size_t i = 0; i < original_matches.size(); i++)
+        json_original_matches.append(QString(original_matches[i]));
 
     for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
         json_combed_frames.append(*it);
@@ -130,6 +133,7 @@ void WobblyProject::writeProject(const std::string &path) {
 
     json_project.insert("mics", json_mics);
     json_project.insert("matches", json_matches);
+    json_project.insert("original matches", json_original_matches);
     json_project.insert("combed frames", json_combed_frames);
     json_project.insert("decimated frames", json_decimated_frames);
     json_project.insert("decimate metrics", json_decimate_metrics);
