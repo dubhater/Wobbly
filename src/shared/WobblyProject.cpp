@@ -599,6 +599,24 @@ void WobblyProject::setPresetContents(const std::string &preset_name, const std:
     preset.contents = preset_contents;
 }
 
+
+bool WobblyProject::isPresetInUse(const std::string &preset_name) {
+    if (!presets.count(preset_name))
+        throw WobblyException("Can't check if preset '" + preset_name + "' is in use: no such preset.");
+
+    for (auto it = sections.begin(); it != sections.end(); it++)
+        for (size_t j = 0; j < it->second.presets.size(); j++)
+            if (it->second.presets[j] == preset_name)
+                return true;
+
+    for (auto it = custom_lists.begin(); it != custom_lists.end(); it++)
+        if (it->preset == preset_name)
+            return true;
+
+    return false;
+}
+
+
 const std::array<int16_t, 5> &WobblyProject::getMics(int frame) {
     return mics[frame];
 }

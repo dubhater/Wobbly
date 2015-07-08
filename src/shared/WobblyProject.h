@@ -263,6 +263,7 @@ class WobblyProject {
         std::vector<std::string> getPresets();
         const std::string &getPresetContents(const std::string &preset_name);
         void setPresetContents(const std::string &preset_name, const std::string &preset_contents);
+        bool isPresetInUse(const std::string &preset_name);
 
 
         const std::array<int16_t, 5> &getMics(int frame);

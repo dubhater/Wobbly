@@ -1631,6 +1631,8 @@ void WobblyWindow::initialiseSectionsEditor() {
     }
 
     sections_table->resizeColumnsToContents();
+
+    sections_table->selectRow(0);
 }
 
 
@@ -1668,6 +1670,9 @@ void WobblyWindow::initialiseCustomListsEditor() {
     }
 
     cl_table->resizeColumnsToContents();
+
+    if (cl.size())
+        cl_table->selectRow(0);
 }
 
 
@@ -1706,6 +1711,8 @@ void WobblyWindow::initialiseFrameRatesViewer() {
     }
 
     frame_rates_table->resizeColumnsToContents();
+
+    frame_rates_table->selectRow(0);
 }
 
 
@@ -1732,6 +1739,9 @@ void WobblyWindow::initialiseFrozenFramesViewer() {
     }
 
     frozen_frames_table->resizeColumnsToContents();
+
+    if (ff.size())
+        frozen_frames_table->selectRow(0);
 }
 
 
@@ -2516,7 +2526,17 @@ void WobblyWindow::presetDelete() {
     if (index == -1)
         return;
 
-    project->deletePreset(preset_combo->currentText().toStdString());
+    const std::string &preset = preset_combo->currentText().toStdString();
+
+    bool preset_in_use = project->isPresetInUse(preset);
+
+    if (preset_in_use) {
+        QMessageBox::StandardButton answer = QMessageBox::question(this, QStringLiteral("Delete preset?"), QStringLiteral("Preset '%1' is in use. Delete anyway?").arg(preset.c_str()), QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+        if (answer == QMessageBox::No)
+            return;
+    }
+
+    project->deletePreset(preset);
 
     QStringList preset_list = presets_model->stringList();
     preset_list.removeAt(index);
@@ -2527,6 +2547,25 @@ void WobblyWindow::presetDelete() {
         preset_combo->setCurrentIndex(index);
     }
     presetChanged(preset_combo->currentText());
+
+    if (preset_in_use) {
+        auto selection = sections_table->selectedRanges();
+
+        initialiseSectionsEditor();
+
+        sections_table->clearSelection();
+        for (int i = 0; i < selection.size(); i++)
+            sections_table->setRangeSelected(selection[i], true);
+
+
+        selection = cl_table->selectedRanges();
+
+        initialiseCustomListsEditor();
+
+        cl_table->clearSelection();
+        for (int i = 0; i < selection.size(); i++)
+            cl_table->setRangeSelected(selection[i], true);
+    }
 }
 
 
