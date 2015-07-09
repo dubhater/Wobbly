@@ -1303,7 +1303,7 @@ void WobblyWindow::createFrozenFramesViewer() {
 
 
 void WobblyWindow::createPatternGuessingWindow() {
-    QSpinBox *pg_length_spin = new QSpinBox;
+    pg_length_spin = new QSpinBox;
     pg_length_spin->setMaximum(999);
     pg_length_spin->setPrefix(QStringLiteral("Minimum length: "));
     pg_length_spin->setSuffix(QStringLiteral(" frames"));
@@ -1317,7 +1317,7 @@ void WobblyWindow::createPatternGuessingWindow() {
         "Never",
         "If it has lower mic"
     };
-    QButtonGroup *pg_n_match_buttons = new QButtonGroup(this);
+    pg_n_match_buttons = new QButtonGroup(this);
     for (int i = 0; i < 3; i++)
         pg_n_match_buttons->addButton(new QRadioButton(third_n_match[i]), i);
     pg_n_match_buttons->button(UseThirdNMatchNever)->setChecked(true);
@@ -1330,7 +1330,7 @@ void WobblyWindow::createPatternGuessingWindow() {
         "Duplicate with higher mic per cycle",
         "Duplicate with higher mic per section"
     };
-    QButtonGroup *pg_decimate_buttons = new QButtonGroup(this);
+    pg_decimate_buttons = new QButtonGroup(this);
     for (int i = 0; i < 4; i++)
         pg_decimate_buttons->addButton(new QRadioButton(decimate[i]), i);
     pg_decimate_buttons->button(DropFirstDuplicate)->setChecked(true);
@@ -1339,28 +1339,46 @@ void WobblyWindow::createPatternGuessingWindow() {
 
     QPushButton *pg_process_project_button = new QPushButton(QStringLiteral("Process project"));
 
+    pg_failures_table = new TableWidget(0, 2, this);
+    pg_failures_table->setHorizontalHeaderLabels({ "Section", "Reason for failure" });
 
-    connect(pg_process_section_button, &QPushButton::clicked, [this, pg_length_spin, pg_n_match_buttons, pg_decimate_buttons] () {
+
+    connect(pg_process_section_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
         int section_start = project->findSection(current_frame)->start;
-        int section_end = project->getSectionEnd(current_frame);
 
-        if (section_end - section_start >= pg_length_spin->value()) {
-            project->guessSectionPatternsFromMatches(section_start, pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
+        bool success = project->guessSectionPatternsFromMatches(section_start, pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
+
+        updatePatternGuessingWindow();
+
+        if (success) {
+            initialiseFrameRatesViewer();
 
             evaluateMainDisplayScript();
         }
     });
 
-    connect(pg_process_project_button, &QPushButton::clicked, [this, pg_length_spin, pg_n_match_buttons, pg_decimate_buttons] () {
+    connect(pg_process_project_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
         project->guessProjectPatternsFromMatches(pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
 
+        updatePatternGuessingWindow();
+
+        initialiseFrameRatesViewer();
+
         evaluateMainDisplayScript();
+    });
+
+    connect(pg_failures_table, &TableWidget::cellDoubleClicked, [this] (int row) {
+        QTableWidgetItem *item = pg_failures_table->item(row, 0);
+        bool ok;
+        int frame = item->text().toInt(&ok);
+        if (ok)
+            displayFrame(frame);
     });
 
 
@@ -1393,7 +1411,7 @@ void WobblyWindow::createPatternGuessingWindow() {
     hbox->addStretch(1);
     vbox->addLayout(hbox);
 
-    vbox->addStretch(1);
+    vbox->addWidget(pg_failures_table);
 
 
     QWidget *pg_widget = new QWidget;
@@ -1855,8 +1873,49 @@ void WobblyWindow::initialiseFrozenFramesViewer() {
 }
 
 
-void WobblyWindow::initialisePatternGuessingWindow() {
+void WobblyWindow::updatePatternGuessingWindow() {
+    pg_failures_table->setRowCount(0);
 
+    const char *reasons[] = {
+        "Section too short",
+        "Ambiguous pattern"
+    };
+
+    auto pg = project->getPatternGuessing();
+
+    pg_failures_table->setRowCount(pg.failures.size());
+
+    int rows = 0;
+
+    for (auto it = pg.failures.cbegin(); it != pg.failures.cend(); it++) {
+        QTableWidgetItem *item = new QTableWidgetItem(QString::number(it->second.start));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        pg_failures_table->setItem(rows, 0, item);
+
+        item = new QTableWidgetItem(reasons[it->second.reason]);
+        pg_failures_table->setItem(rows, 1, item);
+
+        rows++;
+    }
+
+    pg_failures_table->resizeColumnsToContents();
+}
+
+
+void WobblyWindow::initialisePatternGuessingWindow() {
+    auto pg = project->getPatternGuessing();
+
+    if (pg.failures.size()) {
+        pg_length_spin->setValue(pg.minimum_length);
+
+        pg_n_match_buttons->button(pg.third_n_match)->setChecked(true);
+
+        pg_decimate_buttons->button(pg.decimation)->setChecked(true);
+    }
+
+    updatePatternGuessingWindow();
+
+    pg_failures_table->resizeColumnsToContents();
 }
 
 
@@ -1876,6 +1935,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialiseCustomListsEditor();
     initialiseFrameRatesViewer();
     initialiseFrozenFramesViewer();
+    initialisePatternGuessingWindow();
 }
 
 

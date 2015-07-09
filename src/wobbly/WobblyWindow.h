@@ -84,6 +84,11 @@ private:
 
     TableWidget *frozen_frames_table;
 
+    QSpinBox *pg_length_spin;
+    QButtonGroup *pg_n_match_buttons;
+    QButtonGroup *pg_decimate_buttons;
+    TableWidget *pg_failures_table;
+
 
     // Widget-related
 
@@ -143,6 +148,7 @@ private:
     void initialiseCustomListsEditor();
     void initialiseFrameRatesViewer();
     void initialiseFrozenFramesViewer();
+    void updatePatternGuessingWindow();
     void initialisePatternGuessingWindow();
     void initialiseUIFromProject();
 

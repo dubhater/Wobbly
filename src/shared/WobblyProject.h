@@ -176,17 +176,37 @@ enum PositionInFilterChain {
 
 
 enum UseThirdNMatch {
-    UseThirdNMatchAlways,
+    UseThirdNMatchAlways = 0,
     UseThirdNMatchNever,
     UseThirdNMatchIfPrettier
 };
 
 
 enum DropDuplicate {
-    DropFirstDuplicate,
+    DropFirstDuplicate = 0,
     DropSecondDuplicate,
     DropUglierDuplicatePerCycle,
     DropUglierDuplicatePerSection
+};
+
+
+struct FailedPatternGuessing {
+    int start;
+    int reason;
+};
+
+
+enum PatternGuessingFailureReason {
+    SectionTooShort = 0,
+    AmbiguousMatchPattern
+};
+
+
+struct PatternGuessing {
+    int minimum_length;
+    int third_n_match;
+    int decimation;
+    std::map<int, FailedPatternGuessing> failures; // Key is FailedPatternGuessing::start
 };
 
 
@@ -227,6 +247,8 @@ class WobblyProject {
         std::map<int, Section> sections; // Key is Section::start
 
         std::vector<CustomList> custom_lists;
+
+        PatternGuessing pattern_guessing;
 
         Resize resize;
         Crop crop;
@@ -361,8 +383,9 @@ class WobblyProject {
         int frameNumberAfterDecimation(int frame);
 
 
-        void guessSectionPatternsFromMatches(int section_start, int use_third_n_match, int drop_duplicate);
+        bool guessSectionPatternsFromMatches(int section_start, int minimum_length, int use_third_n_match, int drop_duplicate);
         void guessProjectPatternsFromMatches(int minimum_length, int use_third_n_match, int drop_duplicate);
+        const PatternGuessing &getPatternGuessing();
 
 
         void sectionsToScript(std::string &script);

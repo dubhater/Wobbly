@@ -25,9 +25,10 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , zoom(1)
     , last_visited_frame(0)
     , is_wobbly(_is_wobbly)
+    , pattern_guessing{ 0, UseThirdNMatchNever, DropFirstDuplicate, { } }
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
-    , depth{false, 8, false, "random" }
+    , depth{ false, 8, false, "random" }
 {
 
 }
@@ -201,6 +202,44 @@ void WobblyProject::writeProject(const std::string &path) {
         json_project.insert("custom lists", json_custom_lists);
 
 
+    if (pattern_guessing.failures.size()) {
+        QJsonObject json_pattern_guessing;
+
+        json_pattern_guessing.insert("minimum length", pattern_guessing.minimum_length);
+
+        const char *third_n_match[] = {
+            "always",
+            "never",
+            "if it has lower mic"
+        };
+        json_pattern_guessing.insert("use third n match", third_n_match[pattern_guessing.third_n_match]);
+
+        const char *decimate[] = {
+            "first duplicate",
+            "second duplicate",
+            "duplicate with higher mic per cycle",
+            "duplicate with higher mic per section"
+        };
+        json_pattern_guessing.insert("decimate", decimate[pattern_guessing.decimation]);
+
+        QJsonArray json_failures;
+
+        const char *reasons[] = {
+            "section too short",
+            "ambiguous pattern"
+        };
+        for (auto it = pattern_guessing.failures.cbegin(); it != pattern_guessing.failures.cend(); it++) {
+            QJsonObject json_failure;
+            json_failure.insert("start", it->second.start);
+            json_failure.insert("reason", reasons[it->second.reason]);
+            json_failures.append(json_failure);
+        }
+        json_pattern_guessing.insert("failures", json_failures);
+
+        json_project.insert("pattern guessing", json_pattern_guessing);
+    }
+
+
         if (resize.enabled) {
             QJsonObject json_resize;
             json_resize.insert("width", resize.width);
@@ -234,8 +273,6 @@ void WobblyProject::writeProject(const std::string &path) {
 }
 
 void WobblyProject::readProject(const std::string &path) {
-    // XXX Make sure the things only written by Wobbly get sane defaults. Actually, make sure everything has sane defaults, since Wibbly doesn't always write all the categories.
-
     QFile file(QString::fromStdString(path));
 
     if (!file.open(QIODevice::ReadOnly))
@@ -416,6 +453,42 @@ void WobblyProject::readProject(const std::string &path) {
         }
 
         addCustomList(list);
+    }
+
+
+    QJsonObject json_pattern_guessing = json_project["pattern guessing"].toObject();
+
+    if (!json_pattern_guessing.isEmpty()) {
+        pattern_guessing.minimum_length = (int)json_pattern_guessing["minimum length"].toDouble();
+
+        std::unordered_map<std::string, int> third_n_match = {
+            { "always", 0 },
+            { "never", 1 },
+            { "if it has lower mic", 2 }
+        };
+        pattern_guessing.third_n_match = third_n_match[json_pattern_guessing["use third n match"].toString("never").toStdString()];
+
+        std::unordered_map<std::string, int> decimate = {
+            { "first duplicate", 0 },
+            { "second duplicate", 1 },
+            { "duplicate with higher mic per cycle", 2 },
+            { "duplicate with higher mic per section", 3 }
+        };
+        pattern_guessing.decimation = decimate[json_pattern_guessing["decimate"].toString("first duplicate").toStdString()];
+
+        QJsonArray json_failures = json_pattern_guessing["failures"].toArray();
+
+        std::unordered_map<std::string, int> reasons = {
+            { "section too short", 0 },
+            { "ambiguous pattern", 1 }
+        };
+        for (int i = 0; i < json_failures.size(); i++) {
+            QJsonObject json_failure = json_failures[i].toObject();
+            FailedPatternGuessing fail;
+            fail.start = (int)json_failure["start"].toDouble();
+            fail.reason = reasons[json_failure["reason"].toString().toStdString()];
+            pattern_guessing.failures.insert({ fail.start, fail });
+        }
     }
 
 
@@ -1212,8 +1285,18 @@ int WobblyProject::frameNumberAfterDecimation(int frame) {
 }
 
 
-void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_third_n_match, int drop_duplicate) {
+bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minimum_length, int use_third_n_match, int drop_duplicate) {
     int section_end = getSectionEnd(section_start);
+
+    if (section_end - section_start < minimum_length) {
+        FailedPatternGuessing failure;
+        failure.start = section_start;
+        failure.reason = SectionTooShort;
+        pattern_guessing.failures.erase(failure.start);
+        pattern_guessing.failures.insert({ failure.start, failure });
+
+        return false;
+    }
 
     // Count the "nc" pairs in each position.
     int positions[5] = { 0 };
@@ -1386,21 +1469,36 @@ void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_t
         int16_t mic_b = mics[section_end - 1][matchCharToIndex('b')];
         if (mic_cn > mic_b * 2)
             matches[section_end - 1] = 'b';
+
+        // A pattern was found.
+        pattern_guessing.failures.erase(section_start);
+        return true;
+    } else {
+        // A pattern was not found.
+        FailedPatternGuessing failure;
+        failure.start = section_start;
+        failure.reason = AmbiguousMatchPattern;
+        pattern_guessing.failures.erase(failure.start);
+        pattern_guessing.failures.insert({ failure.start, failure });
+        return false;
     }
 }
 
 
 void WobblyProject::guessProjectPatternsFromMatches(int minimum_length, int use_third_n_match, int drop_duplicate) {
-    for (auto it = sections.cbegin(); it != sections.cend(); it++) {
-        int length = getSectionEnd(it->second.start) - it->second.start;
+    pattern_guessing.failures.clear();
 
-        if (length < minimum_length)
-            // XXX Record the sections skipped due to their length.
-            continue;
+    for (auto it = sections.cbegin(); it != sections.cend(); it++)
+        guessSectionPatternsFromMatches(it->second.start, minimum_length, use_third_n_match, drop_duplicate);
 
-        // XXX Record the sections where the matches didn't reveal a pattern.
-        guessSectionPatternsFromMatches(it->second.start, use_third_n_match, drop_duplicate);
-    }
+    pattern_guessing.minimum_length = minimum_length;
+    pattern_guessing.third_n_match = use_third_n_match;
+    pattern_guessing.decimation = drop_duplicate;
+}
+
+
+const PatternGuessing &WobblyProject::getPatternGuessing() {
+    return pattern_guessing;
 }
 
 
