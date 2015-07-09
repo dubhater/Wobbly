@@ -636,8 +636,8 @@ void WobblyProject::setMatch(int frame, char match) {
 }
 
 
-void WobblyProject::cycleMatchPCN(int frame) {
-    // N -> C -> P. This is the order Yatta uses, so we use it.
+void WobblyProject::cycleMatchBCN(int frame) {
+    // N -> C -> B. This is the order Yatta uses, so we use it.
 
     char match = matches[frame];
 
@@ -647,12 +647,45 @@ void WobblyProject::cycleMatchPCN(int frame) {
         if (frame == 0)
             match = 'n';
         else
-            match = 'p';
-    } else if (match == 'p') {
+            match = 'b';
+    } else if (match == 'b') {
         if (frame == getNumFrames(PostSource) - 1)
             match = 'c';
         else
             match = 'n';
+    }
+
+    matches[frame] = match;
+}
+
+
+void WobblyProject::cycleMatch(int frame) {
+    // U -> B -> N -> C -> P
+
+    char match = matches[frame];
+
+    if (match == 'u') {
+        if (frame == 0)
+            match = 'n';
+        else
+            match = 'b';
+    } else if (match == 'b') {
+        if (frame == getNumFrames(PostSource) - 1)
+            match = 'c';
+        else
+            match = 'n';
+    } else if (match == 'n') {
+        match = 'c';
+    } else if (match == 'c') {
+        if (frame == 0)
+            match = 'u';
+        else
+            match = 'p';
+    } else if (match == 'p') {
+        if (frame == getNumFrames(PostSource) - 1)
+            match = 'b';
+        else
+            match = 'u';
     }
 
     matches[frame] = match;
@@ -1347,12 +1380,12 @@ void WobblyProject::guessSectionPatternsFromMatches(int section_start, int use_t
             }
         }
 
-        // If the last frame of the section has much higher mic with c/n matches than with p match, use the p match.
+        // If the last frame of the section has much higher mic with c/n matches than with b match, use the b match.
         char match_index = matchCharToIndex(matches[section_end - 1]);
         int16_t mic_cn = mics[section_end - 1][match_index];
-        int16_t mic_p = mics[section_end - 1][matchCharToIndex('p')];
-        if (mic_cn > mic_p * 2)
-            matches[section_end - 1] = 'p';
+        int16_t mic_b = mics[section_end - 1][matchCharToIndex('b')];
+        if (mic_cn > mic_b * 2)
+            matches[section_end - 1] = 'b';
     }
 }
 

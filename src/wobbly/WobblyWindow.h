@@ -188,7 +188,7 @@ public slots:
 
     void deleteFreezeFrame();
 
-    void cycleMatchPCN();
+    void cycleMatchBCN();
 
     void toggleDecimation();
 

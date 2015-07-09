@@ -147,7 +147,7 @@ void WobblyWindow::createShortcuts() {
         { "Ctrl+Up", &WobblyWindow::jumpToNextSectionStart },
         { "Ctrl+Down", &WobblyWindow::jumpToPreviousSectionStart },
         { "G", &WobblyWindow::jumpToFrame },
-        { "S", &WobblyWindow::cycleMatchPCN },
+        { "S", &WobblyWindow::cycleMatchBCN },
         { "Ctrl+F", &WobblyWindow::freezeForward },
         { "Shift+F", &WobblyWindow::freezeBackward },
         { "F", &WobblyWindow::freezeRange },
@@ -2393,11 +2393,11 @@ void WobblyWindow::jumpToFrame() {
 }
 
 
-void WobblyWindow::cycleMatchPCN() {
+void WobblyWindow::cycleMatchBCN() {
     if (!project)
         return;
 
-    project->cycleMatchPCN(current_frame);
+    project->cycleMatchBCN(current_frame);
 
     evaluateMainDisplayScript();
 }
