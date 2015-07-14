@@ -1503,9 +1503,27 @@ const PatternGuessing &WobblyProject::getPatternGuessing() {
 
 
 void WobblyProject::sectionsToScript(std::string &script) {
-    // XXX Make a temporary copy of the sections map and merge sections with identical presets, to generate as few trims as possible.
+    auto samePresets = [] (const std::vector<std::string> &a, const std::vector<std::string> &b) -> bool {
+        if (a.size() != b.size())
+            return false;
+
+        for (size_t i = 0; i < a.size(); i++)
+            if (a[i] != b[i])
+                return false;
+
+        return true;
+    };
+
+    std::map<int, Section> merged_sections;
+    merged_sections.insert({ 0, sections.cbegin()->second });
+
+    for (auto it = ++(sections.cbegin()); it != sections.cend(); it++)
+        if (!samePresets(it->second.presets, merged_sections.crbegin()->second.presets))
+            merged_sections.insert({ it->first, it->second });
+
+
     std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
-    for (auto it = sections.cbegin(); it != sections.cend(); it++) {
+    for (auto it = merged_sections.cbegin(); it != merged_sections.cend(); it++) {
         std::string section_name = "section";
         section_name += std::to_string(it->second.start);
         script += section_name + " = src";
@@ -1523,7 +1541,7 @@ void WobblyProject::sectionsToScript(std::string &script) {
 
         auto it_next = it;
         it_next++;
-        if (it_next != sections.cend())
+        if (it_next != merged_sections.cend())
             script += std::to_string(it_next->second.start);
         script += "]\n";
 
