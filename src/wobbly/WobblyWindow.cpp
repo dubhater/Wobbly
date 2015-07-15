@@ -1308,8 +1308,8 @@ void WobblyWindow::createPatternGuessingWindow() {
     pg_length_spin->setPrefix(QStringLiteral("Minimum length: "));
     pg_length_spin->setSuffix(QStringLiteral(" frames"));
     pg_length_spin->setValue(10);
+    pg_length_spin->setToolTip(QStringLiteral("Sections shorter than this will be skipped."));
 
-    // XXX Tooltips explaining these.
     QGroupBox *pg_n_match_group = new QGroupBox(QStringLiteral("Use third N match"));
 
     const char *third_n_match[] = {
@@ -1321,6 +1321,20 @@ void WobblyWindow::createPatternGuessingWindow() {
     for (int i = 0; i < 3; i++)
         pg_n_match_buttons->addButton(new QRadioButton(third_n_match[i]), i);
     pg_n_match_buttons->button(UseThirdNMatchNever)->setChecked(true);
+
+    pg_n_match_buttons->button(UseThirdNMatchAlways)->setToolTip(QStringLiteral(
+        "Always generate 'ccnnn' matches.\n"
+        "\n"
+        "Sometimes helps with field-blended hard telecine."));
+    pg_n_match_buttons->button(UseThirdNMatchNever)->setToolTip(QStringLiteral(
+        "Always generate 'cccnn' matches.\n"
+        "\n"
+        "Good for clean hard telecine."));
+    pg_n_match_buttons->button(UseThirdNMatchIfPrettier)->setToolTip(QStringLiteral(
+        "Generate 'ccnnn' matches if they result in a lower mic than\n"
+        "with 'cccnn' matches (per cycle).\n"
+        "\n"
+        "Use with field-blended hard telecine."));
 
     QGroupBox *pg_decimate_group = new QGroupBox(QStringLiteral("Decimate"));
 
@@ -1334,6 +1348,29 @@ void WobblyWindow::createPatternGuessingWindow() {
     for (int i = 0; i < 4; i++)
         pg_decimate_buttons->addButton(new QRadioButton(decimate[i]), i);
     pg_decimate_buttons->button(DropFirstDuplicate)->setChecked(true);
+
+    pg_decimate_buttons->button(DropFirstDuplicate)->setToolTip(QStringLiteral(
+        "Always drop the first duplicate. The first duplicate may have\n"
+        "more compression artifacts than the second one.\n"
+        "\n"
+        "Use with clean hard telecine."));
+    pg_decimate_buttons->button(DropSecondDuplicate)->setToolTip(QStringLiteral(
+        "Always drop the second duplicate.\n"
+        "\n"
+        "Use with clean hard telecine."));
+    pg_decimate_buttons->button(DropUglierDuplicatePerCycle)->setToolTip(QStringLiteral(
+        "Drop the duplicate that is more likely to be combed in each cycle.\n"
+        "\n"
+        "When the first duplicate happens to be the last frame in the cycle,\n"
+        "this will be done per section, to avoid creating unwanted 18 fps and\n"
+        "30 fps cycles.\n"
+        "\n"
+        "Use with field-blended hard telecine."));
+    pg_decimate_buttons->button(DropUglierDuplicatePerSection)->setToolTip(QStringLiteral(
+        "Drop the duplicate that is more likely to be combed, on average,\n"
+        "in the entire section.\n"
+        "\n"
+        "Use with field-blended hard telecine."));
 
     QPushButton *pg_process_section_button = new QPushButton(QStringLiteral("Process current section"));
 
