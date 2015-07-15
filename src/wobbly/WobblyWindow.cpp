@@ -1263,7 +1263,7 @@ void WobblyWindow::createFrozenFramesViewer() {
             for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
                 bool ok;
                 int frame = frozen_frames_table->item(j, 0)->text().toInt(&ok);
-                if (ok && frame != 0) {
+                if (ok) {
                     project->deleteFreezeFrame(frame);
                     frozen_frames_table->removeRow(j);
                 }
@@ -2524,8 +2524,9 @@ void WobblyWindow::freezeForward() {
         evaluateMainDisplayScript();
 
         initialiseFrozenFramesViewer();
-    } catch (WobblyException &) {
-        // XXX Maybe don't be silent.
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+        //statusBar()->showMessage(QStringLiteral("Couldn't freeze forward."), 5000);
     }
 }
 
@@ -2543,8 +2544,9 @@ void WobblyWindow::freezeBackward() {
         evaluateMainDisplayScript();
 
         initialiseFrozenFramesViewer();
-    } catch (WobblyException &) {
-
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+        //statusBar()->showMessage(QStringLiteral("Couldn't freeze backward."), 5000);
     }
 }
 
@@ -2568,8 +2570,9 @@ void WobblyWindow::freezeRange() {
             evaluateMainDisplayScript();
 
             initialiseFrozenFramesViewer();
-        } catch (WobblyException &) {
-
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+            //statusBar()->showMessage(QStringLiteral("Couldn't freeze range."), 5000);
         }
 
         ff = { -1, -1, -1 };
