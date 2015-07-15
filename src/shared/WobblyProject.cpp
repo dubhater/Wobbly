@@ -1702,7 +1702,36 @@ void WobblyProject::freezeFramesToScript(std::string &script) {
 }
 
 void WobblyProject::decimatedFramesToScript(std::string &script) {
-    std::string delete_frames = "src = c.std.DeleteFrames(clip=src, frames=[";
+    std::string delete_frames;
+
+    const std::vector<DecimationRange> &decimation_ranges = getDecimationRanges();
+
+    std::array<int, 5> frame_rate_counts = { 0, 0, 0, 0, 0 };
+
+    for (size_t i = 0; i < decimation_ranges.size(); i++)
+        frame_rate_counts[decimation_ranges[i].num_dropped]++;
+
+    std::string frame_rates[5] = { "30", "24", "18", "12", "6" };
+
+    for (size_t i = 0; i < 5; i++)
+        if (frame_rate_counts[i])
+            delete_frames += "r" + frame_rates[i] + " = c.std.AssumeFPS(clip=src, fpsnum=" + frame_rates[i] + "000, fpsden=1001)\n";
+
+    delete_frames += "src = c.std.Splice(mismatch=True, clips=[";
+
+    for (size_t i = 0; i < decimation_ranges.size(); i++) {
+        int range_end;
+        if (i == decimation_ranges.size() - 1)
+            range_end = num_frames[PostSource];
+        else
+            range_end = decimation_ranges[i + 1].start;
+
+        delete_frames += "r" + frame_rates[decimation_ranges[i].num_dropped] + "[" + std::to_string(decimation_ranges[i].start) + ":" + std::to_string(range_end) + "],";
+    }
+
+    delete_frames += "])\n";
+
+    delete_frames += "src = c.std.DeleteFrames(clip=src, frames=[";
 
     for (size_t i = 0; i < decimated_frames.size(); i++)
         for (auto it = decimated_frames[i].cbegin(); it != decimated_frames[i].cend(); it++)
@@ -1846,8 +1875,6 @@ std::string WobblyProject::generateFinalScript(bool for_preview) {
         }
     if (decimation_needed)
         decimatedFramesToScript(script);
-
-    // XXX DeleteFrames doesn't change the frame rate or the frame durations. This must be done separately.
 
     customListsToScript(script, PostDecimate);
 
