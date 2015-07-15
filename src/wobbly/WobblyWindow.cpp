@@ -928,19 +928,7 @@ void WobblyWindow::createCustomListsEditor() {
                 try {
                     project->addCustomList(cl_name.toStdString());
 
-                    int row = cl_table->rowCount();
-                    cl_table->setRowCount(row + 1);
-
-                    auto cl = project->getCustomLists();
-
-                    QTableWidgetItem *item = new QTableWidgetItem(cl_name);
-                    cl_table->setItem(row, 0, item);
-
-                    item = new QTableWidgetItem(QString::fromStdString(cl[row].preset));
-                    cl_table->setItem(row, 1, item);
-
-                    item = new QTableWidgetItem(positions[cl[row].position]);
-                    cl_table->setItem(row, 2, item);
+                    initialiseCustomListsEditor();
 
                     ok = true;
                 } catch (WobblyException &e) {
@@ -976,7 +964,7 @@ void WobblyWindow::createCustomListsEditor() {
                 try {
                     project->renameCustomList(old_name.toStdString(), new_name.toStdString());
 
-                    cl_table->item(cl_index, 0)->setText(new_name);
+                    initialiseCustomListsEditor();
 
                     updateFrameDetails();
 
@@ -998,7 +986,8 @@ void WobblyWindow::createCustomListsEditor() {
         for (int i = selection.size() - 1; i >= 0; i--) {
             for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
                 project->deleteCustomList(j);
-                cl_table->removeRow(j);
+
+                initialiseCustomListsEditor();
             }
         }
 
