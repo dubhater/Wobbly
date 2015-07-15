@@ -1859,10 +1859,9 @@ std::string WobblyProject::generateFinalScript(bool for_preview) {
 
     fieldHintToScript(script);
 
-    // XXX Put them and FreezeFrames in the same order as Yatta does.
-    sectionsToScript(script);
-
     customListsToScript(script, PostFieldMatch);
+
+    sectionsToScript(script);
 
     if (frozen_frames.size())
         freezeFramesToScript(script);
