@@ -1715,38 +1715,43 @@ void WobblyProject::decimatedFramesToScript(std::string &script) {
 
     std::string select_every;
 
-    const std::vector<DecimationPatternRange> &ranges = getDecimationPatternRanges();
+    const std::vector<DecimationPatternRange> &decimation_pattern_ranges = getDecimationPatternRanges();
 
     std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
 
-    for (size_t i = 0; i < ranges.size(); i++) {
-        std::set<int8_t> offsets = { 0, 1, 2, 3, 4 };
-
-        for (auto it = ranges[i].dropped_offsets.cbegin(); it != ranges[i].dropped_offsets.cend(); it++)
-            offsets.erase(*it);
-
+    for (size_t i = 0; i < decimation_pattern_ranges.size(); i++) {
         int range_end;
-        if (i == ranges.size() - 1)
+        if (i == decimation_pattern_ranges.size() - 1)
             range_end = num_frames[PostSource];
         else
-            range_end = ranges[i + 1].start;
+            range_end = decimation_pattern_ranges[i + 1].start;
 
-        // The last range could contain fewer than five frames.
-        // If they're all decimated, don't generate a SelectEvery
-        // because clips with no frames are not allowed.
-        if (range_end - ranges[i].start <= (int)ranges[i].dropped_offsets.size())
-            break;
+        if (decimation_pattern_ranges[i].dropped_offsets.size()) {
+            // The last range could contain fewer than five frames.
+            // If they're all decimated, don't generate a SelectEvery
+            // because clips with no frames are not allowed.
+            if (range_end - decimation_pattern_ranges[i].start <= (int)decimation_pattern_ranges[i].dropped_offsets.size())
+                break;
 
-        std::string range_name = "dec" + std::to_string(ranges[i].start);
+            std::set<int8_t> offsets = { 0, 1, 2, 3, 4 };
 
-        select_every += range_name + " = c.std.SelectEvery(clip=src[" + std::to_string(ranges[i].start) + ":" + std::to_string(range_end) + "], cycle=5, offsets=[";
+            for (auto it = decimation_pattern_ranges[i].dropped_offsets.cbegin(); it != decimation_pattern_ranges[i].dropped_offsets.cend(); it++)
+                offsets.erase(*it);
 
-        for (auto it = offsets.cbegin(); it != offsets.cend(); it++)
-            select_every += std::to_string(*it) + ",";
+            std::string range_name = "dec" + std::to_string(decimation_pattern_ranges[i].start);
 
-        select_every += "])\n";
+            select_every += range_name + " = c.std.SelectEvery(clip=src[" + std::to_string(decimation_pattern_ranges[i].start) + ":" + std::to_string(range_end) + "], cycle=5, offsets=[";
 
-        splice += range_name + ",";
+            for (auto it = offsets.cbegin(); it != offsets.cend(); it++)
+                select_every += std::to_string(*it) + ",";
+
+            select_every += "])\n";
+
+            splice += range_name + ",";
+        } else {
+            // 30 fps range.
+            splice += "src[" + std::to_string(decimation_pattern_ranges[i].start) + ":" + std::to_string(range_end) + "],";
+        }
     }
 
     select_every += "\n" + splice + "])\n\n";
