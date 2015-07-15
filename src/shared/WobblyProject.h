@@ -401,10 +401,9 @@ class WobblyProject {
         void showCropToScript(std::string &script);
         void resizeToScript(std::string &script);
         void bitDepthToScript(std::string &script);
-        void rgbConversionToScript(std::string &script);
         void setOutputToScript(std::string &script);
 
-        std::string generateFinalScript(bool for_preview);
+        std::string generateFinalScript();
         std::string generateMainDisplayScript(bool show_crop);
 
         std::string generateTimecodesV1();

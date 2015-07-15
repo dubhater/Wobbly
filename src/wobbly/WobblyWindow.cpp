@@ -2033,7 +2033,7 @@ void WobblyWindow::realSaveScript(const QString &path) {
     // The currently selected preset might not have been stored in the project yet.
     presetEdited();
 
-    std::string script = project->generateFinalScript(false);
+    std::string script = project->generateFinalScript();
 
     QFile file(path);
 
@@ -2128,9 +2128,20 @@ void WobblyWindow::evaluateScript(bool final_script) {
     std::string script;
 
     if (final_script)
-        script = project->generateFinalScript(true);
+        script = project->generateFinalScript();
     else
         script = project->generateMainDisplayScript(crop_dock->isVisible());
+
+    // BT 601
+    script +=
+            "src = vs.get_output(index=0)\n"
+            "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n"
+            "src = c.z.Resize(clip=src, width=src.width, height=src.height, filter_uv='bicubic', subsample_w=0, subsample_h=0)\n"
+            "src = c.z.Colorspace(clip=src, matrix_in=5, transfer_in=6, primaries_in=6, matrix_out=0)\n"
+            "src = c.z.Depth(clip=src, depth=8, sample=vs.INTEGER, dither='random')\n"
+            "src = c.std.FlipVertical(clip=src)\n"
+            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
+            "src.set_output()\n";
 
     if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->getProjectPath().c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);

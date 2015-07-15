@@ -1824,23 +1824,11 @@ void WobblyProject::bitDepthToScript(std::string &script) {
     script += ")\n\n";
 }
 
-void WobblyProject::rgbConversionToScript(std::string &script) {
-    // BT 601
-    script +=
-            "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n"
-            "src = c.z.Resize(clip=src, width=src.width, height=src.height, filter_uv='bicubic', subsample_w=0, subsample_h=0)\n"
-            "src = c.z.Colorspace(clip=src, matrix_in=5, transfer_in=6, primaries_in=6, matrix_out=0)\n"
-            "src = c.z.Depth(clip=src, depth=8, sample=vs.INTEGER, dither='random')\n"
-            "src = c.std.FlipVertical(clip=src)\n"
-            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
-            "\n";
-}
-
 void WobblyProject::setOutputToScript(std::string &script) {
     script += "src.set_output()\n";
 }
 
-std::string WobblyProject::generateFinalScript(bool for_preview) {
+std::string WobblyProject::generateFinalScript() {
     // XXX Insert comments before and after each part.
     std::string script;
 
@@ -1886,18 +1874,12 @@ std::string WobblyProject::generateFinalScript(bool for_preview) {
     if (depth.enabled)
         bitDepthToScript(script);
 
-    // Maybe this doesn't belong here after all.
-    if (for_preview)
-        rgbConversionToScript(script);
-
     setOutputToScript(script);
 
     return script;
 }
 
 std::string WobblyProject::generateMainDisplayScript(bool show_crop) {
-    // I guess use text.Text to print matches, frame number, metrics, etc. Or just QLabels.
-
     std::string script;
 
     headerToScript(script);
@@ -1915,8 +1897,6 @@ std::string WobblyProject::generateMainDisplayScript(bool show_crop) {
         cropToScript(script);
         showCropToScript(script);
     }
-
-    rgbConversionToScript(script);
 
     setOutputToScript(script);
 
