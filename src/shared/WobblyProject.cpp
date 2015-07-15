@@ -1591,7 +1591,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
 
         if (it->second.first > 0) {
             splice += "src[0:";
-            splice += std::to_string(maybeTranslate(it->second.first, true, position)) + "],";
+            splice += std::to_string(maybeTranslate(it->second.first, false, position)) + "],";
         }
 
         splice += list_name + "[" + std::to_string(maybeTranslate(it->second.first, false, position)) + ":" + std::to_string(maybeTranslate(it->second.last, true, position) + 1) + "],";
