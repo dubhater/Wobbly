@@ -2855,6 +2855,8 @@ void WobblyWindow::togglePreview() {
 
     if (preview) {
         try {
+            presetEdited();
+
             evaluateFinalScript();
         } catch (WobblyException &e) {
             errorPopup(e.what());
