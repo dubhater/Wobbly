@@ -80,6 +80,25 @@ void WobblyWindow::closeEvent(QCloseEvent *event) {
 }
 
 
+void WobblyWindow::keyPressEvent(QKeyEvent *event) {
+    auto mod = event->modifiers();
+    int key = event->key();
+
+    QKeySequence sequence(mod | key);
+    QString sequence_string = sequence.toString();
+    //fprintf(stderr, "Sequence: '%s'\n", sequence_string.toUtf8().constData());
+
+    for (size_t i = 0; i < shortcuts.size(); i++) {
+        if (sequence_string == shortcuts[i].keys) {
+            (this->*shortcuts[i].func)(); // This looks quite evil indeed.
+            return;
+        }
+    }
+
+    QMainWindow::keyPressEvent(event);
+}
+
+
 void WobblyWindow::createMenu() {
     QMenuBar *bar = menuBar();
 
@@ -94,11 +113,6 @@ void WobblyWindow::createMenu() {
     QAction *projectSaveTimecodesAs = new QAction("Save timecodes as", this);
     QAction *projectSaveScreenshot = new QAction("Save screenshot", this);
     QAction *projectQuit = new QAction("&Quit", this);
-
-    projectOpen->setShortcut(QKeySequence::Open);
-    projectSave->setShortcut(QKeySequence::Save);
-    projectSaveAs->setShortcut(QKeySequence::SaveAs);
-    projectQuit->setShortcut(QKeySequence("Ctrl+Q"));
 
     connect(projectOpen, &QAction::triggered, this, &WobblyWindow::openProject);
     connect(projectSave, &QAction::triggered, this, &WobblyWindow::saveProject);
@@ -126,50 +140,45 @@ void WobblyWindow::createMenu() {
 }
 
 
-struct Shortcut {
-    const char *keys;
-    void (WobblyWindow::* func)();
-};
-
-
 void WobblyWindow::createShortcuts() {
-    Shortcut shortcuts[] = {
-        { "Left", &WobblyWindow::jump1Backward },
-        { "Right", &WobblyWindow::jump1Forward },
-        { "Ctrl+Left", &WobblyWindow::jump5Backward },
-        { "Ctrl+Right", &WobblyWindow::jump5Forward },
-        { "Alt+Left", &WobblyWindow::jump50Backward },
-        { "Alt+Right", &WobblyWindow::jump50Forward },
-        { "Home", &WobblyWindow::jumpToStart },
-        { "End", &WobblyWindow::jumpToEnd },
-        { "PgDown", &WobblyWindow::jumpALotBackward },
-        { "PgUp", &WobblyWindow::jumpALotForward },
-        { "Ctrl+Up", &WobblyWindow::jumpToNextSectionStart },
-        { "Ctrl+Down", &WobblyWindow::jumpToPreviousSectionStart },
-        { "G", &WobblyWindow::jumpToFrame },
-        { "S", &WobblyWindow::cycleMatchBCN },
-        { "Ctrl+F", &WobblyWindow::freezeForward },
-        { "Shift+F", &WobblyWindow::freezeBackward },
-        { "F", &WobblyWindow::freezeRange },
-        // Sequences starting with Delete prevent the sections table from receiving the key press event.
-        //{ "Delete,F", &WobblyWindow::deleteFreezeFrame },
-        { "D", &WobblyWindow::toggleDecimation },
-        { "I", &WobblyWindow::addSection },
-        //{ "Delete,I", &WobblyWindow::deleteSection },
-        { "P", &WobblyWindow::toggleCombed },
-        //{ "R", &WobblyWindow::resetRange },
-        { "R,S", &WobblyWindow::resetSection },
-        { "Ctrl+R", &WobblyWindow::rotateAndSetPatterns },
-        { "Ctrl+P", &WobblyWindow::togglePreview },
-        { "Ctrl++", &WobblyWindow::zoomIn },
-        { "Ctrl+-", &WobblyWindow::zoomOut },
-        { nullptr, nullptr }
+    shortcuts = {
+        { "", "Left",       "Jump 1 frame back", &WobblyWindow::jump1Backward },
+        { "", "Right",      "Jump 1 frame forward", &WobblyWindow::jump1Forward },
+        { "", "Ctrl+Left",  "Jump 5 frames back", &WobblyWindow::jump5Backward },
+        { "", "Ctrl+Right", "Jump 5 frames forward", &WobblyWindow::jump5Forward },
+        { "", "Alt+Left",   "Jump 50 frames back", &WobblyWindow::jump50Backward },
+        { "", "Alt+Right",  "Jump 50 frames forward", &WobblyWindow::jump50Forward },
+        { "", "Home",       "Jump to first frame", &WobblyWindow::jumpToStart },
+        { "", "End",        "Jump to last frame", &WobblyWindow::jumpToEnd },
+        { "", "PgDown",     "Jump 20% back", &WobblyWindow::jumpALotBackward },
+        { "", "PgUp",       "Jump 20% forward", &WobblyWindow::jumpALotForward },
+        { "", "Ctrl+Up",    "Jump to next section start", &WobblyWindow::jumpToNextSectionStart },
+        { "", "Ctrl+Down",  "Jump to previous section start", &WobblyWindow::jumpToPreviousSectionStart },
+        { "", "G",          "Jump to specific frame", &WobblyWindow::jumpToFrame },
+        { "", "S",          "Cycle the current frame's match", &WobblyWindow::cycleMatchBCN },
+        { "", "Ctrl+F",     "Replace current frame with next", &WobblyWindow::freezeForward },
+        { "", "Shift+F",    "Replace current frame with previous", &WobblyWindow::freezeBackward },
+        { "", "F",          "Freeze frame", &WobblyWindow::freezeRange },
+        { "", "Q",          "Delete freezeframe", &WobblyWindow::deleteFreezeFrame },
+        { "", "D",          "Toggle decimation for the current frame", &WobblyWindow::toggleDecimation },
+        { "", "I",          "Start new section at current frame", &WobblyWindow::addSection },
+        { "", "Ctrl+Q",     "Delete current section", &WobblyWindow::deleteSection },
+        { "", "P",          "Toggle postprocessing for the current frame", &WobblyWindow::toggleCombed },
+        { "", "R",          "Reset the match for the current frame", &WobblyWindow::resetMatch },
+        { "", "Ctrl+R",     "Reset the matches for the current section", &WobblyWindow::resetSection },
+        { "", "Ctrl+S",     "Rotate the patterns and apply them to the current section", &WobblyWindow::rotateAndSetPatterns },
+        { "", "F5",         "Toggle preview mode", &WobblyWindow::togglePreview },
+        { "", "Ctrl++",     "Zoom in", &WobblyWindow::zoomIn },
+        { "", "Ctrl+-",     "Zoom out", &WobblyWindow::zoomOut },
     };
 
-    for (int i = 0; shortcuts[i].func; i++) {
-        QShortcut *s = new QShortcut(QKeySequence(shortcuts[i].keys), this);
-        connect(s, &QShortcut::activated, this, shortcuts[i].func);
-    }
+    resetShortcuts();
+}
+
+
+void WobblyWindow::resetShortcuts() {
+    for (size_t i = 0; i < shortcuts.size(); i++)
+        shortcuts[i].keys = shortcuts[i].default_keys;
 }
 
 
@@ -2784,7 +2793,7 @@ void WobblyWindow::presetDelete() {
 }
 
 
-void WobblyWindow::resetRange() {
+void WobblyWindow::resetMatch() {
     if (!project)
         return;
 

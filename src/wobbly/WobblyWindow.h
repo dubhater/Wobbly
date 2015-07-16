@@ -109,6 +109,15 @@ private:
 
     bool preview;
 
+    struct Shortcut {
+        QString keys;
+        QString default_keys;
+        QString description;
+        void (WobblyWindow::* func)();
+    };
+
+    std::vector<Shortcut> shortcuts;
+
 
     // VapourSynth stuff.
 
@@ -123,6 +132,7 @@ private:
 
     void createMenu();
     void createShortcuts();
+    void resetShortcuts();
     void createFrameDetailsViewer();
     void createCropAssistant();
     void createPresetEditor();
@@ -161,6 +171,7 @@ private:
     void errorPopup(const char *msg);
 
     void closeEvent(QCloseEvent *event);
+    void keyPressEvent(QKeyEvent *event);
 
     void realSaveProject(const QString &path);
     void realSaveScript(const QString &path);
@@ -218,7 +229,7 @@ public slots:
     void presetRename();
     void presetDelete();
 
-    void resetRange();
+    void resetMatch();
     void resetSection();
 
     void rotateAndSetPatterns();
