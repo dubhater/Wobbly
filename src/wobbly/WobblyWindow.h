@@ -39,6 +39,7 @@ private:
 
     // Widgets.
 
+    DockWidget *details_dock;
     QLabel *frame_label;
     QSlider *frame_slider;
 
@@ -66,24 +67,31 @@ private:
     QComboBox *depth_dither_combo;
 
 
+    DockWidget *preset_dock;
     QComboBox *preset_combo;
     PresetTextEdit *preset_edit;
 
+    DockWidget *pattern_dock;
     QLineEdit *match_pattern_edit;
     QLineEdit *decimation_pattern_edit;
 
+    DockWidget *sections_dock;
     TableWidget *sections_table;
     QGroupBox *short_sections_box;
     QSpinBox *short_sections_spin;
 
+    DockWidget *cl_dock;
     TableWidget *cl_table;
     QMenu *cl_send_range_menu;
     QMenu *cl_copy_range_menu;
 
+    DockWidget *frame_rates_dock;
     TableWidget *frame_rates_table;
 
+    DockWidget *frozen_frames_dock;
     TableWidget *frozen_frames_table;
 
+    DockWidget *pg_dock;
     QSpinBox *pg_length_spin;
     QButtonGroup *pg_n_match_buttons;
     QButtonGroup *pg_decimate_buttons;
@@ -222,6 +230,16 @@ public slots:
     void saveTimecodes();
     void saveTimecodesAs();
     void saveScreenshot();
+    void quit();
+    void showHideFrameDetails();
+    void showHideCropping();
+    void showHidePresets();
+    void showHidePatternEditor();
+    void showHideSections();
+    void showHideCustomLists();
+    void showHideFrameRates();
+    void showHideFrozenFrames();
+    void showHidePatternGuessing();
 
     void presetChanged(const QString &text);
     void presetEdited();

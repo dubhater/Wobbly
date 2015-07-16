@@ -142,6 +142,26 @@ void WobblyWindow::createMenu() {
 
 void WobblyWindow::createShortcuts() {
     shortcuts = {
+        { "", "",           "Open project", &WobblyWindow::openProject },
+        { "", "",           "Save project", &WobblyWindow::saveProject },
+        { "", "",           "Save project as", &WobblyWindow::saveProjectAs },
+        { "", "",           "Save script", &WobblyWindow::saveScript },
+        { "", "",           "Save script as", &WobblyWindow::saveScriptAs },
+        { "", "",           "Save timecodes", &WobblyWindow::saveTimecodes },
+        { "", "",           "Save timecodes as", &WobblyWindow::saveTimecodesAs },
+        { "", "",           "Save screenshot", &WobblyWindow::saveScreenshot },
+        { "", "",           "Quit", &WobblyWindow::quit },
+
+        { "", "",           "Show/hide frame details", &WobblyWindow::showHideFrameDetails },
+        { "", "",           "Show/hide cropping", &WobblyWindow::showHideCropping },
+        { "", "",           "Show/hide presets", &WobblyWindow::showHidePresets },
+        { "", "",           "Show/hide pattern editor", &WobblyWindow::showHidePatternEditor },
+        { "", "",           "Show/hide sections", &WobblyWindow::showHideSections },
+        { "", "",           "Show/hide custom lists", &WobblyWindow::showHideCustomLists },
+        { "", "",           "Show/hide frame rates", &WobblyWindow::showHideFrameRates },
+        { "", "",           "Show/hide frozen frames", &WobblyWindow::showHideFrozenFrames },
+        { "", "",           "Show/hide pattern guessing", &WobblyWindow::showHidePatternGuessing },
+
         { "", "Left",       "Jump 1 frame back", &WobblyWindow::jump1Backward },
         { "", "Right",      "Jump 1 frame forward", &WobblyWindow::jump1Forward },
         { "", "Ctrl+Left",  "Jump 5 frames back", &WobblyWindow::jump5Backward },
@@ -212,7 +232,7 @@ void WobblyWindow::createFrameDetailsViewer() {
     QWidget *details_widget = new QWidget;
     details_widget->setLayout(vbox);
 
-    DockWidget *details_dock = new DockWidget("Frame details", this);
+    details_dock = new DockWidget("Frame details", this);
     details_dock->setObjectName("frame details");
     details_dock->setFloating(false);
     details_dock->setWidget(details_widget);
@@ -503,7 +523,7 @@ void WobblyWindow::createPresetEditor() {
     preset_widget->setLayout(vbox);
 
 
-    DockWidget *preset_dock = new DockWidget("Presets", this);
+    preset_dock = new DockWidget("Presets", this);
     preset_dock->setObjectName("preset editor");
     preset_dock->setVisible(false);
     preset_dock->setFloating(true);
@@ -538,7 +558,7 @@ void WobblyWindow::createPatternEditor() {
     pattern_widget->setLayout(vbox);
 
 
-    DockWidget *pattern_dock = new DockWidget("Pattern editor", this);
+    pattern_dock = new DockWidget("Pattern editor", this);
     pattern_dock->setObjectName("pattern editor");
     pattern_dock->setVisible(false);
     pattern_dock->setFloating(true);
@@ -834,7 +854,7 @@ void WobblyWindow::createSectionsEditor() {
     sections_widget->setLayout(hbox2);
 
 
-    DockWidget *sections_dock = new DockWidget("Sections", this);
+    sections_dock = new DockWidget("Sections", this);
     sections_dock->setObjectName("sections editor");
     sections_dock->setVisible(false);
     sections_dock->setFloating(true);
@@ -1198,7 +1218,7 @@ void WobblyWindow::createCustomListsEditor() {
     cl_widget->setLayout(hbox2);
 
 
-    DockWidget *cl_dock = new DockWidget("Custom lists", this);
+    cl_dock = new DockWidget("Custom lists", this);
     cl_dock->setObjectName("custom lists editor");
     cl_dock->setVisible(false);
     cl_dock->setFloating(true);
@@ -1223,7 +1243,7 @@ void WobblyWindow::createFrameRatesViewer() {
     });
 
 
-    DockWidget *frame_rates_dock = new DockWidget("Frame rates", this);
+    frame_rates_dock = new DockWidget("Frame rates", this);
     frame_rates_dock->setObjectName("frame rates viewer");
     frame_rates_dock->setVisible(false);
     frame_rates_dock->setFloating(true);
@@ -1289,7 +1309,7 @@ void WobblyWindow::createFrozenFramesViewer() {
     frozen_frames_widget->setLayout(vbox);
 
 
-    DockWidget *frozen_frames_dock = new DockWidget("Frozen frames", this);
+    frozen_frames_dock = new DockWidget("Frozen frames", this);
     frozen_frames_dock->setObjectName("frozen frames viewer");
     frozen_frames_dock->setVisible(false);
     frozen_frames_dock->setFloating(true);
@@ -1453,7 +1473,7 @@ void WobblyWindow::createPatternGuessingWindow() {
     pg_widget->setLayout(vbox);
 
 
-    DockWidget *pg_dock = new DockWidget("Pattern guessing", this);
+    pg_dock = new DockWidget("Pattern guessing", this);
     pg_dock->setObjectName("pattern guessing window");
     pg_dock->setVisible(false);
     pg_dock->setFloating(true);
@@ -2156,6 +2176,56 @@ void WobblyWindow::saveScreenshot() {
 
     if (!path.isNull())
         frame_label->pixmap()->save(path, "png");
+}
+
+
+void WobblyWindow::quit() {
+    close();
+}
+
+
+void WobblyWindow::showHideFrameDetails() {
+    details_dock->setVisible(!details_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideCropping() {
+    crop_dock->setVisible(!crop_dock->isVisible());
+}
+
+
+void WobblyWindow::showHidePresets() {
+    preset_dock->setVisible(!preset_dock->isVisible());
+}
+
+
+void WobblyWindow::showHidePatternEditor() {
+    pattern_dock->setVisible(!pattern_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideSections() {
+    sections_dock->setVisible(!sections_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideCustomLists() {
+    cl_dock->setVisible(!cl_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideFrameRates() {
+    frame_rates_dock->setVisible(!frame_rates_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideFrozenFrames() {
+    frozen_frames_dock->setVisible(!frozen_frames_dock->isVisible());
+}
+
+
+void WobblyWindow::showHidePatternGuessing() {
+    pg_dock->setVisible(!pg_dock->isVisible());
 }
 
 
