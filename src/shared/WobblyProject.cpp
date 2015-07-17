@@ -77,6 +77,14 @@ void WobblyProject::writeProject(const std::string &path) {
     json_ui.insert("last visited frame", last_visited_frame);
     json_ui.insert("geometry", QString::fromStdString(ui_geometry));
     json_ui.insert("state", QString::fromStdString(ui_state));
+
+    QJsonArray json_rates;
+    int rates[] = { 30, 24, 18, 12, 6 };
+    for (int i = 0; i < 5; i++)
+        if (shown_frame_rates[i])
+            json_rates.append(rates[i]);
+    json_ui.insert("show frame rates", json_rates);
+
     json_project.insert("user interface", json_ui);
 
 
@@ -323,6 +331,15 @@ void WobblyProject::readProject(const std::string &path) {
     last_visited_frame = (int)json_ui["last visited frame"].toDouble(0);
     ui_state = json_ui["state"].toString().toStdString();
     ui_geometry = json_ui["geometry"].toString().toStdString();
+
+    if (json_ui.contains("show frame rates")) {
+        QJsonArray json_rates = json_ui["show frame rates"].toArray();
+        int rates[] = { 30, 24, 18, 12, 6 };
+        for (int i = 0; i < 5; i++)
+            shown_frame_rates[i] = json_rates.contains(rates[i]);
+    } else {
+        shown_frame_rates = { true, false, true, true, true };
+    }
 
 
     num_frames[PostSource] = 0;
@@ -1235,6 +1252,16 @@ std::string WobblyProject::getUIGeometry() {
 
 void WobblyProject::setUIGeometry(const std::string &geometry) {
     ui_geometry = geometry;
+}
+
+
+std::array<bool, 5> WobblyProject::getShownFrameRates() {
+    return shown_frame_rates;
+}
+
+
+void WobblyProject::setShownFrameRates(const std::array<bool, 5> &rates) {
+    shown_frame_rates = rates;
 }
 
 

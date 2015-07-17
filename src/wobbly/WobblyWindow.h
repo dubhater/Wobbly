@@ -85,6 +85,7 @@ private:
     QMenu *cl_send_range_menu;
     QMenu *cl_copy_range_menu;
 
+    QButtonGroup *frame_rates_buttons;
     DockWidget *frame_rates_dock;
     TableWidget *frame_rates_table;
 
@@ -165,6 +166,7 @@ private:
     void updateSectionsEditor();
     void updateCustomListsEditor();
     void updateFrameRatesViewer();
+    void initialiseFrameRatesViewer();
     void initialiseFrozenFramesViewer();
     void updatePatternGuessingWindow();
     void initialisePatternGuessingWindow();

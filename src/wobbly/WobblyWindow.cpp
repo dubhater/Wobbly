@@ -1230,8 +1230,31 @@ void WobblyWindow::createCustomListsEditor() {
 
 
 void WobblyWindow::createFrameRatesViewer() {
+    QGroupBox *frame_rates_group = new QGroupBox("Show rates");
+    frame_rates_group->setCheckable(false);
+
+    frame_rates_buttons = new QButtonGroup(this);
+    frame_rates_buttons->setExclusive(false);
+    const char *rates[] = { "&30", "2&4", "1&8", "1&2", "&6" };
+    for (int i = 0; i < 5; i++)
+        frame_rates_buttons->addButton(new QCheckBox(rates[i] + QStringLiteral(" fps")), i);
+
     frame_rates_table = new TableWidget(0, 3, this);
     frame_rates_table->setHorizontalHeaderLabels({ "Start", "End", "Frame rate" });
+
+
+    connect(frame_rates_buttons, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this] () {
+        if (!project)
+            return;
+
+        std::array<bool, 5> shown_rates;
+        for (int i = 0; i < 5; i++)
+            shown_rates[i] = frame_rates_buttons->button(i)->isChecked();
+
+        project->setShownFrameRates(shown_rates);
+
+        updateFrameRatesViewer();
+    });
 
 
     connect(frame_rates_table, &TableWidget::cellDoubleClicked, [this] (int row) {
@@ -1243,11 +1266,30 @@ void WobblyWindow::createFrameRatesViewer() {
     });
 
 
+    QHBoxLayout *hbox = new QHBoxLayout;
+    for (int i = 0; i < 5; i++)
+        hbox->addWidget(frame_rates_buttons->button(i));
+
+    frame_rates_group->setLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(frame_rates_group);
+    hbox->addStretch(1);
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addLayout(hbox);
+    vbox->addWidget(frame_rates_table);
+
+
+    QWidget *frame_rates_widget = new QWidget;
+    frame_rates_widget->setLayout(vbox);
+
+
     frame_rates_dock = new DockWidget("Frame rates", this);
     frame_rates_dock->setObjectName("frame rates viewer");
     frame_rates_dock->setVisible(false);
     frame_rates_dock->setFloating(true);
-    frame_rates_dock->setWidget(frame_rates_table);
+    frame_rates_dock->setWidget(frame_rates_widget);
     addDockWidget(Qt::RightDockWidgetArea, frame_rates_dock);
     tools_menu->addAction(frame_rates_dock->toggleViewAction());
     connect(frame_rates_dock, &DockWidget::visibilityChanged, frame_rates_dock, &DockWidget::setEnabled);
@@ -1864,33 +1906,37 @@ void WobblyWindow::updateFrameRatesViewer() {
 
     auto ranges = project->getDecimationRanges();
 
-    frame_rates_table->setRowCount(ranges.size());
-
+    int rows = 0;
     for (size_t i = 0; i < ranges.size(); i++) {
-        QTableWidgetItem *item = new QTableWidgetItem(QString::number(ranges[i].start));
-        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        frame_rates_table->setItem(i, 0, item);
+        if (frame_rates_buttons->button(ranges[i].num_dropped)->isChecked()) {
+            rows++;
+            frame_rates_table->setRowCount(rows);
 
-        int range_end;
-        if (i < ranges.size() - 1)
-            range_end = ranges[i + 1].start - 1;
-        else
-            range_end = project->getNumFrames(PostSource) - 1;
+            QTableWidgetItem *item = new QTableWidgetItem(QString::number(ranges[i].start));
+            item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            frame_rates_table->setItem(rows - 1, 0, item);
 
-        item = new QTableWidgetItem(QString::number(range_end));
-        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        frame_rates_table->setItem(i, 1, item);
+            int range_end;
+            if (i < ranges.size() - 1)
+                range_end = ranges[i + 1].start - 1;
+            else
+                range_end = project->getNumFrames(PostSource) - 1;
 
-        const char *rates[] = {
-            "30000/1001",
-            "24000/1001",
-            "18000/1001",
-            "12000/1001",
-            "6000/1001"
-        };
-        item = new QTableWidgetItem(rates[ranges[i].num_dropped]);
-        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        frame_rates_table->setItem(i, 2, item);
+            item = new QTableWidgetItem(QString::number(range_end));
+            item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            frame_rates_table->setItem(rows - 1, 1, item);
+
+            const char *rates[] = {
+                "30000/1001",
+                "24000/1001",
+                "18000/1001",
+                "12000/1001",
+                "6000/1001"
+            };
+            item = new QTableWidgetItem(rates[ranges[i].num_dropped]);
+            item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            frame_rates_table->setItem(rows - 1, 2, item);
+        }
     }
 
     frame_rates_table->resizeColumnsToContents();
@@ -1899,8 +1945,17 @@ void WobblyWindow::updateFrameRatesViewer() {
 }
 
 
-void WobblyWindow::initialiseFrozenFramesViewer() {
+void WobblyWindow::initialiseFrameRatesViewer() {
+    auto rates = project->getShownFrameRates();
 
+    for (int i = 0; i < 5; i++)
+        frame_rates_buttons->button(i)->setChecked(rates[i]);
+
+    updateFrameRatesViewer();
+}
+
+
+void WobblyWindow::initialiseFrozenFramesViewer() {
     frozen_frames_table->setRowCount(0);
 
     const auto &ff = project->getFreezeFrames();
@@ -1986,7 +2041,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialisePresetEditor();
     updateSectionsEditor();
     updateCustomListsEditor();
-    updateFrameRatesViewer();
+    initialiseFrameRatesViewer();
     initialiseFrozenFramesViewer();
     initialisePatternGuessingWindow();
 }

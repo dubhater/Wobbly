@@ -225,6 +225,7 @@ class WobblyProject {
         int last_visited_frame;
         std::string ui_state;
         std::string ui_geometry;
+        std::array<bool, 5> shown_frame_rates;
 
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
@@ -375,6 +376,10 @@ class WobblyProject {
 
         std::string getUIGeometry();
         void setUIGeometry(const std::string &geometry);
+
+
+        std::array<bool, 5> getShownFrameRates();
+        void setShownFrameRates(const std::array<bool, 5> &rates);
 
 
         std::string frameToTime(int frame);
