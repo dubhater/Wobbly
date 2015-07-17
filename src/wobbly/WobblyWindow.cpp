@@ -655,7 +655,7 @@ void WobblyWindow::createSectionsEditor() {
 
         (void)checked;
 
-        initialiseSectionsEditor();
+        updateSectionsEditor();
     });
 
     connect(short_sections_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
@@ -664,7 +664,7 @@ void WobblyWindow::createSectionsEditor() {
 
         (void)value;
 
-        initialiseSectionsEditor();
+        updateSectionsEditor();
     });
 
     connect(section_presets_list, &ListWidget::deletePressed, remove_preset_button, &QPushButton::click);
@@ -957,7 +957,7 @@ void WobblyWindow::createCustomListsEditor() {
                 try {
                     project->addCustomList(cl_name.toStdString());
 
-                    initialiseCustomListsEditor();
+                    updateCustomListsEditor();
 
                     ok = true;
                 } catch (WobblyException &e) {
@@ -993,7 +993,7 @@ void WobblyWindow::createCustomListsEditor() {
                 try {
                     project->renameCustomList(old_name.toStdString(), new_name.toStdString());
 
-                    initialiseCustomListsEditor();
+                    updateCustomListsEditor();
 
                     updateFrameDetails();
 
@@ -1016,7 +1016,7 @@ void WobblyWindow::createCustomListsEditor() {
             for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
                 project->deleteCustomList(j);
 
-                initialiseCustomListsEditor();
+                updateCustomListsEditor();
             }
         }
 
@@ -1044,7 +1044,7 @@ void WobblyWindow::createCustomListsEditor() {
             for (int j = selection[i].topRow(); j <= selection[i].bottomRow(); j++)
                 project->moveCustomListUp(j);
 
-        initialiseCustomListsEditor();
+        updateCustomListsEditor();
 
         for (int i = 0; i < selection.size(); i++) {
             QTableWidgetSelectionRange range(selection[i].topRow() - 1, 0, selection[i].bottomRow() - 1, 2);
@@ -1069,7 +1069,7 @@ void WobblyWindow::createCustomListsEditor() {
             for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--)
                 project->moveCustomListDown(j);
 
-        initialiseCustomListsEditor();
+        updateCustomListsEditor();
 
         for (int i = 0; i < selection.size(); i++) {
             QTableWidgetSelectionRange range(selection[i].topRow() + 1, 0, selection[i].bottomRow() + 1, 2);
@@ -1409,7 +1409,7 @@ void WobblyWindow::createPatternGuessingWindow() {
         updatePatternGuessingWindow();
 
         if (success) {
-            initialiseFrameRatesViewer();
+            updateFrameRatesViewer();
 
             evaluateMainDisplayScript();
         }
@@ -1423,7 +1423,7 @@ void WobblyWindow::createPatternGuessingWindow() {
 
         updatePatternGuessingWindow();
 
-        initialiseFrameRatesViewer();
+        updateFrameRatesViewer();
 
         evaluateMainDisplayScript();
     });
@@ -1787,7 +1787,7 @@ void WobblyWindow::initialisePresetEditor() {
 }
 
 
-void WobblyWindow::initialiseSectionsEditor() {
+void WobblyWindow::updateSectionsEditor() {
     sections_table->setRowCount(0);
     int rows = 0;
     const Section *section = project->findSection(0);
@@ -1819,7 +1819,7 @@ void WobblyWindow::initialiseSectionsEditor() {
 }
 
 
-void WobblyWindow::initialiseCustomListsEditor() {
+void WobblyWindow::updateCustomListsEditor() {
     cl_table->setRowCount(0);
 
     cl_copy_range_menu->clear();
@@ -1859,7 +1859,7 @@ void WobblyWindow::initialiseCustomListsEditor() {
 }
 
 
-void WobblyWindow::initialiseFrameRatesViewer() {
+void WobblyWindow::updateFrameRatesViewer() {
     frame_rates_table->setRowCount(0);
 
     auto ranges = project->getDecimationRanges();
@@ -1969,8 +1969,6 @@ void WobblyWindow::initialisePatternGuessingWindow() {
     }
 
     updatePatternGuessingWindow();
-
-    pg_failures_table->resizeColumnsToContents();
 }
 
 
@@ -1986,9 +1984,9 @@ void WobblyWindow::initialiseUIFromProject() {
 
     initialiseCropAssistant();
     initialisePresetEditor();
-    initialiseSectionsEditor();
-    initialiseCustomListsEditor();
-    initialiseFrameRatesViewer();
+    updateSectionsEditor();
+    updateCustomListsEditor();
+    updateFrameRatesViewer();
     initialiseFrozenFramesViewer();
     initialisePatternGuessingWindow();
 }
@@ -2674,7 +2672,7 @@ void WobblyWindow::toggleDecimation() {
 
     updateFrameDetails();
 
-    initialiseFrameRatesViewer();
+    updateFrameRatesViewer();
 }
 
 
@@ -2699,7 +2697,7 @@ void WobblyWindow::addSection() {
     if (section->start != current_frame) {
         project->addSection(current_frame);
 
-        initialiseSectionsEditor();
+        updateSectionsEditor();
 
         updateFrameDetails();
     }
@@ -2798,7 +2796,7 @@ void WobblyWindow::presetRename() {
                 preset_list[preset_combo->currentIndex()] = preset_name;
                 presets_model->setStringList(preset_list);
 
-                initialiseSectionsEditor();
+                updateSectionsEditor();
 
                 updateFrameDetails();
 
@@ -2845,7 +2843,7 @@ void WobblyWindow::presetDelete() {
     if (preset_in_use) {
         auto selection = sections_table->selectedRanges();
 
-        initialiseSectionsEditor();
+        updateSectionsEditor();
 
         sections_table->clearSelection();
         for (int i = 0; i < selection.size(); i++)
@@ -2854,7 +2852,7 @@ void WobblyWindow::presetDelete() {
 
         selection = cl_table->selectedRanges();
 
-        initialiseCustomListsEditor();
+        updateCustomListsEditor();
 
         cl_table->clearSelection();
         for (int i = 0; i < selection.size(); i++)
@@ -2904,7 +2902,7 @@ void WobblyWindow::rotateAndSetPatterns() {
 
     evaluateMainDisplayScript();
 
-    initialiseFrameRatesViewer();
+    updateFrameRatesViewer();
 }
 
 

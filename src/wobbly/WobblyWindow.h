@@ -162,9 +162,9 @@ private:
 
     void initialiseCropAssistant();
     void initialisePresetEditor();
-    void initialiseSectionsEditor();
-    void initialiseCustomListsEditor();
-    void initialiseFrameRatesViewer();
+    void updateSectionsEditor();
+    void updateCustomListsEditor();
+    void updateFrameRatesViewer();
     void initialiseFrozenFramesViewer();
     void updatePatternGuessingWindow();
     void initialisePatternGuessingWindow();
