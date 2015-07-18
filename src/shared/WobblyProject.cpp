@@ -72,57 +72,59 @@ void WobblyProject::writeProject(const std::string &path) {
     json_project.insert("input resolution", json_resolution);
 
 
-    QJsonObject json_ui;
-    json_ui.insert("zoom", zoom);
-    json_ui.insert("last visited frame", last_visited_frame);
-    json_ui.insert("geometry", QString::fromStdString(ui_geometry));
-    json_ui.insert("state", QString::fromStdString(ui_state));
+    if (is_wobbly) {
+        QJsonObject json_ui;
+        json_ui.insert("zoom", zoom);
+        json_ui.insert("last visited frame", last_visited_frame);
+        json_ui.insert("geometry", QString::fromStdString(ui_geometry));
+        json_ui.insert("state", QString::fromStdString(ui_state));
 
-    QJsonArray json_rates;
-    int rates[] = { 30, 24, 18, 12, 6 };
-    for (int i = 0; i < 5; i++)
-        if (shown_frame_rates[i])
-            json_rates.append(rates[i]);
-    json_ui.insert("show frame rates", json_rates);
+        QJsonArray json_rates;
+        int rates[] = { 30, 24, 18, 12, 6 };
+        for (int i = 0; i < 5; i++)
+            if (shown_frame_rates[i])
+                json_rates.append(rates[i]);
+        json_ui.insert("show frame rates", json_rates);
 
-    if (pattern_guessing.failures.size()) {
-        QJsonObject json_pattern_guessing;
+        if (pattern_guessing.failures.size()) {
+            QJsonObject json_pattern_guessing;
 
-        json_pattern_guessing.insert("minimum length", pattern_guessing.minimum_length);
+            json_pattern_guessing.insert("minimum length", pattern_guessing.minimum_length);
 
-        const char *third_n_match[] = {
-            "always",
-            "never",
-            "if it has lower mic"
-        };
-        json_pattern_guessing.insert("use third n match", third_n_match[pattern_guessing.third_n_match]);
+            const char *third_n_match[] = {
+                "always",
+                "never",
+                "if it has lower mic"
+            };
+            json_pattern_guessing.insert("use third n match", third_n_match[pattern_guessing.third_n_match]);
 
-        const char *decimate[] = {
-            "first duplicate",
-            "second duplicate",
-            "duplicate with higher mic per cycle",
-            "duplicate with higher mic per section"
-        };
-        json_pattern_guessing.insert("decimate", decimate[pattern_guessing.decimation]);
+            const char *decimate[] = {
+                "first duplicate",
+                "second duplicate",
+                "duplicate with higher mic per cycle",
+                "duplicate with higher mic per section"
+            };
+            json_pattern_guessing.insert("decimate", decimate[pattern_guessing.decimation]);
 
-        QJsonArray json_failures;
+            QJsonArray json_failures;
 
-        const char *reasons[] = {
-            "section too short",
-            "ambiguous pattern"
-        };
-        for (auto it = pattern_guessing.failures.cbegin(); it != pattern_guessing.failures.cend(); it++) {
-            QJsonObject json_failure;
-            json_failure.insert("start", it->second.start);
-            json_failure.insert("reason", reasons[it->second.reason]);
-            json_failures.append(json_failure);
+            const char *reasons[] = {
+                "section too short",
+                "ambiguous pattern"
+            };
+            for (auto it = pattern_guessing.failures.cbegin(); it != pattern_guessing.failures.cend(); it++) {
+                QJsonObject json_failure;
+                json_failure.insert("start", it->second.start);
+                json_failure.insert("reason", reasons[it->second.reason]);
+                json_failures.append(json_failure);
+            }
+            json_pattern_guessing.insert("failures", json_failures);
+
+            json_ui.insert("pattern guessing", json_pattern_guessing);
         }
-        json_pattern_guessing.insert("failures", json_failures);
 
-        json_ui.insert("pattern guessing", json_pattern_guessing);
+        json_project.insert("user interface", json_ui);
     }
-
-    json_project.insert("user interface", json_ui);
 
 
     QJsonArray json_trims;
