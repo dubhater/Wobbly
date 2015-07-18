@@ -1902,6 +1902,10 @@ void WobblyWindow::updateCustomListsEditor() {
 
 
 void WobblyWindow::updateFrameRatesViewer() {
+    auto selection = frame_rates_table->selectedRanges();
+
+    int row_count_before = frame_rates_table->rowCount();
+
     frame_rates_table->setRowCount(0);
 
     auto ranges = project->getDecimationRanges();
@@ -1941,7 +1945,13 @@ void WobblyWindow::updateFrameRatesViewer() {
 
     frame_rates_table->resizeColumnsToContents();
 
-    frame_rates_table->selectRow(0);
+    int row_count_after = frame_rates_table->rowCount();
+
+    if (row_count_before == row_count_after) {
+        for (int i = 0; i < selection.size(); i++)
+            frame_rates_table->setRangeSelected(selection[i], true);
+    } else
+        frame_rates_table->selectRow(0);
 }
 
 
