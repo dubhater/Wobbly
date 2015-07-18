@@ -85,6 +85,43 @@ void WobblyProject::writeProject(const std::string &path) {
             json_rates.append(rates[i]);
     json_ui.insert("show frame rates", json_rates);
 
+    if (pattern_guessing.failures.size()) {
+        QJsonObject json_pattern_guessing;
+
+        json_pattern_guessing.insert("minimum length", pattern_guessing.minimum_length);
+
+        const char *third_n_match[] = {
+            "always",
+            "never",
+            "if it has lower mic"
+        };
+        json_pattern_guessing.insert("use third n match", third_n_match[pattern_guessing.third_n_match]);
+
+        const char *decimate[] = {
+            "first duplicate",
+            "second duplicate",
+            "duplicate with higher mic per cycle",
+            "duplicate with higher mic per section"
+        };
+        json_pattern_guessing.insert("decimate", decimate[pattern_guessing.decimation]);
+
+        QJsonArray json_failures;
+
+        const char *reasons[] = {
+            "section too short",
+            "ambiguous pattern"
+        };
+        for (auto it = pattern_guessing.failures.cbegin(); it != pattern_guessing.failures.cend(); it++) {
+            QJsonObject json_failure;
+            json_failure.insert("start", it->second.start);
+            json_failure.insert("reason", reasons[it->second.reason]);
+            json_failures.append(json_failure);
+        }
+        json_pattern_guessing.insert("failures", json_failures);
+
+        json_ui.insert("pattern guessing", json_pattern_guessing);
+    }
+
     json_project.insert("user interface", json_ui);
 
 
@@ -210,44 +247,6 @@ void WobblyProject::writeProject(const std::string &path) {
         json_project.insert("custom lists", json_custom_lists);
 
 
-    if (pattern_guessing.failures.size()) {
-        QJsonObject json_pattern_guessing;
-
-        json_pattern_guessing.insert("minimum length", pattern_guessing.minimum_length);
-
-        const char *third_n_match[] = {
-            "always",
-            "never",
-            "if it has lower mic"
-        };
-        json_pattern_guessing.insert("use third n match", third_n_match[pattern_guessing.third_n_match]);
-
-        const char *decimate[] = {
-            "first duplicate",
-            "second duplicate",
-            "duplicate with higher mic per cycle",
-            "duplicate with higher mic per section"
-        };
-        json_pattern_guessing.insert("decimate", decimate[pattern_guessing.decimation]);
-
-        QJsonArray json_failures;
-
-        const char *reasons[] = {
-            "section too short",
-            "ambiguous pattern"
-        };
-        for (auto it = pattern_guessing.failures.cbegin(); it != pattern_guessing.failures.cend(); it++) {
-            QJsonObject json_failure;
-            json_failure.insert("start", it->second.start);
-            json_failure.insert("reason", reasons[it->second.reason]);
-            json_failures.append(json_failure);
-        }
-        json_pattern_guessing.insert("failures", json_failures);
-
-        json_project.insert("pattern guessing", json_pattern_guessing);
-    }
-
-
         if (resize.enabled) {
             QJsonObject json_resize;
             json_resize.insert("width", resize.width);
@@ -339,6 +338,41 @@ void WobblyProject::readProject(const std::string &path) {
             shown_frame_rates[i] = json_rates.contains(rates[i]);
     } else {
         shown_frame_rates = { true, false, true, true, true };
+    }
+
+    QJsonObject json_pattern_guessing = json_ui["pattern guessing"].toObject();
+
+    if (!json_pattern_guessing.isEmpty()) {
+        pattern_guessing.minimum_length = (int)json_pattern_guessing["minimum length"].toDouble();
+
+        std::unordered_map<std::string, int> third_n_match = {
+            { "always", 0 },
+            { "never", 1 },
+            { "if it has lower mic", 2 }
+        };
+        pattern_guessing.third_n_match = third_n_match[json_pattern_guessing["use third n match"].toString("never").toStdString()];
+
+        std::unordered_map<std::string, int> decimate = {
+            { "first duplicate", 0 },
+            { "second duplicate", 1 },
+            { "duplicate with higher mic per cycle", 2 },
+            { "duplicate with higher mic per section", 3 }
+        };
+        pattern_guessing.decimation = decimate[json_pattern_guessing["decimate"].toString("first duplicate").toStdString()];
+
+        QJsonArray json_failures = json_pattern_guessing["failures"].toArray();
+
+        std::unordered_map<std::string, int> reasons = {
+            { "section too short", 0 },
+            { "ambiguous pattern", 1 }
+        };
+        for (int i = 0; i < json_failures.size(); i++) {
+            QJsonObject json_failure = json_failures[i].toObject();
+            FailedPatternGuessing fail;
+            fail.start = (int)json_failure["start"].toDouble();
+            fail.reason = reasons[json_failure["reason"].toString().toStdString()];
+            pattern_guessing.failures.insert({ fail.start, fail });
+        }
     }
 
 
@@ -470,42 +504,6 @@ void WobblyProject::readProject(const std::string &path) {
         }
 
         addCustomList(list);
-    }
-
-
-    QJsonObject json_pattern_guessing = json_project["pattern guessing"].toObject();
-
-    if (!json_pattern_guessing.isEmpty()) {
-        pattern_guessing.minimum_length = (int)json_pattern_guessing["minimum length"].toDouble();
-
-        std::unordered_map<std::string, int> third_n_match = {
-            { "always", 0 },
-            { "never", 1 },
-            { "if it has lower mic", 2 }
-        };
-        pattern_guessing.third_n_match = third_n_match[json_pattern_guessing["use third n match"].toString("never").toStdString()];
-
-        std::unordered_map<std::string, int> decimate = {
-            { "first duplicate", 0 },
-            { "second duplicate", 1 },
-            { "duplicate with higher mic per cycle", 2 },
-            { "duplicate with higher mic per section", 3 }
-        };
-        pattern_guessing.decimation = decimate[json_pattern_guessing["decimate"].toString("first duplicate").toStdString()];
-
-        QJsonArray json_failures = json_pattern_guessing["failures"].toArray();
-
-        std::unordered_map<std::string, int> reasons = {
-            { "section too short", 0 },
-            { "ambiguous pattern", 1 }
-        };
-        for (int i = 0; i < json_failures.size(); i++) {
-            QJsonObject json_failure = json_failures[i].toObject();
-            FailedPatternGuessing fail;
-            fail.start = (int)json_failure["start"].toDouble();
-            fail.reason = reasons[json_failure["reason"].toString().toStdString()];
-            pattern_guessing.failures.insert({ fail.start, fail });
-        }
     }
 
 
