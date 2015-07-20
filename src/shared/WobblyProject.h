@@ -226,6 +226,7 @@ class WobblyProject {
         std::string ui_state;
         std::string ui_geometry;
         std::array<bool, 5> shown_frame_rates;
+        int mic_search_minimum;
 
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
@@ -288,6 +289,8 @@ class WobblyProject {
 
 
         const std::array<int16_t, 5> &getMics(int frame);
+        int getPreviousFrameWithMic(int minimum, int start_frame);
+        int getNextFrameWithMic(int minimum, int start_frame);
 
 
         char getMatch(int frame);
@@ -380,6 +383,10 @@ class WobblyProject {
 
         std::array<bool, 5> getShownFrameRates();
         void setShownFrameRates(const std::array<bool, 5> &rates);
+
+
+        int getMicSearchMinimum();
+        void setMicSearchMinimum(int minimum);
 
 
         std::string frameToTime(int frame);

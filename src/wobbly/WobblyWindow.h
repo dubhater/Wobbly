@@ -98,6 +98,9 @@ private:
     QButtonGroup *pg_decimate_buttons;
     TableWidget *pg_failures_table;
 
+    DockWidget *mic_search_dock;
+    QSpinBox *mic_search_minimum_spin;
+
 
     // Widget-related
 
@@ -151,6 +154,7 @@ private:
     void createFrameRatesViewer();
     void createFrozenFramesViewer();
     void createPatternGuessingWindow();
+    void createMicSearchWindow();
     void drawColorBars();
     void createUI();
 
@@ -170,6 +174,7 @@ private:
     void initialiseFrozenFramesViewer();
     void updatePatternGuessingWindow();
     void initialisePatternGuessingWindow();
+    void initialiseMicSearchWindow();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);
@@ -207,6 +212,9 @@ public slots:
     void jumpToNextSectionStart();
     void jumpToPreviousSectionStart();
 
+    void jumpToPreviousMic();
+    void jumpToNextMic();
+
     void jumpToFrame();
 
     void freezeForward();
@@ -242,6 +250,7 @@ public slots:
     void showHideFrameRates();
     void showHideFrozenFrames();
     void showHidePatternGuessing();
+    void showHideMicSearchWindow();
 
     void presetChanged(const QString &text);
     void presetEdited();

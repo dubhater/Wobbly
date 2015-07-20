@@ -161,6 +161,7 @@ void WobblyWindow::createShortcuts() {
         { "", "",           "Show/hide frame rates", &WobblyWindow::showHideFrameRates },
         { "", "",           "Show/hide frozen frames", &WobblyWindow::showHideFrozenFrames },
         { "", "",           "Show/hide pattern guessing", &WobblyWindow::showHidePatternGuessing },
+        { "", "",           "Show/hide mic search", &WobblyWindow::showHideMicSearchWindow },
 
         { "", "Left",       "Jump 1 frame back", &WobblyWindow::jump1Backward },
         { "", "Right",      "Jump 1 frame forward", &WobblyWindow::jump1Forward },
@@ -174,6 +175,8 @@ void WobblyWindow::createShortcuts() {
         { "", "PgUp",       "Jump 20% forward", &WobblyWindow::jumpALotForward },
         { "", "Ctrl+Up",    "Jump to next section start", &WobblyWindow::jumpToNextSectionStart },
         { "", "Ctrl+Down",  "Jump to previous section start", &WobblyWindow::jumpToPreviousSectionStart },
+        { "", "Up",         "Jump to next frame with high mic", &WobblyWindow::jumpToNextMic },
+        { "", "Down",       "Jump to previous frame with high mic", &WobblyWindow::jumpToPreviousMic },
         { "", "G",          "Jump to specific frame", &WobblyWindow::jumpToFrame },
         { "", "S",          "Cycle the current frame's match", &WobblyWindow::cycleMatchBCN },
         { "", "Ctrl+F",     "Replace current frame with next", &WobblyWindow::freezeForward },
@@ -1526,6 +1529,58 @@ void WobblyWindow::createPatternGuessingWindow() {
 }
 
 
+void WobblyWindow::createMicSearchWindow() {
+    mic_search_minimum_spin = new QSpinBox;
+    mic_search_minimum_spin->setRange(0, 256);
+    mic_search_minimum_spin->setPrefix(QStringLiteral("Minimum: "));
+
+    QPushButton *mic_search_previous_button = new QPushButton("Jump to previous");
+    QPushButton *mic_search_next_button = new QPushButton("Jump to next");
+
+
+    connect(mic_search_minimum_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
+        if (!project)
+            return;
+
+        project->setMicSearchMinimum(value);
+    });
+
+    connect(mic_search_previous_button, &QPushButton::clicked, this, &WobblyWindow::jumpToPreviousMic);
+
+    connect(mic_search_next_button, &QPushButton::clicked, this, &WobblyWindow::jumpToNextMic);
+
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(mic_search_minimum_spin);
+    hbox->addStretch(1);
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(mic_search_previous_button);
+    hbox->addWidget(mic_search_next_button);
+    hbox->addStretch(1);
+
+    vbox->addLayout(hbox);
+    vbox->addStretch(1);
+
+
+    QWidget *mic_search_widget = new QWidget;
+    mic_search_widget->setLayout(vbox);
+
+
+    mic_search_dock = new DockWidget("Mic search", this);
+    mic_search_dock->setObjectName("mic search window");
+    mic_search_dock->setVisible(false);
+    mic_search_dock->setFloating(true);
+    mic_search_dock->setWidget(mic_search_widget);
+    addDockWidget(Qt::RightDockWidgetArea, mic_search_dock);
+    tools_menu->addAction(mic_search_dock->toggleViewAction());
+    connect(mic_search_dock, &DockWidget::visibilityChanged, mic_search_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::drawColorBars() {
     auto drawRect = [this] (int left, int top, int width, int height, int red, int green, int blue) {
         uint8_t *ptr = splash_image.bits();
@@ -1650,6 +1705,7 @@ void WobblyWindow::createUI() {
     createFrameRatesViewer();
     createFrozenFramesViewer();
     createPatternGuessingWindow();
+    createMicSearchWindow();
 }
 
 
@@ -2037,6 +2093,13 @@ void WobblyWindow::initialisePatternGuessingWindow() {
 }
 
 
+void WobblyWindow::initialiseMicSearchWindow() {
+    mic_search_minimum_spin->blockSignals(true);
+    mic_search_minimum_spin->setValue(project->getMicSearchMinimum());
+    mic_search_minimum_spin->blockSignals(false);
+}
+
+
 void WobblyWindow::initialiseUIFromProject() {
     frame_slider->setRange(0, project->getNumFrames(PostSource));
     frame_slider->setPageStep(project->getNumFrames(PostSource) * 20 / 100);
@@ -2054,6 +2117,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialiseFrameRatesViewer();
     initialiseFrozenFramesViewer();
     initialisePatternGuessingWindow();
+    initialiseMicSearchWindow();
 }
 
 
@@ -2289,6 +2353,11 @@ void WobblyWindow::showHideFrozenFrames() {
 
 void WobblyWindow::showHidePatternGuessing() {
     pg_dock->setVisible(!pg_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideMicSearchWindow() {
+    mic_search_dock->setVisible(!mic_search_dock->isVisible());
 }
 
 
@@ -2618,6 +2687,26 @@ void WobblyWindow::jumpToPreviousSectionStart() {
         section = project->findSection(current_frame - 1);
 
     jumpRelative(section->start - current_frame);
+}
+
+
+void WobblyWindow::jumpToPreviousMic() {
+    if (!project)
+        return;
+
+    int frame = project->getPreviousFrameWithMic(mic_search_minimum_spin->value(), current_frame);
+    if (frame != -1)
+        displayFrame(frame);
+}
+
+
+void WobblyWindow::jumpToNextMic() {
+    if (!project)
+        return;
+
+    int frame = project->getNextFrameWithMic(mic_search_minimum_spin->value(), current_frame);
+    if (frame != -1)
+        displayFrame(frame);
 }
 
 

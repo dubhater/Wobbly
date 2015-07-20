@@ -86,6 +86,8 @@ void WobblyProject::writeProject(const std::string &path) {
                 json_rates.append(rates[i]);
         json_ui.insert("show frame rates", json_rates);
 
+        json_ui.insert("mic search minimum", mic_search_minimum);
+
         if (pattern_guessing.failures.size()) {
             QJsonObject json_pattern_guessing;
 
@@ -341,6 +343,8 @@ void WobblyProject::readProject(const std::string &path) {
     } else {
         shown_frame_rates = { true, false, true, true, true };
     }
+
+    mic_search_minimum = (int)json_ui["mic search minimum"].toDouble(20);
 
     QJsonObject json_pattern_guessing = json_ui["pattern guessing"].toObject();
 
@@ -713,6 +717,32 @@ bool WobblyProject::isPresetInUse(const std::string &preset_name) {
 
 const std::array<int16_t, 5> &WobblyProject::getMics(int frame) {
     return mics[frame];
+}
+
+
+int WobblyProject::getPreviousFrameWithMic(int minimum, int start_frame) {
+    for (int i = start_frame - 1; i >= 0; i--) {
+        int index = matchCharToIndex(getMatch(i));
+        int16_t mic = getMics(i)[index];
+
+        if (mic >= minimum)
+            return i;
+    }
+
+    return -1;
+}
+
+
+int WobblyProject::getNextFrameWithMic(int minimum, int start_frame) {
+    for (int i = start_frame + 1; i < getNumFrames(PostSource); i++) {
+        int index = matchCharToIndex(getMatch(i));
+        int16_t mic = getMics(i)[index];
+
+        if (mic >= minimum)
+            return i;
+    }
+
+    return -1;
 }
 
 
@@ -1262,6 +1292,16 @@ std::array<bool, 5> WobblyProject::getShownFrameRates() {
 
 void WobblyProject::setShownFrameRates(const std::array<bool, 5> &rates) {
     shown_frame_rates = rates;
+}
+
+
+int WobblyProject::getMicSearchMinimum() {
+    return mic_search_minimum;
+}
+
+
+void WobblyProject::setMicSearchMinimum(int minimum) {
+    mic_search_minimum = minimum;
 }
 
 
