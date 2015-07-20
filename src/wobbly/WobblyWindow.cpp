@@ -193,6 +193,8 @@ void WobblyWindow::createShortcuts() {
         { "", "F5",         "Toggle preview mode", &WobblyWindow::togglePreview },
         { "", "Ctrl++",     "Zoom in", &WobblyWindow::zoomIn },
         { "", "Ctrl+-",     "Zoom out", &WobblyWindow::zoomOut },
+        { "", "",           "Guess current section's patterns from matches", &WobblyWindow::guessCurrentSectionPatternsFromMatches },
+        { "", "",           "Guess every section's patterns from matches", &WobblyWindow::guessProjectPatternsFromMatches }
     };
 
     resetShortcuts();
@@ -1443,35 +1445,9 @@ void WobblyWindow::createPatternGuessingWindow() {
     pg_failures_table->setHorizontalHeaderLabels({ "Section", "Reason for failure" });
 
 
-    connect(pg_process_section_button, &QPushButton::clicked, [this] () {
-        if (!project)
-            return;
+    connect(pg_process_section_button, &QPushButton::clicked, this, &WobblyWindow::guessCurrentSectionPatternsFromMatches);
 
-        int section_start = project->findSection(current_frame)->start;
-
-        bool success = project->guessSectionPatternsFromMatches(section_start, pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
-
-        updatePatternGuessingWindow();
-
-        if (success) {
-            updateFrameRatesViewer();
-
-            evaluateMainDisplayScript();
-        }
-    });
-
-    connect(pg_process_project_button, &QPushButton::clicked, [this] () {
-        if (!project)
-            return;
-
-        project->guessProjectPatternsFromMatches(pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
-
-        updatePatternGuessingWindow();
-
-        updateFrameRatesViewer();
-
-        evaluateMainDisplayScript();
-    });
+    connect(pg_process_project_button, &QPushButton::clicked, this, &WobblyWindow::guessProjectPatternsFromMatches);
 
     connect(pg_failures_table, &TableWidget::cellDoubleClicked, [this] (int row) {
         QTableWidgetItem *item = pg_failures_table->item(row, 0);
@@ -3057,6 +3033,38 @@ void WobblyWindow::rotateAndSetPatterns() {
     evaluateMainDisplayScript();
 
     updateFrameRatesViewer();
+}
+
+
+void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
+    if (!project)
+        return;
+
+    int section_start = project->findSection(current_frame)->start;
+
+    bool success = project->guessSectionPatternsFromMatches(section_start, pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
+
+    updatePatternGuessingWindow();
+
+    if (success) {
+        updateFrameRatesViewer();
+
+        evaluateMainDisplayScript();
+    }
+}
+
+
+void WobblyWindow::guessProjectPatternsFromMatches() {
+    if (!project)
+        return;
+
+    project->guessProjectPatternsFromMatches(pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
+
+    updatePatternGuessingWindow();
+
+    updateFrameRatesViewer();
+
+    evaluateMainDisplayScript();
 }
 
 

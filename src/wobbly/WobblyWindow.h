@@ -263,6 +263,9 @@ public slots:
 
     void rotateAndSetPatterns();
 
+    void guessCurrentSectionPatternsFromMatches();
+    void guessProjectPatternsFromMatches();
+
     void matchPatternEdited(const QString &text);
     void decimationPatternEdited(const QString &text);
 
