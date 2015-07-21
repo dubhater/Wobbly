@@ -227,6 +227,7 @@ class WobblyProject {
         std::string ui_geometry;
         std::array<bool, 5> shown_frame_rates;
         int mic_search_minimum;
+        int c_match_sequences_minimum;
 
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
@@ -342,6 +343,9 @@ class WobblyProject {
         std::vector<DecimationPatternRange> getDecimationPatternRanges();
 
 
+        std::map<size_t, size_t> getCMatchSequences(int minimum);
+
+
         void addCombedFrame(int frame);
         void deleteCombedFrame(int frame);
         bool isCombedFrame(int frame);
@@ -387,6 +391,10 @@ class WobblyProject {
 
         int getMicSearchMinimum();
         void setMicSearchMinimum(int minimum);
+
+
+        int getCMatchSequencesMinimum();
+        void setCMatchSequencesMinimum(int minimum);
 
 
         std::string frameToTime(int frame);

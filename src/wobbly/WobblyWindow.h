@@ -101,6 +101,10 @@ private:
     DockWidget *mic_search_dock;
     QSpinBox *mic_search_minimum_spin;
 
+    DockWidget *c_match_sequences_dock;
+    QSpinBox *c_match_minimum_spin;
+    TableWidget *c_match_sequences_table;
+
 
     // Widget-related
 
@@ -155,6 +159,7 @@ private:
     void createFrozenFramesViewer();
     void createPatternGuessingWindow();
     void createMicSearchWindow();
+    void createCMatchSequencesWindow();
     void drawColorBars();
     void createUI();
 
@@ -175,6 +180,8 @@ private:
     void updatePatternGuessingWindow();
     void initialisePatternGuessingWindow();
     void initialiseMicSearchWindow();
+    void updateCMatchSequencesWindow();
+    void initialiseCMatchSequencesWindow();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);
@@ -251,6 +258,7 @@ public slots:
     void showHideFrozenFrames();
     void showHidePatternGuessing();
     void showHideMicSearchWindow();
+    void showHideCMatchSequencesWindow();
 
     void presetChanged(const QString &text);
     void presetEdited();

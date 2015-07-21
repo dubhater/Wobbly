@@ -87,6 +87,7 @@ void WobblyProject::writeProject(const std::string &path) {
         json_ui.insert("show frame rates", json_rates);
 
         json_ui.insert("mic search minimum", mic_search_minimum);
+        json_ui.insert("c match sequences minimum", c_match_sequences_minimum);
 
         if (pattern_guessing.failures.size()) {
             QJsonObject json_pattern_guessing;
@@ -345,6 +346,7 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
     mic_search_minimum = (int)json_ui["mic search minimum"].toDouble(20);
+    c_match_sequences_minimum = (int)json_ui["c match sequences minimum"].toDouble(20);
 
     QJsonObject json_pattern_guessing = json_ui["pattern guessing"].toObject();
 
@@ -1141,6 +1143,28 @@ std::vector<DecimationPatternRange> WobblyProject::getDecimationPatternRanges() 
 }
 
 
+std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) {
+    std::map<size_t, size_t> sequences;
+
+    size_t start = 0;
+    size_t length = 0;
+
+    for (size_t i = 0; i < matches.size(); i++) {
+        if (matches[i] == 'c') {
+            if (length == 0)
+                start = i;
+            length++;
+        } else {
+            if (length >= (size_t)minimum)
+                sequences.insert({ start, length });
+            length = 0;
+        }
+    }
+
+    return sequences;
+}
+
+
 void WobblyProject::addCombedFrame(int frame) {
     if (frame < 0 || frame >= num_frames[PostSource])
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as combed: value out of range.");
@@ -1302,6 +1326,16 @@ int WobblyProject::getMicSearchMinimum() {
 
 void WobblyProject::setMicSearchMinimum(int minimum) {
     mic_search_minimum = minimum;
+}
+
+
+int WobblyProject::getCMatchSequencesMinimum() {
+    return c_match_sequences_minimum;
+}
+
+
+void WobblyProject::setCMatchSequencesMinimum(int minimum) {
+    c_match_sequences_minimum = minimum;
 }
 
 

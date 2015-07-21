@@ -162,6 +162,7 @@ void WobblyWindow::createShortcuts() {
         { "", "",           "Show/hide frozen frames", &WobblyWindow::showHideFrozenFrames },
         { "", "",           "Show/hide pattern guessing", &WobblyWindow::showHidePatternGuessing },
         { "", "",           "Show/hide mic search", &WobblyWindow::showHideMicSearchWindow },
+        { "", "",           "Show/hide C match sequences window", &WobblyWindow::showHideCMatchSequencesWindow },
 
         { "", "Left",       "Jump 1 frame back", &WobblyWindow::jump1Backward },
         { "", "Right",      "Jump 1 frame forward", &WobblyWindow::jump1Forward },
@@ -1557,6 +1558,59 @@ void WobblyWindow::createMicSearchWindow() {
 }
 
 
+void WobblyWindow::createCMatchSequencesWindow() {
+    c_match_minimum_spin = new QSpinBox;
+    c_match_minimum_spin->setRange(4, 999);
+    c_match_minimum_spin->setPrefix(QStringLiteral("Minimum: "));
+    c_match_minimum_spin->setSuffix(QStringLiteral(" frames"));
+
+    c_match_sequences_table = new TableWidget(0, 2, this);
+    c_match_sequences_table->setHorizontalHeaderLabels({ "Start", "Length" });
+
+
+    connect(c_match_minimum_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
+        if (!project)
+            return;
+
+        project->setCMatchSequencesMinimum(value);
+
+        updateCMatchSequencesWindow();
+    });
+
+    connect(c_match_sequences_table, &TableWidget::cellDoubleClicked, [this] (int row) {
+        QTableWidgetItem *item = c_match_sequences_table->item(row, 0);
+        bool ok;
+        int frame = item->text().toInt(&ok);
+        if (ok)
+            displayFrame(frame);
+    });
+
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(c_match_minimum_spin);
+    hbox->addStretch(1);
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addLayout(hbox);
+
+    vbox->addWidget(c_match_sequences_table);
+
+
+    QWidget *c_match_sequences_widget = new QWidget;
+    c_match_sequences_widget->setLayout(vbox);
+
+
+    c_match_sequences_dock = new DockWidget("C match sequences", this);
+    c_match_sequences_dock->setObjectName("c match sequences window");
+    c_match_sequences_dock->setVisible(false);
+    c_match_sequences_dock->setFloating(true);
+    c_match_sequences_dock->setWidget(c_match_sequences_widget);
+    addDockWidget(Qt::RightDockWidgetArea, c_match_sequences_dock);
+    tools_menu->addAction(c_match_sequences_dock->toggleViewAction());
+    connect(c_match_sequences_dock, &DockWidget::visibilityChanged, c_match_sequences_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::drawColorBars() {
     auto drawRect = [this] (int left, int top, int width, int height, int red, int green, int blue) {
         uint8_t *ptr = splash_image.bits();
@@ -1682,6 +1736,7 @@ void WobblyWindow::createUI() {
     createFrozenFramesViewer();
     createPatternGuessingWindow();
     createMicSearchWindow();
+    createCMatchSequencesWindow();
 }
 
 
@@ -2076,6 +2131,40 @@ void WobblyWindow::initialiseMicSearchWindow() {
 }
 
 
+void WobblyWindow::updateCMatchSequencesWindow() {
+    const auto &sequences = project->getCMatchSequences(c_match_minimum_spin->value());
+
+    c_match_sequences_table->setRowCount(0);
+    c_match_sequences_table->setRowCount(sequences.size());
+
+    int row = 0;
+    for (auto it = sequences.cbegin(); it != sequences.cend(); it++) {
+        QTableWidgetItem *item = new QTableWidgetItem(QString::number(it->first));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        c_match_sequences_table->setItem(row, 0, item);
+
+        item = new QTableWidgetItem(QString::number(it->second));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        c_match_sequences_table->setItem(row, 1, item);
+
+        row++;
+    }
+
+    if (sequences.size())
+        c_match_sequences_table->selectRow(0);
+
+    c_match_sequences_table->resizeColumnsToContents();
+}
+
+void WobblyWindow::initialiseCMatchSequencesWindow() {
+    c_match_minimum_spin->blockSignals(true);
+    c_match_minimum_spin->setValue(project->getCMatchSequencesMinimum());
+    c_match_minimum_spin->blockSignals(false);
+
+    updateCMatchSequencesWindow();
+}
+
+
 void WobblyWindow::initialiseUIFromProject() {
     frame_slider->setRange(0, project->getNumFrames(PostSource));
     frame_slider->setPageStep(project->getNumFrames(PostSource) * 20 / 100);
@@ -2094,6 +2183,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialiseFrozenFramesViewer();
     initialisePatternGuessingWindow();
     initialiseMicSearchWindow();
+    initialiseCMatchSequencesWindow();
 }
 
 
@@ -2334,6 +2424,11 @@ void WobblyWindow::showHidePatternGuessing() {
 
 void WobblyWindow::showHideMicSearchWindow() {
     mic_search_dock->setVisible(!mic_search_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideCMatchSequencesWindow() {
+    c_match_sequences_dock->setVisible(!c_match_sequences_dock->isVisible());
 }
 
 
@@ -2703,6 +2798,8 @@ void WobblyWindow::cycleMatchBCN() {
 
     project->cycleMatchBCN(current_frame);
 
+    updateCMatchSequencesWindow();
+
     evaluateMainDisplayScript();
 }
 
@@ -3007,6 +3104,8 @@ void WobblyWindow::resetSection() {
 
     project->resetSectionMatches(section->start);
 
+    updateCMatchSequencesWindow();
+
     evaluateMainDisplayScript();
 }
 
@@ -3033,6 +3132,8 @@ void WobblyWindow::rotateAndSetPatterns() {
     evaluateMainDisplayScript();
 
     updateFrameRatesViewer();
+
+    updateCMatchSequencesWindow();
 }
 
 
@@ -3049,6 +3150,8 @@ void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
     if (success) {
         updateFrameRatesViewer();
 
+        updateCMatchSequencesWindow();
+
         evaluateMainDisplayScript();
     }
 }
@@ -3063,6 +3166,8 @@ void WobblyWindow::guessProjectPatternsFromMatches() {
     updatePatternGuessingWindow();
 
     updateFrameRatesViewer();
+
+    updateCMatchSequencesWindow();
 
     evaluateMainDisplayScript();
 }
