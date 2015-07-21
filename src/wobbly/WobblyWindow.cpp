@@ -28,6 +28,8 @@ WobblyWindow::WobblyWindow()
     , match_pattern("ccnnc")
     , decimation_pattern("kkkkd")
     , preview(false)
+    , range_start(-1)
+    , range_end(-1)
     , vsapi(nullptr)
     , vsscript(nullptr)
     , vscore(nullptr)
@@ -182,20 +184,25 @@ void WobblyWindow::createShortcuts() {
         { "", "S",          "Cycle the current frame's match", &WobblyWindow::cycleMatchBCN },
         { "", "Ctrl+F",     "Replace current frame with next", &WobblyWindow::freezeForward },
         { "", "Shift+F",    "Replace current frame with previous", &WobblyWindow::freezeBackward },
-        { "", "F",          "Freeze frame", &WobblyWindow::freezeRange },
+        { "", "F",          "Freeze current frame or a range", &WobblyWindow::freezeRange },
         { "", "Q",          "Delete freezeframe", &WobblyWindow::deleteFreezeFrame },
         { "", "D",          "Toggle decimation for the current frame", &WobblyWindow::toggleDecimation },
         { "", "I",          "Start new section at current frame", &WobblyWindow::addSection },
         { "", "Ctrl+Q",     "Delete current section", &WobblyWindow::deleteSection },
-        { "", "P",          "Toggle postprocessing for the current frame", &WobblyWindow::toggleCombed },
-        { "", "R",          "Reset the match for the current frame", &WobblyWindow::resetMatch },
+        { "", "P",          "Toggle postprocessing for the current frame or a range", &WobblyWindow::toggleCombed },
+        { "", "R",          "Reset the match(es) for the current frame or a range", &WobblyWindow::resetMatch },
         { "", "Ctrl+R",     "Reset the matches for the current section", &WobblyWindow::resetSection },
         { "", "Ctrl+S",     "Rotate the patterns and apply them to the current section", &WobblyWindow::rotateAndSetPatterns },
+        { "", "",           "Set match pattern to range", &WobblyWindow::setMatchPattern },
+        { "", "",           "Set decimation pattern to range", &WobblyWindow::setDecimationPattern },
+        { "", "",           "Set match and decimation patterns to range", &WobblyWindow::setMatchAndDecimationPatterns },
         { "", "F5",         "Toggle preview mode", &WobblyWindow::togglePreview },
         { "", "Ctrl++",     "Zoom in", &WobblyWindow::zoomIn },
         { "", "Ctrl+-",     "Zoom out", &WobblyWindow::zoomOut },
         { "", "",           "Guess current section's patterns from matches", &WobblyWindow::guessCurrentSectionPatternsFromMatches },
-        { "", "",           "Guess every section's patterns from matches", &WobblyWindow::guessProjectPatternsFromMatches }
+        { "", "",           "Guess every section's patterns from matches", &WobblyWindow::guessProjectPatternsFromMatches },
+        { "", "E",          "Start a range", &WobblyWindow::startRange },
+        { "", "Escape",     "Cancel a range", &WobblyWindow::cancelRange }
     };
 
     resetShortcuts();
@@ -2007,13 +2014,13 @@ void WobblyWindow::updateFrameRatesViewer() {
             item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
             frame_rates_table->setItem(rows - 1, 0, item);
 
-            int range_end;
+            int end;
             if (i < ranges.size() - 1)
-                range_end = ranges[i + 1].start - 1;
+                end = ranges[i + 1].start - 1;
             else
-                range_end = project->getNumFrames(PostSource) - 1;
+                end = project->getNumFrames(PostSource) - 1;
 
-            item = new QTableWidgetItem(QString::number(range_end));
+            item = new QTableWidgetItem(QString::number(end));
             item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
             frame_rates_table->setItem(rows - 1, 1, item);
 
@@ -2850,12 +2857,21 @@ void WobblyWindow::freezeRange() {
 
     static FreezeFrame ff = { -1, -1, -1 };
 
-    // XXX Don't bother if first or last are part of a freezeframe.
-    if (ff.first == -1)
-        ff.first = current_frame;
-    else if (ff.last == -1)
-        ff.last = current_frame;
-    else if (ff.replacement == -1) {
+    if (ff.first == -1) {
+        if (range_start == -1) {
+            ff.first = current_frame;
+            ff.last = current_frame;
+        } else {
+            finishRange();
+
+            ff.first = range_start;
+            ff.last = range_end;
+
+            cancelRange();
+        }
+
+        freeze_label->setText(QStringLiteral("Freezing [%1,%2]").arg(ff.first).arg(ff.last));
+    } else if (ff.replacement == -1) {
         ff.replacement = current_frame;
         try {
             project->addFreezeFrame(ff.first, ff.last, ff.replacement);
@@ -2864,6 +2880,8 @@ void WobblyWindow::freezeRange() {
 
             initialiseFrozenFramesViewer();
         } catch (WobblyException &e) {
+            updateFrameDetails();
+
             errorPopup(e.what());
             //statusBar()->showMessage(QStringLiteral("Couldn't freeze range."), 5000);
         }
@@ -2907,10 +2925,26 @@ void WobblyWindow::toggleCombed() {
     if (!project)
         return;
 
+    int start, end;
+
+    if (range_start == -1) {
+        start = current_frame;
+        end = current_frame;
+    } else {
+        finishRange();
+
+        start = range_start;
+        end = range_end;
+
+        cancelRange();
+    }
+
     if (project->isCombedFrame(current_frame))
-        project->deleteCombedFrame(current_frame);
+        for (int i = start; i <= end; i++)
+            project->deleteCombedFrame(i);
     else
-        project->addCombedFrame(current_frame);
+        for (int i = start; i <= end; i++)
+            project->addCombedFrame(i);
 
     updateFrameDetails();
 }
@@ -3092,7 +3126,22 @@ void WobblyWindow::resetMatch() {
     if (!project)
         return;
 
-    project->resetRangeMatches(current_frame, current_frame);
+    int start, end;
+
+    if (range_start == -1) {
+        start = current_frame;
+        end = current_frame;
+    } else {
+        finishRange();
+
+        start = range_start;
+        end = range_end;
+
+        cancelRange();
+    }
+
+
+    project->resetRangeMatches(start, end);
 
     updateCMatchSequencesWindow();
 
@@ -3132,6 +3181,66 @@ void WobblyWindow::rotateAndSetPatterns() {
 
     project->setSectionMatchesFromPattern(section->start, match_pattern.toStdString());
     project->setSectionDecimationFromPattern(section->start, decimation_pattern.toStdString());
+
+    evaluateMainDisplayScript();
+
+    updateFrameRatesViewer();
+
+    updateCMatchSequencesWindow();
+}
+
+
+void WobblyWindow::setMatchPattern() {
+    if (!project)
+        return;
+
+    if (range_start == -1)
+        return;
+
+    finishRange();
+
+    project->setRangeMatchesFromPattern(range_start, range_end, match_pattern.toStdString());
+
+    cancelRange();
+
+    evaluateMainDisplayScript();
+
+    updateCMatchSequencesWindow();
+}
+
+
+void WobblyWindow::setDecimationPattern() {
+    if (!project)
+        return;
+
+    if (range_start == -1)
+        return;
+
+    finishRange();
+
+    project->setRangeDecimationFromPattern(range_start, range_end, decimation_pattern.toStdString());
+
+    cancelRange();
+
+    evaluateMainDisplayScript();
+
+    updateFrameRatesViewer();
+}
+
+
+void WobblyWindow::setMatchAndDecimationPatterns() {
+    if (!project)
+        return;
+
+    if (range_start == -1)
+        return;
+
+    finishRange();
+
+    project->setRangeMatchesFromPattern(range_start, range_end, match_pattern.toStdString());
+    project->setRangeDecimationFromPattern(range_start, range_end, decimation_pattern.toStdString());
+
+    cancelRange();
 
     evaluateMainDisplayScript();
 
@@ -3241,4 +3350,26 @@ void WobblyWindow::zoomIn() {
 
 void WobblyWindow::zoomOut() {
     zoom(false);
+}
+
+
+void WobblyWindow::startRange() {
+    range_start = current_frame;
+
+    statusBar()->showMessage(QStringLiteral("Range start: %1").arg(range_start), 0);
+}
+
+
+void WobblyWindow::finishRange() {
+    range_end = current_frame;
+
+    if (range_start > range_end)
+        std::swap(range_start, range_end);
+}
+
+
+void WobblyWindow::cancelRange() {
+    range_start = range_end = -1;
+
+    statusBar()->clearMessage();
 }

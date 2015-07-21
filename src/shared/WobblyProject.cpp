@@ -863,26 +863,46 @@ void WobblyProject::setSectionPreset(int section_start, const std::string &prese
 void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
     int section_end = getSectionEnd(section_start);
 
-    for (int i = 0; i < section_end - section_start; i++) {
-        if ((section_start + i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
-            (section_start + i == num_frames[PostSource] - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
+    for (int i = section_start; i < section_end; i++) {
+        if ((i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
+            (i == num_frames[PostSource] - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
             // Skip the first and last frame if their new matches are incompatible.
             continue;
 
-        // Yatta does it like this.
-        matches[section_start + i] = pattern[i % 5];
+        matches[i] = pattern[i % 5];
     }
 }
 
 void WobblyProject::setSectionDecimationFromPattern(int section_start, const std::string &pattern) {
     int section_end = getSectionEnd(section_start);
 
-    for (int i = 0; i < section_end - section_start; i++) {
-        // Yatta does it like this.
+    for (int i = section_start; i < section_end; i++) {
         if (pattern[i % 5] == 'd')
-            addDecimatedFrame(section_start + i);
+            addDecimatedFrame(i);
         else
-            deleteDecimatedFrame(section_start + i);
+            deleteDecimatedFrame(i);
+    }
+}
+
+
+void WobblyProject::setRangeMatchesFromPattern(int range_start, int range_end, const std::string &pattern) {
+    for (int i = range_start; i <= range_end; i++) {
+        if ((i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
+            (i == num_frames[PostSource] - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
+            // Skip the first and last frame if their new matches are incompatible.
+            continue;
+
+        matches[i] = pattern[i % 5];
+    }
+}
+
+
+void WobblyProject::setRangeDecimationFromPattern(int range_start, int range_end, const std::string &pattern) {
+    for (int i = range_start; i <= range_end; i++) {
+        if (pattern[i % 5] == 'd')
+            addDecimatedFrame(i);
+        else
+            deleteDecimatedFrame(i);
     }
 }
 

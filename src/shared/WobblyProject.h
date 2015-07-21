@@ -311,6 +311,10 @@ class WobblyProject {
         void setSectionDecimationFromPattern(int section_start, const std::string &pattern);
 
 
+        void setRangeMatchesFromPattern(int range_start, int range_end, const std::string &pattern);
+        void setRangeDecimationFromPattern(int range_start, int range_end, const std::string &pattern);
+
+
         void resetSectionMatches(int section_start);
         void resetRangeMatches(int start, int end);
 

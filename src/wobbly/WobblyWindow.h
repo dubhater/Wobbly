@@ -134,6 +134,9 @@ private:
 
     std::vector<Shortcut> shortcuts;
 
+    int range_start;
+    int range_end;
+
 
     // VapourSynth stuff.
 
@@ -203,6 +206,10 @@ private:
 
     void zoom(bool in);
 
+    void startRange();
+    void finishRange();
+    void cancelRange();
+
 public slots:
     void jump1Forward();
     void jump1Backward();
@@ -270,6 +277,9 @@ public slots:
     void resetSection();
 
     void rotateAndSetPatterns();
+    void setMatchPattern();
+    void setDecimationPattern();
+    void setMatchAndDecimationPatterns();
 
     void guessCurrentSectionPatternsFromMatches();
     void guessProjectPatternsFromMatches();
