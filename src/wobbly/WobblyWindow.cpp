@@ -3092,7 +3092,11 @@ void WobblyWindow::resetMatch() {
     if (!project)
         return;
 
-    //evaluateMainDisplayScript();
+    project->resetRangeMatches(current_frame, current_frame);
+
+    updateCMatchSequencesWindow();
+
+    evaluateMainDisplayScript();
 }
 
 
