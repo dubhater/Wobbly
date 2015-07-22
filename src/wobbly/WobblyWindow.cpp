@@ -30,6 +30,8 @@ WobblyWindow::WobblyWindow()
     , preview(false)
     , range_start(-1)
     , range_end(-1)
+    , selected_preset(-1)
+    , selected_custom_list(-1)
     , vsapi(nullptr)
     , vsscript(nullptr)
     , vscore(nullptr)
@@ -202,7 +204,13 @@ void WobblyWindow::createShortcuts() {
         { "", "",           "Guess current section's patterns from matches", &WobblyWindow::guessCurrentSectionPatternsFromMatches },
         { "", "",           "Guess every section's patterns from matches", &WobblyWindow::guessProjectPatternsFromMatches },
         { "", "E",          "Start a range", &WobblyWindow::startRange },
-        { "", "Escape",     "Cancel a range", &WobblyWindow::cancelRange }
+        { "", "Escape",     "Cancel a range", &WobblyWindow::cancelRange },
+        { "", "",           "Select the previous preset", &WobblyWindow::selectPreviousPreset },
+        { "", "H",          "Select the next preset", &WobblyWindow::selectNextPreset },
+        { "", "",           "Assign selected preset to the current section", &WobblyWindow::assignSelectedPresetToCurrentSection },
+        { "", "Z",          "Select the previous custom list", &WobblyWindow::selectPreviousCustomList },
+        { "", "X",          "Select the next custom list", &WobblyWindow::selectNextCustomList },
+        { "", "C",          "Add range to the selected custom list", &WobblyWindow::addRangeToSelectedCustomList }
     };
 
     resetShortcuts();
@@ -1699,7 +1707,11 @@ void WobblyWindow::createUI() {
 
     statusBar()->setSizeGripEnabled(true);
 
+    selected_preset_label = new QLabel(QStringLiteral("Selected preset: "));
+    selected_custom_list_label = new QLabel(QStringLiteral("Selected custom list: "));
     zoom_label = new QLabel(QStringLiteral("Zoom: 1x"));
+    statusBar()->addPermanentWidget(selected_preset_label);
+    statusBar()->addPermanentWidget(selected_custom_list_label);
     statusBar()->addPermanentWidget(zoom_label);
 
     drawColorBars();
@@ -3354,6 +3366,9 @@ void WobblyWindow::zoomOut() {
 
 
 void WobblyWindow::startRange() {
+    if (!project)
+        return;
+
     range_start = current_frame;
 
     statusBar()->showMessage(QStringLiteral("Range start: %1").arg(range_start), 0);
@@ -3361,6 +3376,9 @@ void WobblyWindow::startRange() {
 
 
 void WobblyWindow::finishRange() {
+    if (!project)
+        return;
+
     range_end = current_frame;
 
     if (range_start > range_end)
@@ -3369,7 +3387,154 @@ void WobblyWindow::finishRange() {
 
 
 void WobblyWindow::cancelRange() {
+    if (!project)
+        return;
+
     range_start = range_end = -1;
 
     statusBar()->clearMessage();
+}
+
+
+void WobblyWindow::selectPreviousPreset() {
+    if (!project)
+        return;
+
+    QStringList presets = presets_model->stringList();
+
+    if (presets.size() == 0) {
+        selected_preset = -1;
+    } else if (presets.size() == 1) {
+        selected_preset = 0;
+    } else {
+        if (selected_preset == -1) {
+            selected_preset = presets.size() - 1;
+        } else {
+            if (selected_preset == 0)
+                selected_preset = presets.size();
+            selected_preset--;
+        }
+    }
+
+    selected_preset_label->setText("Selected preset: " + (selected_preset > -1 ? presets[selected_preset] : ""));
+}
+
+
+void WobblyWindow::selectNextPreset() {
+    if (!project)
+        return;
+
+    QStringList presets = presets_model->stringList();
+
+    if (presets.size() == 0) {
+        selected_preset = -1;
+    } else if (presets.size() == 1) {
+        selected_preset = 0;
+    } else {
+        if (selected_preset == -1) {
+            selected_preset = 0;
+        } else {
+            selected_preset = (selected_preset + 1) % presets.size();
+        }
+    }
+
+    selected_preset_label->setText("Selected preset: " + (selected_preset > -1 ? presets[selected_preset] : ""));
+}
+
+
+void WobblyWindow::selectPreviousCustomList() {
+    if (!project)
+        return;
+
+    const auto &cl = project->getCustomLists();
+
+    if (cl.size() == 0) {
+        selected_custom_list = -1;
+    } else if (cl.size() == 1) {
+        selected_custom_list = 0;
+    } else {
+        if (selected_custom_list == -1) {
+            selected_custom_list = cl.size() - 1;
+        } else {
+            if (selected_custom_list == 0)
+                selected_custom_list = cl.size();
+            selected_custom_list--;
+        }
+    }
+
+    selected_custom_list_label->setText(QStringLiteral("Selected custom list: ") + (selected_custom_list > -1 ? cl[selected_custom_list].name.c_str() : ""));
+}
+
+
+
+void WobblyWindow::selectNextCustomList() {
+    if (!project)
+        return;
+
+    const auto &cl = project->getCustomLists();
+
+    if (cl.size() == 0) {
+        selected_custom_list = -1;
+    } else if (cl.size() == 1) {
+        selected_custom_list = 0;
+    } else {
+        if (selected_custom_list == -1) {
+            selected_custom_list = 0;
+        } else {
+            selected_custom_list = (selected_custom_list + 1) % cl.size();
+        }
+    }
+
+    selected_custom_list_label->setText(QStringLiteral("Selected custom list: ") + (selected_custom_list > -1 ? cl[selected_custom_list].name.c_str() : ""));
+}
+
+
+void WobblyWindow::assignSelectedPresetToCurrentSection() {
+    if (!project)
+        return;
+
+    if (selected_preset == -1)
+        return;
+
+    QStringList presets = presets_model->stringList();
+
+    int section_start = project->findSection(current_frame)->start;
+    project->setSectionPreset(section_start, presets[selected_preset].toStdString());
+
+    updateFrameDetails();
+
+    updateSectionsEditor();
+}
+
+
+void WobblyWindow::addRangeToSelectedCustomList() {
+    if (!project)
+        return;
+
+    if (selected_custom_list == -1)
+        return;
+
+    int start, end;
+
+    if (range_start == -1) {
+        start = current_frame;
+        end = current_frame;
+    } else {
+        finishRange();
+
+        start = range_start;
+        end = range_end;
+
+        cancelRange();
+    }
+
+    try {
+        project->addCustomListRange(selected_custom_list, start, end);
+
+        updateFrameDetails();
+
+        updateCustomListsEditor();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }

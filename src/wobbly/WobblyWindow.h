@@ -53,6 +53,8 @@ private:
     QLabel *mic_label;
     QLabel *combed_label;
 
+    QLabel *selected_preset_label;
+    QLabel *selected_custom_list_label;
     QLabel *zoom_label;
 
     DockWidget *crop_dock;
@@ -137,6 +139,9 @@ private:
     int range_start;
     int range_end;
 
+    int selected_preset;
+    int selected_custom_list;
+
 
     // VapourSynth stuff.
 
@@ -209,6 +214,13 @@ private:
     void startRange();
     void finishRange();
     void cancelRange();
+
+    void selectPreviousPreset();
+    void selectNextPreset();
+    void selectPreviousCustomList();
+    void selectNextCustomList();
+    void assignSelectedPresetToCurrentSection();
+    void addRangeToSelectedCustomList();
 
 public slots:
     void jump1Forward();

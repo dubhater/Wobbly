@@ -856,6 +856,9 @@ int WobblyProject::getSectionEnd(int frame) {
 }
 
 void WobblyProject::setSectionPreset(int section_start, const std::string &preset_name) {
+    if (!presets.count(preset_name))
+        throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": no such preset.");
+
     // The user may want to assign the same preset twice.
     sections.at(section_start).presets.push_back(preset_name);
 }
