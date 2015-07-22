@@ -114,11 +114,14 @@ private:
 
     QImage splash_image;
 
+    QString window_title;
+
 
     // Other stuff.
 
     WobblyProject *project;
     QString project_path;
+    QString video_path;
 
     int current_frame;
 
@@ -178,6 +181,7 @@ private:
 
     void initialisePresets();
 
+    void updateWindowTitle();
     void initialiseCropAssistant();
     void initialisePresetEditor();
     void updateSectionsEditor();
@@ -259,6 +263,7 @@ public slots:
     void deleteSection();
 
     void openProject();
+    void openVideo();
     void saveProject();
     void saveProjectAs();
     void saveScript();

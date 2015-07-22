@@ -23,6 +23,7 @@
 
 WobblyWindow::WobblyWindow()
     : splash_image(720, 480, QImage::Format_RGB32)
+    , window_title(QStringLiteral("Wobbly IVTC Assistant v%1").arg(PACKAGE_VERSION))
     , project(nullptr)
     , current_frame(0)
     , match_pattern("ccnnc")
@@ -109,6 +110,7 @@ void WobblyWindow::createMenu() {
     QMenu *p = bar->addMenu("&Project");
 
     QAction *projectOpen = new QAction("&Open project", this);
+    QAction *projectOpenVideo = new QAction("Open video", this);
     QAction *projectSave = new QAction("&Save project", this);
     QAction *projectSaveAs = new QAction("Save project &as", this);
     QAction *projectSaveScript = new QAction("Save script", this);
@@ -119,6 +121,7 @@ void WobblyWindow::createMenu() {
     QAction *projectQuit = new QAction("&Quit", this);
 
     connect(projectOpen, &QAction::triggered, this, &WobblyWindow::openProject);
+    connect(projectOpenVideo, &QAction::triggered, this, &WobblyWindow::openVideo);
     connect(projectSave, &QAction::triggered, this, &WobblyWindow::saveProject);
     connect(projectSaveAs, &QAction::triggered, this, &WobblyWindow::saveProjectAs);
     connect(projectSaveScript, &QAction::triggered, this, &WobblyWindow::saveScript);
@@ -129,6 +132,7 @@ void WobblyWindow::createMenu() {
     connect(projectQuit, &QAction::triggered, this, &QMainWindow::close);
 
     p->addAction(projectOpen);
+    p->addAction(projectOpenVideo);
     p->addAction(projectSave);
     p->addAction(projectSaveAs);
     p->addAction(projectSaveScript);
@@ -147,6 +151,7 @@ void WobblyWindow::createMenu() {
 void WobblyWindow::createShortcuts() {
     shortcuts = {
         { "", "",           "Open project", &WobblyWindow::openProject },
+        { "", "",           "Open video", &WobblyWindow::openVideo },
         { "", "",           "Save project", &WobblyWindow::saveProject },
         { "", "",           "Save project as", &WobblyWindow::saveProjectAs },
         { "", "",           "Save script", &WobblyWindow::saveScript },
@@ -1703,7 +1708,7 @@ void WobblyWindow::createUI() {
     createMenu();
     createShortcuts();
 
-    setWindowTitle(QStringLiteral("Wobbly IVTC Assistant v%1").arg(PACKAGE_VERSION));
+    setWindowTitle(window_title);
 
     statusBar()->setSizeGripEnabled(true);
 
@@ -1866,6 +1871,11 @@ void WobblyWindow::initialisePresets() {
         preset_list.append(QString::fromStdString(presets[i]));
     }
     presets_model->setStringList(preset_list);
+}
+
+
+void WobblyWindow::updateWindowTitle() {
+    setWindowTitle(QStringLiteral("%1 - %2").arg(window_title).arg(project_path.isEmpty() ? video_path : project_path));
 }
 
 
@@ -2185,6 +2195,8 @@ void WobblyWindow::initialiseCMatchSequencesWindow() {
 
 
 void WobblyWindow::initialiseUIFromProject() {
+    updateWindowTitle();
+
     frame_slider->setRange(0, project->getNumFrames(PostSource));
     frame_slider->setPageStep(project->getNumFrames(PostSource) * 20 / 100);
 
@@ -2246,6 +2258,58 @@ void WobblyWindow::openProject() {
 }
 
 
+void WobblyWindow::openVideo() {
+    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open video file"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
+
+    if (!path.isNull()) {
+        try {
+            QString script = QStringLiteral(
+                        "import vapoursynth as vs\n"
+                        "\n"
+                        "c = vs.get_core()\n"
+                        "\n"
+                        "c.d2v.Source(input=r'%1').set_output()\n");
+            script = script.arg(path);
+
+            if (vsscript_evaluateScript(&vsscript, script.toUtf8().constData(), QFileInfo(path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+                std::string error = vsscript_getError(vsscript);
+                // The traceback is mostly unnecessary noise.
+                size_t traceback = error.find("Traceback");
+                if (traceback != std::string::npos)
+                    error.insert(traceback, 1, '\n');
+
+                throw WobblyException("Can't extract basic information from the video file: script evaluation failed. Error message:\n" + error);
+            }
+
+            VSNodeRef *node = vsscript_getOutput(vsscript, 0);
+            if (!node)
+                throw WobblyException("Can't extract basic information from the video file: script evaluated successfully, but no node found at output index 0.");
+
+            VSVideoInfo vi = *vsapi->getVideoInfo(node);
+
+            vsapi->freeNode(node);
+
+            if (project)
+                delete project;
+
+            project = new WobblyProject(true, path.toStdString(), vi.fpsNum, vi.fpsDen, vi.width, vi.height, vi.numFrames);
+
+            video_path = path;
+
+            initialiseUIFromProject();
+
+            vsscript_clearOutput(vsscript, 1);
+
+            evaluateMainDisplayScript();
+        } catch(WobblyException &e) {
+            errorPopup(e.what());
+
+            project = nullptr;
+        }
+    }
+}
+
+
 void WobblyWindow::realSaveProject(const QString &path) {
     if (!project)
         return;
@@ -2263,6 +2327,9 @@ void WobblyWindow::realSaveProject(const QString &path) {
     project->writeProject(path.toStdString());
 
     project_path = path;
+    video_path.clear();
+
+    updateWindowTitle();
 }
 
 
@@ -2470,7 +2537,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
             "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
             "src.set_output()\n";
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project->getProjectPath().c_str()).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project_path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
@@ -2511,8 +2578,13 @@ void WobblyWindow::displayFrame(int n) {
     if (n >= project->getNumFrames(PostSource))
         n = project->getNumFrames(PostSource) - 1;
 
+    int frame_num = preview ? project->frameNumberAfterDecimation(n) : n;
+    int last_frame = (preview ? project->getNumFrames(PostDecimate) : project->getNumFrames(PostSource)) - 1;
     std::vector<char> error(1024);
-    const VSFrameRef *frame = vsapi->getFrame(preview ? project->frameNumberAfterDecimation(n): n, vsnode[(int)preview], error.data(), 1024);
+    if (frame_num == last_frame)
+        // Workaround for bug in d2vsource: https://github.com/dwbuiten/d2vsource/issues/12
+        vsapi->freeFrame(vsapi->getFrame(frame_num - 1, vsnode[(int)preview], error.data(), 1024));
+    const VSFrameRef *frame = vsapi->getFrame(frame_num, vsnode[(int)preview], error.data(), 1024);
 
     if (!frame)
         throw WobblyException(std::string("Failed to retrieve frame. Error message: ") + error.data());

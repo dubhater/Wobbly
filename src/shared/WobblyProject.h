@@ -212,7 +212,6 @@ struct PatternGuessing {
 
 class WobblyProject {
     private:
-        std::string project_path;
         int num_frames[3];
 
         int64_t fps_num;
@@ -264,8 +263,7 @@ class WobblyProject {
 
     public:
         WobblyProject(bool _is_wobbly);
-
-        const std::string &getProjectPath();
+        WobblyProject(bool _is_wobbly, const std::string &_input_file, int64_t _fps_num, int64_t _fps_den, int _width, int _height, int _num_frames);
 
         int getNumFrames(PositionInFilterChain position);
 

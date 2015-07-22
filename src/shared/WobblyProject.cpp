@@ -24,6 +24,9 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , height(0)
     , zoom(1)
     , last_visited_frame(0)
+    , shown_frame_rates{ false, false, false, false, false }
+    , mic_search_minimum(20)
+    , c_match_sequences_minimum(20)
     , is_wobbly(_is_wobbly)
     , pattern_guessing{ 0, UseThirdNMatchNever, DropFirstDuplicate, { } }
     , resize{ false, 0, 0, "spline16" }
@@ -34,8 +37,28 @@ WobblyProject::WobblyProject(bool _is_wobbly)
 }
 
 
-const std::string &WobblyProject::getProjectPath() {
-    return project_path;
+WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, int64_t _fps_num, int64_t _fps_den, int _width, int _height, int _num_frames)
+    : WobblyProject(_is_wobbly)
+{
+    input_file = _input_file;
+    fps_num = _fps_num;
+    fps_den = _fps_den;
+    width = _width;
+    height = _height;
+    for (int i = 0; i < 3; i++)
+        num_frames[i] = _num_frames;
+
+    trims.insert({ 0, { 0, _num_frames - 1} });
+    // XXX What happens when the video happens to be bottom field first?
+    vfm_parameters.insert({ "order", 1 });
+    mics.resize(_num_frames, { 0 });
+    original_matches.resize(_num_frames, 'c');
+    matches.resize(_num_frames, 'c');
+    decimated_frames.resize((_num_frames - 1) / 5 + 1);
+    decimate_metrics.resize(_num_frames, 0);
+    addSection(0);
+    resize.width = _width;
+    resize.height = _height;
 }
 
 
@@ -49,8 +72,6 @@ void WobblyProject::writeProject(const std::string &path) {
 
     if (!file.open(QIODevice::WriteOnly))
         throw WobblyException("Couldn't open project file. Error message: " + file.errorString());
-
-    project_path = path;
 
     QJsonObject json_project;
 
@@ -290,8 +311,6 @@ void WobblyProject::readProject(const std::string &path) {
     if (!file.open(QIODevice::ReadOnly))
         throw WobblyException("Couldn't open project file '" + path + "'. Error message: " + file.errorString().toStdString());
 
-    project_path = path;
-
     QByteArray data = file.readAll();
 
     QJsonDocument json_doc(QJsonDocument::fromJson(data));
@@ -345,8 +364,8 @@ void WobblyProject::readProject(const std::string &path) {
         shown_frame_rates = { true, false, true, true, true };
     }
 
-    mic_search_minimum = (int)json_ui["mic search minimum"].toDouble(20);
-    c_match_sequences_minimum = (int)json_ui["c match sequences minimum"].toDouble(20);
+    mic_search_minimum = (int)json_ui["mic search minimum"].toDouble(mic_search_minimum);
+    c_match_sequences_minimum = (int)json_ui["c match sequences minimum"].toDouble(c_match_sequences_minimum);
 
     QJsonObject json_pattern_guessing = json_ui["pattern guessing"].toObject();
 
