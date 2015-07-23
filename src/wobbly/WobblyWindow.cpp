@@ -5,6 +5,7 @@
 #include <QInputDialog>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegExpValidator>
@@ -82,6 +83,37 @@ void WobblyWindow::closeEvent(QCloseEvent *event) {
     }
 
     event->accept();
+}
+
+
+void WobblyWindow::dragEnterEvent(QDragEnterEvent *event) {
+    if (event->mimeData()->hasUrls())
+        event->acceptProposedAction();
+}
+
+
+void WobblyWindow::dropEvent(QDropEvent *event) {
+    QList<QUrl> urls = event->mimeData()->urls();
+
+    int first_local = -1;
+
+    for (int i = 0; i < urls.size(); i++)
+        if (urls[i].isLocalFile()) {
+            first_local = i;
+            break;
+        }
+
+    if (first_local == -1)
+        return;
+
+    QString path = urls[first_local].toLocalFile();
+
+    if (path.endsWith(".json"))
+        realOpenProject(path);
+    else
+        realOpenVideo(path);
+
+    event->acceptProposedAction();
 }
 
 
@@ -1705,6 +1737,8 @@ void WobblyWindow::drawColorBars() {
 
 
 void WobblyWindow::createUI() {
+    setAcceptDrops(true);
+
     createMenu();
     createShortcuts();
 
@@ -2218,42 +2252,96 @@ void WobblyWindow::initialiseUIFromProject() {
 }
 
 
+void WobblyWindow::realOpenProject(const QString &path) {
+    WobblyProject *tmp = new WobblyProject(true);
+
+    try {
+        tmp->readProject(path.toStdString());
+
+        project_path = path;
+        video_path.clear();
+
+        if (project)
+            delete project;
+        project = tmp;
+
+        current_frame = project->getLastVisitedFrame();
+
+        const std::string &state = project->getUIState();
+        if (state.size())
+            restoreState(QByteArray::fromBase64(QByteArray(state.c_str(), state.size())));
+        const std::string &geometry = project->getUIGeometry();
+        if (geometry.size())
+            restoreGeometry(QByteArray::fromBase64(QByteArray(geometry.c_str(), geometry.size())));
+
+        initialiseUIFromProject();
+
+        vsscript_clearOutput(vsscript, 1);
+
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+
+        if (project == tmp)
+            project = nullptr;
+        delete tmp;
+    }
+}
+
+
 void WobblyWindow::openProject() {
     QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
-    if (!path.isNull()) {
-        WobblyProject *tmp = new WobblyProject(true);
+    if (!path.isNull())
+        realOpenProject(path);
+}
 
-        try {
-            tmp->readProject(path.toStdString());
 
-            project_path = path;
+void WobblyWindow::realOpenVideo(const QString &path) {
+    try {
+        QString script = QStringLiteral(
+                    "import vapoursynth as vs\n"
+                    "\n"
+                    "c = vs.get_core()\n"
+                    "\n"
+                    "c.d2v.Source(input=r'%1').set_output()\n");
+        script = script.arg(path);
 
-            if (project)
-                delete project;
-            project = tmp;
+        if (vsscript_evaluateScript(&vsscript, script.toUtf8().constData(), QFileInfo(path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+            std::string error = vsscript_getError(vsscript);
+            // The traceback is mostly unnecessary noise.
+            size_t traceback = error.find("Traceback");
+            if (traceback != std::string::npos)
+                error.insert(traceback, 1, '\n');
 
-            current_frame = project->getLastVisitedFrame();
-
-            const std::string &state = project->getUIState();
-            if (state.size())
-                restoreState(QByteArray::fromBase64(QByteArray(state.c_str(), state.size())));
-            const std::string &geometry = project->getUIGeometry();
-            if (geometry.size())
-                restoreGeometry(QByteArray::fromBase64(QByteArray(geometry.c_str(), geometry.size())));
-
-            initialiseUIFromProject();
-
-            vsscript_clearOutput(vsscript, 1);
-
-            evaluateMainDisplayScript();
-        } catch (WobblyException &e) {
-            errorPopup(e.what());
-
-            if (project == tmp)
-                project = nullptr;
-            delete tmp;
+            throw WobblyException("Can't extract basic information from the video file: script evaluation failed. Error message:\n" + error);
         }
+
+        VSNodeRef *node = vsscript_getOutput(vsscript, 0);
+        if (!node)
+            throw WobblyException("Can't extract basic information from the video file: script evaluated successfully, but no node found at output index 0.");
+
+        VSVideoInfo vi = *vsapi->getVideoInfo(node);
+
+        vsapi->freeNode(node);
+
+        if (project)
+            delete project;
+
+        project = new WobblyProject(true, path.toStdString(), vi.fpsNum, vi.fpsDen, vi.width, vi.height, vi.numFrames);
+
+        video_path = path;
+        project_path.clear();
+
+        initialiseUIFromProject();
+
+        vsscript_clearOutput(vsscript, 1);
+
+        evaluateMainDisplayScript();
+    } catch(WobblyException &e) {
+        errorPopup(e.what());
+
+        project = nullptr;
     }
 }
 
@@ -2261,52 +2349,8 @@ void WobblyWindow::openProject() {
 void WobblyWindow::openVideo() {
     QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open video file"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
-    if (!path.isNull()) {
-        try {
-            QString script = QStringLiteral(
-                        "import vapoursynth as vs\n"
-                        "\n"
-                        "c = vs.get_core()\n"
-                        "\n"
-                        "c.d2v.Source(input=r'%1').set_output()\n");
-            script = script.arg(path);
-
-            if (vsscript_evaluateScript(&vsscript, script.toUtf8().constData(), QFileInfo(path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
-                std::string error = vsscript_getError(vsscript);
-                // The traceback is mostly unnecessary noise.
-                size_t traceback = error.find("Traceback");
-                if (traceback != std::string::npos)
-                    error.insert(traceback, 1, '\n');
-
-                throw WobblyException("Can't extract basic information from the video file: script evaluation failed. Error message:\n" + error);
-            }
-
-            VSNodeRef *node = vsscript_getOutput(vsscript, 0);
-            if (!node)
-                throw WobblyException("Can't extract basic information from the video file: script evaluated successfully, but no node found at output index 0.");
-
-            VSVideoInfo vi = *vsapi->getVideoInfo(node);
-
-            vsapi->freeNode(node);
-
-            if (project)
-                delete project;
-
-            project = new WobblyProject(true, path.toStdString(), vi.fpsNum, vi.fpsDen, vi.width, vi.height, vi.numFrames);
-
-            video_path = path;
-
-            initialiseUIFromProject();
-
-            vsscript_clearOutput(vsscript, 1);
-
-            evaluateMainDisplayScript();
-        } catch(WobblyException &e) {
-            errorPopup(e.what());
-
-            project = nullptr;
-        }
-    }
+    if (!path.isNull())
+        realOpenVideo(path);
 }
 
 

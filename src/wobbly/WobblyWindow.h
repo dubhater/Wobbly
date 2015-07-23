@@ -205,8 +205,12 @@ private:
     void errorPopup(const char *msg);
 
     void closeEvent(QCloseEvent *event);
+    void dragEnterEvent(QDragEnterEvent *event);
+    void dropEvent(QDropEvent *event);
     void keyPressEvent(QKeyEvent *event);
 
+    void realOpenProject(const QString &path);
+    void realOpenVideo(const QString &path);
     void realSaveProject(const QString &path);
     void realSaveScript(const QString &path);
     void realSaveTimecodes(const QString &path);
