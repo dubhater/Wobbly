@@ -37,10 +37,11 @@ WobblyProject::WobblyProject(bool _is_wobbly)
 }
 
 
-WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, int64_t _fps_num, int64_t _fps_den, int _width, int _height, int _num_frames)
+WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, const std::string &_source_filter, int64_t _fps_num, int64_t _fps_den, int _width, int _height, int _num_frames)
     : WobblyProject(_is_wobbly)
 {
     input_file = _input_file;
+    source_filter = _source_filter;
     fps_num = _fps_num;
     fps_den = _fps_den;
     width = _width;
@@ -227,6 +228,9 @@ void WobblyProject::writeProject(const std::string &path) {
     json_project.insert("sections", json_sections);
 
 
+    json_project.insert("source filter", QString::fromStdString(source_filter));
+
+
     if (is_wobbly) {
         QJsonArray json_presets, json_frozen_frames;
 
@@ -327,6 +331,7 @@ void WobblyProject::readProject(const std::string &path) {
         "input frame rate",
         "input resolution",
         "trim",
+        "source filter",
         nullptr
     };
 
@@ -557,6 +562,8 @@ void WobblyProject::readProject(const std::string &path) {
         depth.float_samples = json_depth["float samples"].toBool();
         depth.dither = json_depth["dither"].toString().toStdString();
     }
+
+    source_filter = json_project["source filter"].toString().toStdString();
 }
 
 void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
@@ -1312,6 +1319,16 @@ bool WobblyProject::isBitDepthEnabled() {
 }
 
 
+const std::string &WobblyProject::getSourceFilter() {
+    return source_filter;
+}
+
+
+void WobblyProject::setSourceFilter(const std::string &filter) {
+    source_filter = filter;
+}
+
+
 int WobblyProject::getZoom() {
     return zoom;
 }
@@ -1801,7 +1818,7 @@ void WobblyProject::sourceToScript(std::string &script) {
             "try:\n"
             "    src = vs.get_output(index=1)\n"
             "except KeyError:\n"
-            "    src = c.d2v.Source(input=r'" + input_file + "')\n"
+            "    src = c." + source_filter + "(r'" + input_file + "')\n"
             "    src.set_output(index=1)\n"
             "\n";
 }

@@ -49,7 +49,7 @@ WobblyWindow::WobblyWindow()
     } catch (WobblyException &e) {
         show();
         errorPopup(e.what());
-        exit(1); // Seems a bit heavy-handed, but close() doesn't close the window if called here, so...
+        std::exit(1); // Seems a bit heavy-handed, but close() doesn't close the window if called here, so...
     }
 }
 
@@ -1844,7 +1844,13 @@ void WobblyWindow::checkRequiredFilters() {
             "com.sources.d2vsource",
             { "Source" },
             "d2vsource plugin not found.",
-            "I don't know."
+            ""
+        },
+        {
+            "systems.innocent.lsmas",
+            { "LibavSMASHSource", "LWLibavSource" },
+            "L-SMASH-Works plugin not found.",
+            ""
         },
         {
             "com.nodame.fieldhint",
@@ -1878,7 +1884,9 @@ void WobblyWindow::checkRequiredFilters() {
             VSMap *map = vsapi->getFunctions(plugin);
             for (auto it = plugins[i].filters.cbegin(); it != plugins[i].filters.cend(); it++) {
                 if (vsapi->propGetType(map, it->c_str()) == ptUnset) {
-                    error += "Fatal error: plugin found but it lacks filter '";
+                    error += "Fatal error: plugin '";
+                    error += plugins[i].id;
+                    error += "' found but it lacks filter '";
                     error += *it;
                     error += "'.";
                     if (plugins[i].filter_not_found.size()) {
@@ -2299,13 +2307,26 @@ void WobblyWindow::openProject() {
 
 void WobblyWindow::realOpenVideo(const QString &path) {
     try {
+        QString source_filter;
+
+        QString extension = path.mid(path.lastIndexOf('.') + 1);
+
+        QStringList mp4 = { "mp4", "m4v", "mov" };
+
+        if (extension == "d2v")
+            source_filter = "d2v.Source";
+        else if (mp4.contains(extension))
+            source_filter = "lsmas.LibavSMASHSource";
+        else
+            source_filter = "lsmas.LWLibavSource";
+
         QString script = QStringLiteral(
                     "import vapoursynth as vs\n"
                     "\n"
                     "c = vs.get_core()\n"
                     "\n"
-                    "c.d2v.Source(input=r'%1').set_output()\n");
-        script = script.arg(path);
+                    "c.%1(r'%2').set_output()\n");
+        script = script.arg(source_filter).arg(path);
 
         if (vsscript_evaluateScript(&vsscript, script.toUtf8().constData(), QFileInfo(path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
             std::string error = vsscript_getError(vsscript);
@@ -2328,7 +2349,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
         if (project)
             delete project;
 
-        project = new WobblyProject(true, path.toStdString(), vi.fpsNum, vi.fpsDen, vi.width, vi.height, vi.numFrames);
+        project = new WobblyProject(true, path.toStdString(), source_filter.toStdString(), vi.fpsNum, vi.fpsDen, vi.width, vi.height, vi.numFrames);
 
         video_path = path;
         project_path.clear();

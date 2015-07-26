@@ -256,6 +256,8 @@ class WobblyProject {
         Crop crop;
         Depth depth;
 
+        std::string source_filter;
+
         // Only functions below.
 
         bool isNameSafeForPython(const std::string &name);
@@ -263,7 +265,7 @@ class WobblyProject {
 
     public:
         WobblyProject(bool _is_wobbly);
-        WobblyProject(bool _is_wobbly, const std::string &_input_file, int64_t _fps_num, int64_t _fps_den, int _width, int _height, int _num_frames);
+        WobblyProject(bool _is_wobbly, const std::string &_input_file, const std::string &_source_filter, int64_t _fps_num, int64_t _fps_den, int _width, int _height, int _num_frames);
 
         int getNumFrames(PositionInFilterChain position);
 
@@ -369,6 +371,10 @@ class WobblyProject {
         void setBitDepth(int bits, bool float_samples, const std::string &dither);
         void setBitDepthEnabled(bool enabled);
         bool isBitDepthEnabled();
+
+
+        const std::string &getSourceFilter();
+        void setSourceFilter(const std::string &filter);
 
 
         int getZoom();
