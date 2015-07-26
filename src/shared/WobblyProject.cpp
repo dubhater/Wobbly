@@ -1203,6 +1203,10 @@ std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) {
         }
     }
 
+    // The very last sequence.
+    if (length > 0)
+        sequences.insert({ start, length });
+
     return sequences;
 }
 
