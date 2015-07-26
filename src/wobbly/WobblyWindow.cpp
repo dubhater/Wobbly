@@ -2290,7 +2290,7 @@ void WobblyWindow::realOpenProject(const QString &path) {
 
 
 void WobblyWindow::openProject() {
-    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
+    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), QString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
     if (!path.isNull())
         realOpenProject(path);
@@ -2397,7 +2397,7 @@ void WobblyWindow::saveProjectAs() {
         if (!project)
             throw WobblyException("Can't save the project because none has been loaded.");
 
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), QString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
         if (!path.isNull())
             realSaveProject(path);
@@ -2427,7 +2427,14 @@ void WobblyWindow::saveScript() {
         if (!project)
             throw WobblyException("Can't save the script because no project has been loaded.");
 
-        realSaveScript(project_path + ".py");
+        QString path;
+        if (project_path.isEmpty())
+            path = video_path;
+        else
+            path = project_path;
+        path += ".py";
+
+        realSaveScript(path);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -2439,7 +2446,14 @@ void WobblyWindow::saveScriptAs() {
         if (!project)
             throw WobblyException("Can't save the script because no project has been loaded.");
 
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save script"), project_path + ".py", QString(), nullptr, QFileDialog::DontUseNativeDialog);
+        QString dir;
+        if (project_path.isEmpty())
+            dir = video_path;
+        else
+            dir = project_path;
+        dir += ".py";
+
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save script"), dir, QStringLiteral("VapourSynth scripts (*.py *.vpy);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
         if (!path.isNull())
             realSaveScript(path);
@@ -2466,7 +2480,14 @@ void WobblyWindow::saveTimecodes() {
         if (!project)
             throw WobblyException("Can't save the timecodes because no project has been loaded.");
 
-        realSaveTimecodes(project_path + ".vfr.txt");
+        QString path;
+        if (project_path.isEmpty())
+            path = video_path;
+        else
+            path = project_path;
+        path += ".vfr.txt";
+
+        realSaveTimecodes(path);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -2478,7 +2499,14 @@ void WobblyWindow::saveTimecodesAs() {
         if (!project)
             throw WobblyException("Can't save the timecodes because no project has been loaded.");
 
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save timecodes"), project_path + ".vfr.txt", QString(), nullptr, QFileDialog::DontUseNativeDialog);
+        QString dir;
+        if (project_path.isEmpty())
+            dir = video_path;
+        else
+            dir = project_path;
+        dir += ".vfr.txt";
+
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save timecodes"), dir, QStringLiteral("Timecodes v1 files (*.txt);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
         if (!path.isNull())
             realSaveTimecodes(path);
@@ -2490,12 +2518,15 @@ void WobblyWindow::saveTimecodesAs() {
 
 void WobblyWindow::saveScreenshot() {
     QString path;
-    if (project_path.isNull())
-        path = "wobbly.png";
+    if (project_path.isEmpty() && video_path.isEmpty())
+        path = "wobbly";
+    else if (project_path.isEmpty())
+        path = video_path;
     else
-        path = project_path + ".png";
+        path = project_path;
+    path += ".png";
 
-    path = QFileDialog::getSaveFileName(this, QStringLiteral("Save screenshot"), path, QString(), nullptr, QFileDialog::DontUseNativeDialog);
+    path = QFileDialog::getSaveFileName(this, QStringLiteral("Save screenshot"), path, QStringLiteral("PNG images (*.png);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
     if (!path.isNull())
         frame_label->pixmap()->save(path, "png");
