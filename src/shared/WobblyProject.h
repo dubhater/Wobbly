@@ -190,6 +190,13 @@ enum DropDuplicate {
 };
 
 
+enum Patterns {
+    PatternCCCNN = 1 << 0,
+    PatternCCNNN = 1 << 1,
+    PatternCCCCC = 1 << 2
+};
+
+
 struct FailedPatternGuessing {
     int start;
     int reason;
@@ -202,10 +209,18 @@ enum PatternGuessingFailureReason {
 };
 
 
+enum PatternGuessingMethods {
+    PatternGuessingFromMatches = 0,
+    PatternGuessingFromMics
+};
+
+
 struct PatternGuessing {
+    int method;
     int minimum_length;
     int third_n_match;
     int decimation;
+    int use_patterns;
     std::map<int, FailedPatternGuessing> failures; // Key is FailedPatternGuessing::start
 };
 
@@ -262,6 +277,8 @@ class WobblyProject {
 
         bool isNameSafeForPython(const std::string &name);
         int maybeTranslate(int frame, bool is_end, PositionInFilterChain position);
+
+        void applyPatternGuessingDecimation(const int section_start, const int section_end, const int first_duplicate, int drop_duplicate);
 
     public:
         WobblyProject(bool _is_wobbly);
@@ -410,6 +427,9 @@ class WobblyProject {
 
         int frameNumberAfterDecimation(int frame);
 
+
+        bool guessSectionPatternsFromMics(int section_start, int minimum_length, int use_patterns, int drop_duplicate);
+        void guessProjectPatternsFromMics(int minimum_length, int use_patterns, int drop_duplicate);
 
         bool guessSectionPatternsFromMatches(int section_start, int minimum_length, int use_third_n_match, int drop_duplicate);
         void guessProjectPatternsFromMatches(int minimum_length, int use_third_n_match, int drop_duplicate);

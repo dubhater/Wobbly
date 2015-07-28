@@ -96,8 +96,10 @@ private:
 
     DockWidget *pg_dock;
     QSpinBox *pg_length_spin;
+    QButtonGroup *pg_methods_buttons;
     QButtonGroup *pg_n_match_buttons;
     QButtonGroup *pg_decimate_buttons;
+    QButtonGroup *pg_use_patterns_buttons;
     TableWidget *pg_failures_table;
 
     DockWidget *mic_search_dock;
@@ -302,6 +304,8 @@ public slots:
     void setDecimationPattern();
     void setMatchAndDecimationPatterns();
 
+    void guessCurrentSectionPatternsFromMics();
+    void guessProjectPatternsFromMics();
     void guessCurrentSectionPatternsFromMatches();
     void guessProjectPatternsFromMatches();
 

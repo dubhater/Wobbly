@@ -240,6 +240,8 @@ void WobblyWindow::createShortcuts() {
         { "", "Ctrl+Num+-",         "Zoom out", &WobblyWindow::zoomOut },
         { "", "",                   "Guess current section's patterns from matches", &WobblyWindow::guessCurrentSectionPatternsFromMatches },
         { "", "",                   "Guess every section's patterns from matches", &WobblyWindow::guessProjectPatternsFromMatches },
+        { "", "Ctrl+Alt+G",         "Guess current section's patterns from mics", &WobblyWindow::guessCurrentSectionPatternsFromMics },
+        { "", "",                   "Guess every section's patterns from mics", &WobblyWindow::guessProjectPatternsFromMics },
         { "", "E",                  "Start a range", &WobblyWindow::startRange },
         { "", "Escape",             "Cancel a range", &WobblyWindow::cancelRange },
         { "", "",                   "Select the previous preset", &WobblyWindow::selectPreviousPreset },
@@ -1421,6 +1423,17 @@ void WobblyWindow::createFrozenFramesViewer() {
 
 
 void WobblyWindow::createPatternGuessingWindow() {
+    QGroupBox *pg_methods_group = new QGroupBox(QStringLiteral("Guessing method"));
+
+    std::map<int, QString> guessing_methods = {
+        { PatternGuessingFromMatches, "From matches" },
+        { PatternGuessingFromMics, "From mics" }
+    };
+    pg_methods_buttons = new QButtonGroup(this);
+    for (auto it = guessing_methods.cbegin(); it != guessing_methods.cend(); it++)
+        pg_methods_buttons->addButton(new QRadioButton(it->second), it->first);
+    pg_methods_buttons->button(PatternGuessingFromMatches)->setChecked(true);
+
     pg_length_spin = new QSpinBox;
     pg_length_spin->setMaximum(999);
     pg_length_spin->setPrefix(QStringLiteral("Minimum length: "));
@@ -1490,6 +1503,20 @@ void WobblyWindow::createPatternGuessingWindow() {
         "\n"
         "Use with field-blended hard telecine."));
 
+    QGroupBox *pg_use_patterns_group = new QGroupBox(QStringLiteral("Use patterns"));
+
+    std::map<int, QString> use_patterns = {
+        { PatternCCCNN, "CCCNN" },
+        { PatternCCNNN, "CCNNN" },
+        { PatternCCCCC, "CCCCC" }
+    };
+    pg_use_patterns_buttons = new QButtonGroup(this);
+    pg_use_patterns_buttons->setExclusive(false);
+    for (auto it = use_patterns.cbegin(); it != use_patterns.cend(); it++) {
+        pg_use_patterns_buttons->addButton(new QCheckBox(it->second), it->first);
+        pg_use_patterns_buttons->button(it->first)->setChecked(true);
+    }
+
     QPushButton *pg_process_section_button = new QPushButton(QStringLiteral("Process current section"));
 
     QPushButton *pg_process_project_button = new QPushButton(QStringLiteral("Process project"));
@@ -1498,9 +1525,26 @@ void WobblyWindow::createPatternGuessingWindow() {
     pg_failures_table->setHorizontalHeaderLabels({ "Section", "Reason for failure" });
 
 
-    connect(pg_process_section_button, &QPushButton::clicked, this, &WobblyWindow::guessCurrentSectionPatternsFromMatches);
+    connect(pg_use_patterns_buttons, static_cast<void (QButtonGroup::*)(int, bool)>(&QButtonGroup::buttonToggled), [this] (int id, bool checked) {
+        if (id == PatternCCCNN && !checked && !pg_use_patterns_buttons->button(PatternCCNNN)->isChecked())
+            pg_use_patterns_buttons->button(PatternCCNNN)->setChecked(true);
+        else if (id == PatternCCNNN && !checked && !pg_use_patterns_buttons->button(PatternCCCNN)->isChecked())
+            pg_use_patterns_buttons->button(PatternCCCNN)->setChecked(true);
+    });
 
-    connect(pg_process_project_button, &QPushButton::clicked, this, &WobblyWindow::guessProjectPatternsFromMatches);
+    connect(pg_process_section_button, &QPushButton::clicked, [this] () {
+        if (pg_methods_buttons->checkedId() == PatternGuessingFromMatches)
+            guessCurrentSectionPatternsFromMatches();
+        else
+            guessCurrentSectionPatternsFromMics();
+    });
+
+    connect(pg_process_project_button, &QPushButton::clicked, [this] () {
+        if (pg_methods_buttons->checkedId() == PatternGuessingFromMatches)
+            guessProjectPatternsFromMatches();
+        else
+            guessProjectPatternsFromMics();
+    });
 
     connect(pg_failures_table, &TableWidget::cellDoubleClicked, [this] (int row) {
         QTableWidgetItem *item = pg_failures_table->item(row, 0);
@@ -1512,6 +1556,11 @@ void WobblyWindow::createPatternGuessingWindow() {
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
+    for (auto it = guessing_methods.cbegin(); it != guessing_methods.cend(); it++)
+        vbox->addWidget(pg_methods_buttons->button(it->first));
+    pg_methods_group->setLayout(vbox);
+
+    vbox = new QVBoxLayout;
     for (int i = 0; i < 3; i++)
         vbox->addWidget(pg_n_match_buttons->button(i));
     pg_n_match_group->setLayout(vbox);
@@ -1522,17 +1571,41 @@ void WobblyWindow::createPatternGuessingWindow() {
     pg_decimate_group->setLayout(vbox);
 
     vbox = new QVBoxLayout;
+    for (auto it = use_patterns.cbegin(); it != use_patterns.cend(); it++)
+        vbox->addWidget(pg_use_patterns_buttons->button(it->first));
+    pg_use_patterns_group->setLayout(vbox);
+
+    vbox = new QVBoxLayout;
 
     QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(pg_methods_group);
+    hbox->addWidget(pg_length_spin);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
     hbox->addWidget(pg_n_match_group);
     hbox->addWidget(pg_decimate_group);
     hbox->addStretch(1);
     vbox->addLayout(hbox);
 
-    hbox = new QHBoxLayout;
-    hbox->addWidget(pg_length_spin);
-    hbox->addStretch(1);
-    vbox->addLayout(hbox);
+    // Kind of awful to put it here, but replaceWidget() only works the first two times it's called. (wtf?)
+    // Or maybe the second time it removes "from", but doesn't insert "to"?
+    connect(pg_methods_buttons, static_cast<void (QButtonGroup::*)(int, bool)>(&QButtonGroup::buttonToggled), [this, pg_n_match_group, pg_use_patterns_group, hbox] (int id) {
+        QWidget *from = pg_n_match_group;
+        QWidget *to = pg_use_patterns_group;
+
+        if (id == PatternGuessingFromMatches)
+            std::swap(from, to);
+
+        int index = hbox->indexOf(from);
+        if (index > -1) {
+            hbox->removeWidget(from);
+            from->hide();
+            hbox->insertWidget(index, to);
+            to->show();
+        }
+    });
 
     hbox = new QHBoxLayout;
     hbox->addWidget(pg_process_section_button);
@@ -2184,11 +2257,17 @@ void WobblyWindow::initialisePatternGuessingWindow() {
     auto pg = project->getPatternGuessing();
 
     if (pg.failures.size()) {
+        pg_methods_buttons->button(pg.method)->setChecked(true);
+
         pg_length_spin->setValue(pg.minimum_length);
 
         pg_n_match_buttons->button(pg.third_n_match)->setChecked(true);
 
         pg_decimate_buttons->button(pg.decimation)->setChecked(true);
+
+        auto buttons = pg_use_patterns_buttons->buttons();
+        for (int i = 0; i < buttons.size(); i++)
+            buttons[i]->setChecked(pg.use_patterns & pg_use_patterns_buttons->id(buttons[i]));
     }
 
     updatePatternGuessingWindow();
@@ -3429,6 +3508,53 @@ void WobblyWindow::setMatchAndDecimationPatterns() {
     updateCMatchSequencesWindow();
 }
 
+
+void WobblyWindow::guessCurrentSectionPatternsFromMics() {
+    if (!project)
+        return;
+
+    int section_start = project->findSection(current_frame)->start;
+
+    int use_patterns = 0;
+    auto buttons = pg_use_patterns_buttons->buttons();
+    for (int i = 0; i < buttons.size(); i++)
+        if (buttons[i]->isChecked())
+            use_patterns |= pg_use_patterns_buttons->id(buttons[i]);
+
+    bool success = project->guessSectionPatternsFromMics(section_start, pg_length_spin->value(), use_patterns, pg_decimate_buttons->checkedId());
+
+    updatePatternGuessingWindow();
+
+    if (success) {
+        updateFrameRatesViewer();
+
+        updateCMatchSequencesWindow();
+
+        evaluateMainDisplayScript();
+    }
+}
+
+void WobblyWindow::guessProjectPatternsFromMics() {
+
+    if (!project)
+        return;
+
+    int use_patterns = 0;
+    auto buttons = pg_use_patterns_buttons->buttons();
+    for (int i = 0; i < buttons.size(); i++)
+        if (buttons[i]->isChecked())
+            use_patterns |= pg_use_patterns_buttons->id(buttons[i]);
+
+    project->guessProjectPatternsFromMics(pg_length_spin->value(), use_patterns, pg_decimate_buttons->checkedId());
+
+    updatePatternGuessingWindow();
+
+    updateFrameRatesViewer();
+
+    updateCMatchSequencesWindow();
+
+    evaluateMainDisplayScript();
+}
 
 void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
     if (!project)

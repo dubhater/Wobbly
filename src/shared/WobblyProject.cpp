@@ -28,7 +28,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , mic_search_minimum(20)
     , c_match_sequences_minimum(20)
     , is_wobbly(_is_wobbly)
-    , pattern_guessing{ 0, UseThirdNMatchNever, DropFirstDuplicate, { } }
+    , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, { } }
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
@@ -114,6 +114,12 @@ void WobblyProject::writeProject(const std::string &path) {
         if (pattern_guessing.failures.size()) {
             QJsonObject json_pattern_guessing;
 
+            const char *guessing_methods[] = {
+                "from matches",
+                "from mics"
+            };
+            json_pattern_guessing.insert("method", guessing_methods[pattern_guessing.method]);
+
             json_pattern_guessing.insert("minimum length", pattern_guessing.minimum_length);
 
             const char *third_n_match[] = {
@@ -130,6 +136,19 @@ void WobblyProject::writeProject(const std::string &path) {
                 "duplicate with higher mic per section"
             };
             json_pattern_guessing.insert("decimate", decimate[pattern_guessing.decimation]);
+
+            QJsonArray json_use_patterns;
+
+            std::map<int, std::string> use_patterns = {
+                { PatternCCCNN, "cccnn" },
+                { PatternCCNNN, "ccnnn" },
+                { PatternCCCCC, "ccccc" }
+            };
+
+            for (auto it = use_patterns.cbegin(); it != use_patterns.cend(); it++)
+                if (pattern_guessing.use_patterns & it->first)
+                    json_use_patterns.append(QString::fromStdString(it->second));
+            json_pattern_guessing.insert("use patterns", json_use_patterns);
 
             QJsonArray json_failures;
 
@@ -375,6 +394,12 @@ void WobblyProject::readProject(const std::string &path) {
     QJsonObject json_pattern_guessing = json_ui["pattern guessing"].toObject();
 
     if (!json_pattern_guessing.isEmpty()) {
+        std::unordered_map<std::string, int> guessing_methods = {
+            { "from matches", PatternGuessingFromMatches },
+            { "from mics", PatternGuessingFromMics }
+        };
+        pattern_guessing.method = guessing_methods[json_pattern_guessing["method"].toString("from mics").toStdString()];
+
         pattern_guessing.minimum_length = (int)json_pattern_guessing["minimum length"].toDouble();
 
         std::unordered_map<std::string, int> third_n_match = {
@@ -391,6 +416,20 @@ void WobblyProject::readProject(const std::string &path) {
             { "duplicate with higher mic per section", 3 }
         };
         pattern_guessing.decimation = decimate[json_pattern_guessing["decimate"].toString("first duplicate").toStdString()];
+
+        std::unordered_map<std::string, int> use_patterns = {
+            { "cccnn", PatternCCCNN },
+            { "ccnnn", PatternCCNNN },
+            { "ccccc", PatternCCCCC }
+        };
+        QJsonArray json_use_patterns = json_pattern_guessing["use patterns"].toArray();
+        for (int i = 0; i < json_use_patterns.size(); i++) {
+            try {
+                pattern_guessing.use_patterns |= use_patterns.at(json_use_patterns[i].toString().toStdString());
+            } catch (std::out_of_range &) {
+
+            }
+        }
 
         QJsonArray json_failures = json_pattern_guessing["failures"].toArray();
 
@@ -1449,6 +1488,218 @@ int WobblyProject::frameNumberAfterDecimation(int frame) {
 }
 
 
+void WobblyProject::applyPatternGuessingDecimation(const int section_start, const int section_end, const int first_duplicate, int drop_duplicate) {
+    // If the first duplicate is the last frame in the cycle, we have to drop the same duplicate in the entire section.
+    if (drop_duplicate == DropUglierDuplicatePerCycle && first_duplicate == 4)
+        drop_duplicate = DropUglierDuplicatePerSection;
+
+    int drop = -1;
+
+    if (drop_duplicate == DropUglierDuplicatePerSection) {
+        // Find the uglier duplicate.
+        int drop_n = 0;
+        int drop_c = 0;
+
+        for (int i = section_start; i < std::min(section_end, getNumFrames(PostSource) - 1); i++) {
+            if (i % 5 == first_duplicate) {
+                int16_t mic_n = getMics(i)[matchCharToIndex('n')];
+                int16_t mic_c = getMics(i + 1)[matchCharToIndex('c')];
+                if (mic_n > mic_c)
+                    drop_n++;
+                else
+                    drop_c++;
+            }
+        }
+
+        if (drop_n > drop_c)
+            drop = first_duplicate;
+        else
+            drop = (first_duplicate + 1) % 5;
+    } else if (drop_duplicate == DropFirstDuplicate) {
+        drop = first_duplicate;
+    } else if (drop_duplicate == DropSecondDuplicate) {
+        drop = (first_duplicate + 1) % 5;
+    }
+
+    int first_cycle = section_start / 5;
+    int last_cycle = (section_end - 1) / 5;
+    for (int i = first_cycle; i < last_cycle + 1; i++) {
+        if (drop_duplicate == DropUglierDuplicatePerCycle) {
+            if (i == first_cycle) {
+                if (section_start % 5 > first_duplicate + 1)
+                    continue;
+                else if (section_start % 5 > first_duplicate)
+                    drop = first_duplicate + 1;
+            } else if (i == last_cycle) {
+                if ((section_end - 1) % 5 < first_duplicate)
+                    continue;
+                else if ((section_end - 1) % 5 < first_duplicate + 1)
+                    drop = first_duplicate;
+            }
+
+            if (drop == -1) {
+                int16_t mic_n = getMics(i * 5 + first_duplicate)[matchCharToIndex('n')];
+                int16_t mic_c = getMics(i * 5 + first_duplicate + 1)[matchCharToIndex('c')];
+                if (mic_n > mic_c)
+                    drop = first_duplicate;
+                else
+                    drop = (first_duplicate + 1) % 5;
+            }
+        }
+
+        // At this point we know what frame to drop in this cycle.
+
+        if (i == first_cycle) {
+            // See if the cycle has a decimated frame from the previous section.
+
+            /*
+                bool conflicting_patterns = false;
+
+                for (int j = i * 5; j < section_start; j++)
+                    if (isDecimatedFrame(j)) {
+                        conflicting_patterns = true;
+                        break;
+                    }
+
+                if (conflicting_patterns) {
+                    // If 18 fps cycles are not wanted, try to decimate from the side with more motion.
+                }
+                */
+
+            // Clear decimated frames in the cycle, but only from this section.
+            for (int j = section_start; j < (i + 1) * 5; j++)
+                if (isDecimatedFrame(j))
+                    deleteDecimatedFrame(j);
+        } else if (i == last_cycle) {
+            // See if the cycle has a decimated frame from the next section.
+
+            // Clear decimated frames in the cycle, but only from this section.
+            for (int j = i * 5; j < section_end; j++)
+                if (isDecimatedFrame(j))
+                    deleteDecimatedFrame(j);
+        } else {
+            clearDecimatedFramesFromCycle(i * 5);
+        }
+
+        int drop_frame = i * 5 + drop;
+        if (drop_frame >= section_start && drop_frame < section_end)
+            addDecimatedFrame(drop_frame);
+    }
+}
+
+bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_length, int use_patterns, int drop_duplicate) {
+    int section_end = getSectionEnd(section_start);
+
+    if (section_end - section_start < minimum_length) {
+        FailedPatternGuessing failure;
+        failure.start = section_start;
+        failure.reason = SectionTooShort;
+        pattern_guessing.failures.erase(failure.start);
+        pattern_guessing.failures.insert({ failure.start, failure });
+
+        return false;
+    }
+
+    struct Pattern {
+        const std::string pattern;
+        int pattern_offset;
+        int mic_dev; // "dev" ? Name inherited from Yatta.
+    };
+
+    std::vector<Pattern> patterns = {
+        { "cccnn", -1, INT_MAX },
+        { "ccnnn", -1, INT_MAX },
+        { "c",     -1, INT_MAX }
+    };
+
+    int best_mic_dev = INT_MAX;
+    int best_pattern = -1;
+
+    for (size_t p = 0; p < patterns.size(); p++) {
+        if (patterns[p].pattern == "cccnn" && !(use_patterns & PatternCCCNN))
+            continue;
+        if (patterns[p].pattern == "ccnnn" && !(use_patterns & PatternCCNNN))
+            continue;
+        if (patterns[p].pattern == "c" && !(use_patterns & PatternCCCCC))
+            continue;
+
+        for (int pattern_offset = 0; pattern_offset < (int)patterns[p].pattern.size(); pattern_offset++) {
+            int mic_dev = 0;
+
+            for (int frame = section_start; frame < section_end; frame++) {
+                char pattern_match = patterns[p].pattern[(frame + pattern_offset) % patterns[p].pattern.size()];
+                char other_match = pattern_match == 'c' ? 'n' : 'c';
+
+                auto frame_mics = getMics(frame);
+
+                int16_t mic_pattern_match = frame_mics[matchCharToIndex(pattern_match)];
+                int16_t mic_other_match = frame_mics[matchCharToIndex(other_match)];
+
+                mic_dev += std::max(0, mic_pattern_match - mic_other_match);
+            }
+
+            if (mic_dev < patterns[p].mic_dev) {
+                patterns[p].pattern_offset = pattern_offset;
+                patterns[p].mic_dev = mic_dev;
+            }
+        }
+
+        if (patterns[p].mic_dev < best_mic_dev) {
+            best_mic_dev = patterns[p].mic_dev;
+            best_pattern = p;
+        }
+    }
+
+    if (patterns[best_pattern].mic_dev > section_end - section_start) {
+        FailedPatternGuessing failure;
+        failure.start = section_start;
+        failure.reason = AmbiguousMatchPattern;
+        pattern_guessing.failures.erase(failure.start);
+        pattern_guessing.failures.insert({ failure.start, failure });
+
+        return false;
+    }
+
+
+    for (int i = section_start; i < section_end; i++)
+        setMatch(i, patterns[best_pattern].pattern[(i + patterns[best_pattern].pattern_offset) % patterns[best_pattern].pattern.size()]);
+
+    if (section_end == getNumFrames(PostSource) && getMatch(section_end - 1) == 'n')
+        setMatch(section_end - 1, 'b');
+
+    // If the last frame of the section has much higher mic with c/n matches than with b match, use the b match.
+    char match_index = matchCharToIndex(getMatch(section_end - 1));
+    int16_t mic_cn = getMics(section_end - 1)[match_index];
+    int16_t mic_b = getMics(section_end - 1)[matchCharToIndex('b')];
+    if (mic_cn > mic_b * 2)
+        setMatch(section_end - 1, 'b');
+
+    if (patterns[best_pattern].pattern == "c") {
+        for (int i = section_start; i < section_end; i++)
+            deleteDecimatedFrame(i);
+    } else {
+        int first_duplicate = (4 + patterns[best_pattern].pattern_offset) % 5;
+
+        applyPatternGuessingDecimation(section_start, section_end, first_duplicate, drop_duplicate);
+    }
+
+    return true;
+}
+
+
+void WobblyProject::guessProjectPatternsFromMics(int minimum_length, int use_patterns, int drop_duplicate) {
+    pattern_guessing.failures.clear();
+
+    for (auto it = sections.cbegin(); it != sections.cend(); it++)
+        guessSectionPatternsFromMics(it->second.start, minimum_length, use_patterns, drop_duplicate);
+
+    pattern_guessing.method = PatternGuessingFromMics;
+    pattern_guessing.minimum_length = minimum_length;
+    pattern_guessing.use_patterns = use_patterns;
+    pattern_guessing.decimation = drop_duplicate;
+}
+
+
 bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minimum_length, int use_third_n_match, int drop_duplicate) {
     int section_end = getSectionEnd(section_start);
 
@@ -1507,103 +1758,7 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
     // Totally arbitrary thresholds.
     if (best_percent > 40.0f && best_percent - next_best_percent > 10.0f) {
         // Take care of decimation first.
-
-        // If the first duplicate is the last frame in the cycle, we have to drop the same duplicate in the entire section.
-        if (drop_duplicate == DropUglierDuplicatePerCycle && best == 4)
-            drop_duplicate = DropUglierDuplicatePerSection;
-
-        int drop = -1;
-
-        if (drop_duplicate == DropUglierDuplicatePerSection) {
-            // Find the uglier duplicate.
-            int drop_n = 0;
-            int drop_c = 0;
-
-            for (int i = section_start; i < std::min(section_end, num_frames[PostSource] - 1); i++) {
-                if (i % 5 == best) {
-                    int16_t mic_n = mics[i][matchCharToIndex('n')];
-                    int16_t mic_c = mics[i + 1][matchCharToIndex('c')];
-                    if (mic_n > mic_c)
-                        drop_n++;
-                    else
-                        drop_c++;
-                }
-            }
-
-            if (drop_n > drop_c)
-                drop = best;
-            else
-                drop = (best + 1) % 5;
-        } else if (drop_duplicate == DropFirstDuplicate) {
-            drop = best;
-        } else if (drop_duplicate == DropSecondDuplicate) {
-            drop = (best + 1) % 5;
-        }
-
-        int first_cycle = section_start / 5;
-        int last_cycle = (section_end - 1) / 5;
-        for (int i = first_cycle; i < last_cycle + 1; i++) {
-            if (drop_duplicate == DropUglierDuplicatePerCycle) {
-                if (i == first_cycle) {
-                    if (section_start % 5 > best + 1)
-                        continue;
-                    else if (section_start % 5 > best)
-                        drop = best + 1;
-                } else if (i == last_cycle) {
-                    if ((section_end - 1) % 5 < best)
-                        continue;
-                    else if ((section_end - 1) % 5 < best + 1)
-                        drop = best;
-                }
-
-                if (drop == -1) {
-                    int16_t mic_n = mics[i * 5 + best][matchCharToIndex('n')];
-                    int16_t mic_c = mics[i * 5 + best + 1][matchCharToIndex('c')];
-                    if (mic_n > mic_c)
-                        drop = best;
-                    else
-                        drop = (best + 1) % 5;
-                }
-            }
-
-            // At this point we know what frame to drop in this cycle.
-
-            if (i == first_cycle) {
-                // See if the cycle has a decimated frame from the previous section.
-
-                /*
-                bool conflicting_patterns = false;
-
-                for (int j = i * 5; j < section_start; j++)
-                    if (isDecimatedFrame(j)) {
-                        conflicting_patterns = true;
-                        break;
-                    }
-
-                if (conflicting_patterns) {
-                    // If 18 fps cycles are not wanted, try to decimate from the side with more motion.
-                }
-                */
-
-                // Clear decimated frames in the cycle, but only from this section.
-                for (int j = section_start; j < (i + 1) * 5; j++)
-                    if (isDecimatedFrame(j))
-                        deleteDecimatedFrame(j);
-            } else if (i == last_cycle) {
-                // See if the cycle has a decimated frame from the next section.
-
-                // Clear decimated frames in the cycle, but only from this section.
-                for (int j = i * 5; j < section_end; j++)
-                    if (isDecimatedFrame(j))
-                        deleteDecimatedFrame(j);
-            } else {
-                clearDecimatedFramesFromCycle(i * 5);
-            }
-
-            int drop_frame = i * 5 + drop;
-            if (drop_frame >= section_start && drop_frame < section_end)
-                addDecimatedFrame(drop_frame);
-        }
+        applyPatternGuessingDecimation(section_start, section_end, best, drop_duplicate);
 
 
         // Now the matches.
@@ -1655,6 +1810,7 @@ void WobblyProject::guessProjectPatternsFromMatches(int minimum_length, int use_
     for (auto it = sections.cbegin(); it != sections.cend(); it++)
         guessSectionPatternsFromMatches(it->second.start, minimum_length, use_third_n_match, drop_duplicate);
 
+    pattern_guessing.method = PatternGuessingFromMatches;
     pattern_guessing.minimum_length = minimum_length;
     pattern_guessing.third_n_match = use_third_n_match;
     pattern_guessing.decimation = drop_duplicate;
