@@ -3558,7 +3558,14 @@ void WobblyWindow::guessCurrentSectionPatternsFromMics() {
         if (buttons[i]->isChecked())
             use_patterns |= pg_use_patterns_buttons->id(buttons[i]);
 
-    bool success = project->guessSectionPatternsFromMics(section_start, pg_length_spin->value(), use_patterns, pg_decimate_buttons->checkedId());
+    bool success;
+
+    try {
+        success = project->guessSectionPatternsFromMics(section_start, pg_length_spin->value(), use_patterns, pg_decimate_buttons->checkedId());
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+        return;
+    }
 
     updatePatternGuessingWindow();
 
@@ -3586,15 +3593,15 @@ void WobblyWindow::guessProjectPatternsFromMics() {
         if (buttons[i]->isChecked())
             use_patterns |= pg_use_patterns_buttons->id(buttons[i]);
 
-    project->guessProjectPatternsFromMics(pg_length_spin->value(), use_patterns, pg_decimate_buttons->checkedId());
-
-    updatePatternGuessingWindow();
-
-    updateFrameRatesViewer();
-
-    updateCMatchSequencesWindow();
-
     try {
+        project->guessProjectPatternsFromMics(pg_length_spin->value(), use_patterns, pg_decimate_buttons->checkedId());
+
+        updatePatternGuessingWindow();
+
+        updateFrameRatesViewer();
+
+        updateCMatchSequencesWindow();
+
         evaluateMainDisplayScript();
     } catch (WobblyException &e) {
         errorPopup(e.what());

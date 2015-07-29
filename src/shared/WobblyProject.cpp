@@ -1610,7 +1610,11 @@ void WobblyProject::applyPatternGuessingDecimation(const int section_start, cons
     }
 }
 
+
 bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_length, int use_patterns, int drop_duplicate) {
+    if (!mics.size())
+        throw WobblyException("Can't guess patterns from mics because there are no mics in the project.");
+
     int section_end = getSectionEnd(section_start);
 
     if (section_end - section_start < minimum_length) {
