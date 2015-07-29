@@ -190,7 +190,7 @@ private:
     void updateCustomListsEditor();
     void updateFrameRatesViewer();
     void initialiseFrameRatesViewer();
-    void initialiseFrozenFramesViewer();
+    void updateFrozenFramesViewer();
     void updatePatternGuessingWindow();
     void initialisePatternGuessingWindow();
     void initialiseMicSearchWindow();

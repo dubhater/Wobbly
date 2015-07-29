@@ -1393,8 +1393,13 @@ void WobblyWindow::createFrozenFramesViewer() {
         if (frozen_frames_table->rowCount())
             frozen_frames_table->selectRow(frozen_frames_table->currentRow());
 
-        if (selection.size())
-            evaluateMainDisplayScript();
+        if (selection.size()) {
+            try {
+                evaluateMainDisplayScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+            }
+        }
     });
 
 
@@ -2196,7 +2201,7 @@ void WobblyWindow::initialiseFrameRatesViewer() {
 }
 
 
-void WobblyWindow::initialiseFrozenFramesViewer() {
+void WobblyWindow::updateFrozenFramesViewer() {
     frozen_frames_table->setRowCount(0);
 
     const auto &ff = project->getFreezeFrames();
@@ -2332,7 +2337,7 @@ void WobblyWindow::initialiseUIFromProject() {
     updateSectionsEditor();
     updateCustomListsEditor();
     initialiseFrameRatesViewer();
-    initialiseFrozenFramesViewer();
+    updateFrozenFramesViewer();
     initialisePatternGuessingWindow();
     initialiseMicSearchWindow();
     initialiseCMatchSequencesWindow();
@@ -3066,7 +3071,11 @@ void WobblyWindow::cycleMatchBCN() {
 
     updateCMatchSequencesWindow();
 
-    evaluateMainDisplayScript();
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 
@@ -3082,7 +3091,7 @@ void WobblyWindow::freezeForward() {
 
         evaluateMainDisplayScript();
 
-        initialiseFrozenFramesViewer();
+        updateFrozenFramesViewer();
     } catch (WobblyException &e) {
         errorPopup(e.what());
         //statusBar()->showMessage(QStringLiteral("Couldn't freeze forward."), 5000);
@@ -3102,7 +3111,7 @@ void WobblyWindow::freezeBackward() {
 
         evaluateMainDisplayScript();
 
-        initialiseFrozenFramesViewer();
+        updateFrozenFramesViewer();
     } catch (WobblyException &e) {
         errorPopup(e.what());
         //statusBar()->showMessage(QStringLiteral("Couldn't freeze backward."), 5000);
@@ -3137,7 +3146,7 @@ void WobblyWindow::freezeRange() {
 
             evaluateMainDisplayScript();
 
-            initialiseFrozenFramesViewer();
+            updateFrozenFramesViewer();
         } catch (WobblyException &e) {
             updateFrameDetails();
 
@@ -3158,9 +3167,13 @@ void WobblyWindow::deleteFreezeFrame() {
     if (ff) {
         project->deleteFreezeFrame(ff->first);
 
-        evaluateMainDisplayScript();
+        updateFrozenFramesViewer();
 
-        initialiseFrozenFramesViewer();
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+        }
     }
 }
 
@@ -3404,7 +3417,11 @@ void WobblyWindow::resetMatch() {
 
     updateCMatchSequencesWindow();
 
-    evaluateMainDisplayScript();
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 
@@ -3418,7 +3435,11 @@ void WobblyWindow::resetSection() {
 
     updateCMatchSequencesWindow();
 
-    evaluateMainDisplayScript();
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 
@@ -3441,11 +3462,15 @@ void WobblyWindow::rotateAndSetPatterns() {
     project->setSectionMatchesFromPattern(section->start, match_pattern.toStdString());
     project->setSectionDecimationFromPattern(section->start, decimation_pattern.toStdString());
 
-    evaluateMainDisplayScript();
-
     updateFrameRatesViewer();
 
     updateCMatchSequencesWindow();
+
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 
@@ -3462,9 +3487,13 @@ void WobblyWindow::setMatchPattern() {
 
     cancelRange();
 
-    evaluateMainDisplayScript();
-
     updateCMatchSequencesWindow();
+
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 
@@ -3481,9 +3510,13 @@ void WobblyWindow::setDecimationPattern() {
 
     cancelRange();
 
-    evaluateMainDisplayScript();
-
     updateFrameRatesViewer();
+
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 
@@ -3501,11 +3534,15 @@ void WobblyWindow::setMatchAndDecimationPatterns() {
 
     cancelRange();
 
-    evaluateMainDisplayScript();
-
     updateFrameRatesViewer();
 
     updateCMatchSequencesWindow();
+
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 
@@ -3530,7 +3567,11 @@ void WobblyWindow::guessCurrentSectionPatternsFromMics() {
 
         updateCMatchSequencesWindow();
 
-        evaluateMainDisplayScript();
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+        }
     }
 }
 
@@ -3553,7 +3594,11 @@ void WobblyWindow::guessProjectPatternsFromMics() {
 
     updateCMatchSequencesWindow();
 
-    evaluateMainDisplayScript();
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
@@ -3571,7 +3616,11 @@ void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
 
         updateCMatchSequencesWindow();
 
-        evaluateMainDisplayScript();
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+        }
     }
 }
 
@@ -3588,7 +3637,11 @@ void WobblyWindow::guessProjectPatternsFromMatches() {
 
     updateCMatchSequencesWindow();
 
-    evaluateMainDisplayScript();
+    try {
+        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
 }
 
 
@@ -3605,17 +3658,18 @@ void WobblyWindow::decimationPatternEdited(const QString &text) {
 void WobblyWindow::togglePreview() {
     preview = !preview;
 
-    if (preview) {
-        try {
+    try {
+        if (preview) {
             presetEdited();
 
             evaluateFinalScript();
-        } catch (WobblyException &e) {
-            errorPopup(e.what());
-            preview = !preview;
+        } else {
+            evaluateMainDisplayScript();
         }
-    } else
-        evaluateMainDisplayScript();
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+        preview = !preview;
+    }
 }
 
 
