@@ -12,6 +12,7 @@
 #include <QShortcut>
 #include <QSpinBox>
 #include <QStatusBar>
+#include <QTabWidget>
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -42,6 +43,8 @@ WobblyWindow::WobblyWindow()
 {
     createUI();
 
+    readSettings();
+
     try {
         initialiseVapourSynth();
 
@@ -51,6 +54,44 @@ WobblyWindow::WobblyWindow()
         errorPopup(e.what());
         std::exit(1); // Seems a bit heavy-handed, but close() doesn't close the window if called here, so...
     }
+}
+
+
+void WobblyWindow::readSettings() {
+    if (settings.contains("user_interface/state"))
+        restoreState(settings.value("user_interface/state").toByteArray());
+
+    if (settings.contains("user_interface/geometry"))
+        restoreGeometry(settings.value("user_interface/geometry").toByteArray());
+
+    settings_font_spin->setValue(settings.value("user_interface/font_size", QApplication::font().pointSize()).toInt());
+
+    settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
+
+    settings_shortcuts_table->setRowCount(shortcuts.size());
+    for (size_t i = 0; i < shortcuts.size(); i++) {
+        QString settings_key = "user_interface/keys/" + shortcuts[i].description;
+
+        if (settings.contains(settings_key))
+            shortcuts[i].keys = settings.value(settings_key).toString();
+
+        QTableWidgetItem *item = new QTableWidgetItem(shortcuts[i].keys);
+        settings_shortcuts_table->setItem(i, 0, item);
+
+        item = new QTableWidgetItem(shortcuts[i].default_keys);
+        settings_shortcuts_table->setItem(i, 1, item);
+
+        item = new QTableWidgetItem(shortcuts[i].description);
+        settings_shortcuts_table->setItem(i, 2, item);
+    }
+    settings_shortcuts_table->resizeColumnsToContents();
+}
+
+
+void WobblyWindow::writeSettings() {
+    settings.setValue("user_interface/state", saveState());
+
+    settings.setValue("user_interface/geometry", saveGeometry());
 }
 
 
@@ -74,6 +115,8 @@ void WobblyWindow::closeEvent(QCloseEvent *event) {
             return;
         }
     }
+
+    writeSettings();
 
     cleanUpVapourSynth();
 
@@ -181,6 +224,7 @@ void WobblyWindow::createMenu() {
 
 
 void WobblyWindow::createShortcuts() {
+    // Do not use '/' or '\' in the descriptions. They are special in QSettings.
     shortcuts = {
         { "", "",                   "Open project", &WobblyWindow::openProject },
         { "", "",                   "Open video", &WobblyWindow::openVideo },
@@ -193,17 +237,17 @@ void WobblyWindow::createShortcuts() {
         { "", "",                   "Save screenshot", &WobblyWindow::saveScreenshot },
         { "", "",                   "Quit", &WobblyWindow::quit },
 
-        { "", "",                   "Show/hide frame details", &WobblyWindow::showHideFrameDetails },
-        { "", "",                   "Show/hide cropping", &WobblyWindow::showHideCropping },
-        { "", "",                   "Show/hide presets", &WobblyWindow::showHidePresets },
-        { "", "",                   "Show/hide pattern editor", &WobblyWindow::showHidePatternEditor },
-        { "", "",                   "Show/hide sections", &WobblyWindow::showHideSections },
-        { "", "",                   "Show/hide custom lists", &WobblyWindow::showHideCustomLists },
-        { "", "",                   "Show/hide frame rates", &WobblyWindow::showHideFrameRates },
-        { "", "",                   "Show/hide frozen frames", &WobblyWindow::showHideFrozenFrames },
-        { "", "",                   "Show/hide pattern guessing", &WobblyWindow::showHidePatternGuessing },
-        { "", "",                   "Show/hide mic search", &WobblyWindow::showHideMicSearchWindow },
-        { "", "",                   "Show/hide C match sequences window", &WobblyWindow::showHideCMatchSequencesWindow },
+        { "", "",                   "Show or hide frame details", &WobblyWindow::showHideFrameDetails },
+        { "", "",                   "Show or hide cropping", &WobblyWindow::showHideCropping },
+        { "", "",                   "Show or hide presets", &WobblyWindow::showHidePresets },
+        { "", "",                   "Show or hide pattern editor", &WobblyWindow::showHidePatternEditor },
+        { "", "",                   "Show or hide sections", &WobblyWindow::showHideSections },
+        { "", "",                   "Show or hide custom lists", &WobblyWindow::showHideCustomLists },
+        { "", "",                   "Show or hide frame rates", &WobblyWindow::showHideFrameRates },
+        { "", "",                   "Show or hide frozen frames", &WobblyWindow::showHideFrozenFrames },
+        { "", "",                   "Show or hide pattern guessing", &WobblyWindow::showHidePatternGuessing },
+        { "", "",                   "Show or hide mic search", &WobblyWindow::showHideMicSearchWindow },
+        { "", "",                   "Show or hide C match sequences window", &WobblyWindow::showHideCMatchSequencesWindow },
 
         { "", "Left",               "Jump 1 frame back", &WobblyWindow::jump1Backward },
         { "", "Right",              "Jump 1 frame forward", &WobblyWindow::jump1Forward },
@@ -1741,6 +1785,139 @@ void WobblyWindow::createCMatchSequencesWindow() {
 }
 
 
+void WobblyWindow::createSettingsWindow() {
+    settings_font_spin = new QSpinBox;
+    settings_font_spin->setRange(4, 99);
+    settings_font_spin->setPrefix(QStringLiteral("Font size: "));
+
+    settings_compact_projects_check = new QCheckBox("Create compact project files");
+
+    settings_shortcuts_table = new TableWidget(0, 3, this);
+    settings_shortcuts_table->setHorizontalHeaderLabels({ "Current", "Default", "Description" });
+
+    QLineEdit *settings_shortcut_edit = new QLineEdit;
+
+    QPushButton *settings_reset_shortcuts_button = new QPushButton("Reset selected shortcuts");
+
+
+    connect(settings_font_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
+        QFont font = QApplication::font();
+        font.setPointSize(value);
+        QApplication::setFont(font);
+
+        settings.setValue("user_interface/font_size", value);
+    });
+
+    connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
+        settings.setValue("projects/compact_project_files", checked);
+    });
+
+    connect(settings_shortcuts_table, &TableWidget::cellDoubleClicked, settings_shortcut_edit, static_cast<void (QLineEdit::*)()>(&QLineEdit::setFocus));
+
+    connect(settings_shortcuts_table, &TableWidget::currentCellChanged, [this, settings_shortcut_edit] (int currentRow) {
+        if (currentRow < 0)
+            return;
+
+        settings_shortcut_edit->setText(shortcuts[currentRow].keys);
+    });
+
+    connect(settings_shortcut_edit, &QLineEdit::textEdited, [this] (const QString &text) {
+        int row = settings_shortcuts_table->currentRow();
+        if (row < 0)
+            return;
+
+        QString keys;
+        QKeySequence key_sequence(text);
+        if (key_sequence.count() <= 1)
+            keys = key_sequence.toString();
+        shortcuts[row].keys = keys;
+        settings_shortcuts_table->item(row, 0)->setText(keys);
+        settings_shortcuts_table->resizeColumnToContents(0);
+    });
+
+    connect(settings_shortcut_edit, &QLineEdit::editingFinished, [this] () {
+        int row = settings_shortcuts_table->currentRow();
+        if (row < 0)
+            return;
+
+        // XXX No duplicate shortcuts.
+
+        QString settings_key = "user_interface/keys/" + shortcuts[row].description;
+
+        if (shortcuts[row].keys == shortcuts[row].default_keys)
+            settings.remove(settings_key);
+        else
+            settings.setValue(settings_key, shortcuts[row].keys);
+    });
+
+    connect(settings_reset_shortcuts_button, &QPushButton::clicked, [this, settings_shortcut_edit] () {
+        int current_row = settings_shortcuts_table->currentRow();
+
+        auto selection = settings_shortcuts_table->selectedRanges();
+
+        for (int i = 0; i < selection.size(); i++) {
+            for (int j = selection[i].topRow(); j <= selection[i].bottomRow(); j++) {
+                if (shortcuts[j].keys != shortcuts[j].default_keys) {
+                    shortcuts[j].keys = shortcuts[j].default_keys;
+
+                    settings_shortcuts_table->item(j, 0)->setText(shortcuts[j].keys);
+
+                    if (j == current_row)
+                        settings_shortcut_edit->setText(shortcuts[j].keys);
+
+                    settings.remove("user_interface/keys/" + shortcuts[j].description);
+                }
+            }
+        }
+    });
+
+
+    QTabWidget *settings_tabs = new QTabWidget;
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(settings_font_spin);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(settings_compact_projects_check);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    vbox->addStretch(1);
+
+    QWidget *settings_general_widget = new QWidget;
+    settings_general_widget->setLayout(vbox);
+    settings_tabs->addTab(settings_general_widget, "General");
+
+    vbox = new QVBoxLayout;
+    vbox->addWidget(settings_shortcuts_table);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(new QLabel("Edit shortcut:"));
+    hbox->addWidget(settings_shortcut_edit);
+    hbox->addWidget(settings_reset_shortcuts_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    QWidget *settings_shortcuts_widget = new QWidget;
+    settings_shortcuts_widget->setLayout(vbox);
+    settings_tabs->addTab(settings_shortcuts_widget, "Keyboard shortcuts");
+
+
+    settings_dock = new DockWidget("Settings", this);
+    settings_dock->setObjectName("settings window");
+    settings_dock->setVisible(false);
+    settings_dock->setFloating(true);
+    settings_dock->setWidget(settings_tabs);
+    addDockWidget(Qt::RightDockWidgetArea, settings_dock);
+    tools_menu->addAction(settings_dock->toggleViewAction());
+    connect(settings_dock, &DockWidget::visibilityChanged, settings_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::drawColorBars() {
     auto drawRect = [this] (int left, int top, int width, int height, int red, int green, int blue) {
         uint8_t *ptr = splash_image.bits();
@@ -1873,6 +2050,7 @@ void WobblyWindow::createUI() {
     createPatternGuessingWindow();
     createMicSearchWindow();
     createCMatchSequencesWindow();
+    createSettingsWindow();
 }
 
 
@@ -2473,7 +2651,7 @@ void WobblyWindow::realSaveProject(const QString &path) {
     project->setUIState(std::string(state.constData(), state.size()));
     project->setUIGeometry(std::string(geometry.constData(), geometry.size()));
 
-    project->writeProject(path.toStdString());
+    project->writeProject(path.toStdString(), settings_compact_projects_check->isChecked());
 
     project_path = path;
     video_path.clear();

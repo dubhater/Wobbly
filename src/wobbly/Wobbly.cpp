@@ -18,6 +18,9 @@ Q_IMPORT_PLUGIN (QWindowsIntegrationPlugin);
 int main(int argv, char **args) {
     QApplication app(argv, args);
 
+    app.setOrganizationName("wobbly");
+    app.setApplicationName("wobbly");
+
     WobblyWindow w;
 
     w.show();

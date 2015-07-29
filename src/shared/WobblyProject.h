@@ -288,7 +288,7 @@ class WobblyProject {
 
         int getNumFrames(PositionInFilterChain position);
 
-        void writeProject(const std::string &path);
+        void writeProject(const std::string &path, bool compact_project);
         void readProject(const std::string &path);
 
 

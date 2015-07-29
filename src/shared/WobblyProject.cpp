@@ -81,7 +81,7 @@ void WobblyProject::setNumFrames(PositionInFilterChain position, int frames) {
 }
 
 
-void WobblyProject::writeProject(const std::string &path) {
+void WobblyProject::writeProject(const std::string &path, bool compact_project) {
     QFile file(QString::fromStdString(path));
 
     if (!file.open(QIODevice::WriteOnly))
@@ -338,7 +338,11 @@ void WobblyProject::writeProject(const std::string &path) {
 
     QJsonDocument json_doc(json_project);
 
-    file.write(json_doc.toJson(QJsonDocument::Indented));
+    QJsonDocument::JsonFormat json_format = QJsonDocument::Indented;
+    if (compact_project)
+        json_format = QJsonDocument::Compact;
+
+    file.write(json_doc.toJson(json_format));
 }
 
 void WobblyProject::readProject(const std::string &path) {

@@ -10,6 +10,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
+#include <QSettings>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStringListModel>
@@ -109,6 +110,11 @@ private:
     QSpinBox *c_match_minimum_spin;
     TableWidget *c_match_sequences_table;
 
+    DockWidget *settings_dock;
+    QSpinBox *settings_font_spin;
+    QCheckBox *settings_compact_projects_check;
+    TableWidget *settings_shortcuts_table;
+
 
     // Widget-related
 
@@ -147,6 +153,8 @@ private:
     int selected_preset;
     int selected_custom_list;
 
+    QSettings settings;
+
 
     // VapourSynth stuff.
 
@@ -173,9 +181,12 @@ private:
     void createPatternGuessingWindow();
     void createMicSearchWindow();
     void createCMatchSequencesWindow();
+    void createSettingsWindow();
     void drawColorBars();
     void createUI();
 
+    void readSettings();
+    void writeSettings();
 
     void initialiseVapourSynth();
     void cleanUpVapourSynth();
