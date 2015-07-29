@@ -17,7 +17,7 @@
 
 
 WobblyProject::WobblyProject(bool _is_wobbly)
-    : num_frames{ 0, 0, 0 }
+    : num_frames{ 0, 0 }
     , fps_num(0)
     , fps_den(0)
     , width(0)
@@ -46,17 +46,15 @@ WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, co
     fps_den = _fps_den;
     width = _width;
     height = _height;
-    for (int i = 0; i < 3; i++)
-        num_frames[i] = _num_frames;
+    setNumFrames(PostSource, _num_frames);
+    setNumFrames(PostDecimate, _num_frames);
 
     trims.insert({ 0, { 0, _num_frames - 1} });
     // XXX What happens when the video happens to be bottom field first?
     vfm_parameters.insert({ "order", 1 });
-    mics.resize(_num_frames, { 0 });
     original_matches.resize(_num_frames, 'c');
     matches.resize(_num_frames, 'c');
     decimated_frames.resize((_num_frames - 1) / 5 + 1);
-    decimate_metrics.resize(_num_frames, 0);
     addSection(0);
     resize.width = _width;
     resize.height = _height;
@@ -64,7 +62,22 @@ WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, co
 
 
 int WobblyProject::getNumFrames(PositionInFilterChain position) {
-    return num_frames[position];
+    if (position == PostSource)
+        return num_frames[0];
+    else if (position == PostDecimate)
+        return num_frames[1];
+    else
+        throw WobblyException("Can't set the number of frames for position " + std::to_string(position) + ": invalid position.");
+}
+
+
+void WobblyProject::setNumFrames(PositionInFilterChain position, int frames) {
+    if (position == PostSource)
+        num_frames[0] = frames;
+    else if (position == PostDecimate)
+        num_frames[1] = frames;
+    else
+        throw WobblyException("Can't set the number of frames for position " + std::to_string(position) + ": invalid position.");
 }
 
 
@@ -221,7 +234,7 @@ void WobblyProject::writeProject(const std::string &path) {
             json_decimated_frames.append((int)i * 5 + *it);
 
     for (size_t i = 0; i < decimate_metrics.size(); i++)
-        json_decimate_metrics.append(decimate_metrics[i]);
+        json_decimate_metrics.append(getDecimateMetric(i));
 
     json_project.insert("mics", json_mics);
     json_project.insert("matches", json_matches);
@@ -447,7 +460,7 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    num_frames[PostSource] = 0;
+    setNumFrames(PostSource, 0);
 
     QJsonArray json_trims = json_project["trim"].toArray();
     for (int i = 0; i < json_trims.size(); i++) {
@@ -456,10 +469,10 @@ void WobblyProject::readProject(const std::string &path) {
         range.first = (int)json_trim[0].toDouble();
         range.last = (int)json_trim[1].toDouble();
         trims.insert(std::make_pair(range.first, range));
-        num_frames[PostSource] += range.last - range.first + 1;
+        setNumFrames(PostSource, getNumFrames(PostSource) + (range.last - range.first + 1));
     }
 
-    num_frames[PostFieldMatch] = num_frames[PostSource];
+    setNumFrames(PostDecimate, getNumFrames(PostSource));
 
     QJsonObject json_vfm_parameters = json_project["vfm parameters"].toObject();
 
@@ -479,22 +492,24 @@ void WobblyProject::readProject(const std::string &path) {
 
 
     json_mics = json_project["mics"].toArray();
-    mics.resize(num_frames[PostSource], { 0 });
-    for (int i = 0; i < json_mics.size(); i++) {
-        QJsonArray json_mic = json_mics[i].toArray();
-        for (int j = 0; j < 5; j++)
-            mics[i][j] = (int16_t)json_mic[j].toDouble();
+    if (json_mics.size()) {
+        mics.resize(getNumFrames(PostSource), { 0 });
+        for (int i = 0; i < json_mics.size(); i++) {
+            QJsonArray json_mic = json_mics[i].toArray();
+            for (int j = 0; j < 5; j++)
+                mics[i][j] = (int16_t)json_mic[j].toDouble();
+        }
     }
 
 
     json_matches = json_project["matches"].toArray();
-    matches.resize(num_frames[PostSource], 'c');
+    matches.resize(getNumFrames(PostSource), 'c');
     for (int i = 0; i < std::min(json_matches.size(), (int)matches.size()); i++)
         matches[i] = json_matches[i].toString().toStdString()[0];
 
 
     json_original_matches = json_project["original matches"].toArray();
-    original_matches.resize(num_frames[PostSource], 'c');
+    original_matches.resize(getNumFrames(PostSource), 'c');
     for (int i = 0; i < std::min(json_original_matches.size(), (int)original_matches.size()); i++)
         original_matches[i] = json_original_matches[i].toString().toStdString()[0];
 
@@ -508,7 +523,7 @@ void WobblyProject::readProject(const std::string &path) {
         addCombedFrame((int)json_combed_frames[i].toDouble());
 
 
-    decimated_frames.resize((num_frames[PostSource] - 1) / 5 + 1);
+    decimated_frames.resize((getNumFrames(PostSource) - 1) / 5 + 1);
     json_decimated_frames = json_project["decimated frames"].toArray();
     for (int i = 0; i < json_decimated_frames.size(); i++)
         addDecimatedFrame((int)json_decimated_frames[i].toDouble());
@@ -516,9 +531,11 @@ void WobblyProject::readProject(const std::string &path) {
     // num_frames[PostDecimate] is correct at this point.
 
     json_decimate_metrics = json_project["decimate metrics"].toArray();
-    decimate_metrics.resize(num_frames[PostSource], 0);
-    for (int i = 0; i < std::min(json_decimate_metrics.size(), (int)decimate_metrics.size()); i++)
-        decimate_metrics[i] = (int)json_decimate_metrics[i].toDouble();
+    if (json_decimate_metrics.size()) {
+        decimate_metrics.resize(getNumFrames(PostSource), 0);
+        for (int i = 0; i < std::min(json_decimate_metrics.size(), (int)decimate_metrics.size()); i++)
+            decimate_metrics[i] = (int)json_decimate_metrics[i].toDouble();
+    }
 
 
     QJsonArray json_presets, json_frozen_frames;
@@ -609,9 +626,9 @@ void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
     if (first > last)
         std::swap(first, last);
 
-    if (first < 0 || first >= num_frames[PostSource] ||
-        last < 0 || last >= num_frames[PostSource] ||
-        replacement < 0 || replacement >= num_frames[PostSource])
+    if (first < 0 || first >= getNumFrames(PostSource) ||
+        last < 0 || last >= getNumFrames(PostSource) ||
+        replacement < 0 || replacement >= getNumFrames(PostSource))
         throw WobblyException("Can't add FreezeFrame (" + std::to_string(first) + "," + std::to_string(last) + "," + std::to_string(replacement) + "): values out of range.");
 
     const FreezeFrame *overlap = findFreezeFrame(first);
@@ -782,8 +799,11 @@ bool WobblyProject::isPresetInUse(const std::string &preset_name) {
 }
 
 
-const std::array<int16_t, 5> &WobblyProject::getMics(int frame) {
-    return mics[frame];
+std::array<int16_t, 5> WobblyProject::getMics(int frame) {
+    if (mics.size())
+        return mics[frame];
+    else
+        return { 0, 0, 0, 0, 0 };
 }
 
 
@@ -885,7 +905,7 @@ void WobblyProject::addSection(int section_start) {
 }
 
 void WobblyProject::addSection(const Section &section) {
-    if (section.start < 0 || section.start >= num_frames[PostSource])
+    if (section.start < 0 || section.start >= getNumFrames(PostSource))
         throw WobblyException("Can't add section starting at " + std::to_string(section.start) + ": value out of range.");
 
     sections.insert(std::make_pair(section.start, section));
@@ -917,7 +937,7 @@ int WobblyProject::getSectionEnd(int frame) {
     if (next_section)
         return next_section->start;
     else
-        return num_frames[PostSource];
+        return getNumFrames(PostSource);
 }
 
 void WobblyProject::setSectionPreset(int section_start, const std::string &preset_name) {
@@ -933,7 +953,7 @@ void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::s
 
     for (int i = section_start; i < section_end; i++) {
         if ((i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
-            (i == num_frames[PostSource] - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
+            (i == getNumFrames(PostSource) - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
             // Skip the first and last frame if their new matches are incompatible.
             continue;
 
@@ -956,7 +976,7 @@ void WobblyProject::setSectionDecimationFromPattern(int section_start, const std
 void WobblyProject::setRangeMatchesFromPattern(int range_start, int range_end, const std::string &pattern) {
     for (int i = range_start; i <= range_end; i++) {
         if ((i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
-            (i == num_frames[PostSource] - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
+            (i == getNumFrames(PostSource) - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
             // Skip the first and last frame if their new matches are incompatible.
             continue;
 
@@ -979,7 +999,7 @@ void WobblyProject::resetRangeMatches(int start, int end) {
     if (start > end)
         std::swap(start, end);
 
-    if (start < 0 || end >= num_frames[PostSource])
+    if (start < 0 || end >= getNumFrames(PostSource))
         throw WobblyException("Can't reset the matches for range [" + std::to_string(start) + "," + std::to_string(end) + "]: values out of range.");
 
     memcpy(matches.data() + start, original_matches.data() + start, end - start + 1);
@@ -1136,34 +1156,37 @@ const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) 
 
 
 int WobblyProject::getDecimateMetric(int frame) {
-    return decimate_metrics[frame];
+    if (decimate_metrics.size())
+        return decimate_metrics[frame];
+    else
+        return 0;
 }
 
 
 void WobblyProject::addDecimatedFrame(int frame) {
-    if (frame < 0 || frame >= num_frames[PostSource])
+    if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " for decimation: value out of range.");
 
     auto result = decimated_frames[frame / 5].insert(frame % 5);
 
     if (result.second)
-        num_frames[PostDecimate]--;
+        setNumFrames(PostDecimate, getNumFrames(PostDecimate) - 1);
 }
 
 
 void WobblyProject::deleteDecimatedFrame(int frame) {
-    if (frame < 0 || frame >= num_frames[PostSource])
+    if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't delete decimated frame " + std::to_string(frame) + ": value out of range.");
 
     size_t result = decimated_frames[frame / 5].erase(frame % 5);
 
     if (result)
-        num_frames[PostDecimate]++;
+        setNumFrames(PostDecimate, getNumFrames(PostDecimate) + 1);
 }
 
 
 bool WobblyProject::isDecimatedFrame(int frame) {
-    if (frame < 0 || frame >= num_frames[PostSource])
+    if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't check if frame " + std::to_string(frame) + " is decimated: value out of range.");
 
     return (bool)decimated_frames[frame / 5].count(frame % 5);
@@ -1171,7 +1194,7 @@ bool WobblyProject::isDecimatedFrame(int frame) {
 
 
 void WobblyProject::clearDecimatedFramesFromCycle(int frame) {
-    if (frame < 0 || frame >= num_frames[PostSource])
+    if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't clear decimated frames from cycle containing frame " + std::to_string(frame) + ": value out of range.");
 
     int cycle = frame / 5;
@@ -1180,7 +1203,7 @@ void WobblyProject::clearDecimatedFramesFromCycle(int frame) {
 
     decimated_frames[cycle].clear();
 
-    num_frames[PostDecimate] += new_frames;
+    setNumFrames(PostDecimate, getNumFrames(PostDecimate) + new_frames);
 }
 
 
@@ -1258,7 +1281,7 @@ std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) {
 
 
 void WobblyProject::addCombedFrame(int frame) {
-    if (frame < 0 || frame >= num_frames[PostSource])
+    if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as combed: value out of range.");
 
     combed_frames.insert(frame);
@@ -1465,8 +1488,8 @@ int WobblyProject::frameNumberAfterDecimation(int frame) {
     if (frame < 0)
         return 0;
 
-    if (frame >= num_frames[PostSource])
-        return num_frames[PostDecimate];
+    if (frame >= getNumFrames(PostSource))
+        return getNumFrames(PostDecimate);
 
     int cycle_number = frame / 5;
 
@@ -1481,7 +1504,7 @@ int WobblyProject::frameNumberAfterDecimation(int frame) {
         if (!decimated_frames[cycle_number].count(i))
             out_frame++;
 
-    if (frame == num_frames[PostSource] - 1 && isDecimatedFrame(frame))
+    if (frame == getNumFrames(PostSource) - 1 && isDecimatedFrame(frame))
         out_frame--;
 
     return out_frame;
@@ -1717,7 +1740,7 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
     int positions[5] = { 0 };
     int total = 0;
 
-    for (int i = section_start; i < std::min(section_end, num_frames[PostSource] - 1); i++) {
+    for (int i = section_start; i < std::min(section_end, getNumFrames(PostSource) - 1); i++) {
         if (original_matches[i] == 'n' && original_matches[i + 1] == 'c') {
             positions[i % 5]++;
             total++;
@@ -1771,8 +1794,8 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
 
         for (int i = section_start; i < section_end; i++) {
             if (use_third_n_match == UseThirdNMatchIfPrettier && pattern[i % 5] == 'c' && pattern[(i + 1) % 5] == 'n') {
-                int16_t mic_n = mics[i][matchCharToIndex('n')];
-                int16_t mic_c = mics[i][matchCharToIndex('c')];
+                int16_t mic_n = getMics(i)[matchCharToIndex('n')];
+                int16_t mic_c = getMics(i)[matchCharToIndex('c')];
                 if (mic_n < mic_c)
                     matches[i] = 'n';
                 else
@@ -1784,8 +1807,8 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
 
         // If the last frame of the section has much higher mic with c/n matches than with b match, use the b match.
         char match_index = matchCharToIndex(matches[section_end - 1]);
-        int16_t mic_cn = mics[section_end - 1][match_index];
-        int16_t mic_b = mics[section_end - 1][matchCharToIndex('b')];
+        int16_t mic_cn = getMics(section_end - 1)[match_index];
+        int16_t mic_b = getMics(section_end - 1)[matchCharToIndex('b')];
         if (mic_cn > mic_b * 2)
             matches[section_end - 1] = 'b';
 
@@ -1933,7 +1956,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
 
         int last_last = maybeTranslate(it_prev->second.last, true, position);
 
-        if (last_last < maybeTranslate(num_frames[PostSource] - 1, true, position)) {
+        if (last_last < maybeTranslate(getNumFrames(PostSource) - 1, true, position)) {
             splice += "src[";
             splice += std::to_string(last_last + 1) + ":]";
         }
@@ -2042,7 +2065,7 @@ void WobblyProject::decimatedFramesToScript(std::string &script) {
     for (size_t i = 0; i < decimation_ranges.size(); i++) {
         int range_end;
         if (i == decimation_ranges.size() - 1)
-            range_end = num_frames[PostSource];
+            range_end = getNumFrames(PostSource);
         else
             range_end = decimation_ranges[i + 1].start;
 
@@ -2071,7 +2094,7 @@ void WobblyProject::decimatedFramesToScript(std::string &script) {
     for (size_t i = 0; i < decimation_pattern_ranges.size(); i++) {
         int range_end;
         if (i == decimation_pattern_ranges.size() - 1)
-            range_end = num_frames[PostSource];
+            range_end = getNumFrames(PostSource);
         else
             range_end = decimation_pattern_ranges[i + 1].start;
 
@@ -2242,7 +2265,7 @@ std::string WobblyProject::generateTimecodesV1() {
         if (numerators[ranges[i].num_dropped] != 24000) {
             int end;
             if (i == ranges.size() - 1)
-                end = num_frames[PostSource];
+                end = getNumFrames(PostSource);
             else
                 end = ranges[i + 1].start;
 

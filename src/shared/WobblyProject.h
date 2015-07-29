@@ -227,7 +227,7 @@ struct PatternGuessing {
 
 class WobblyProject {
     private:
-        int num_frames[3];
+        int num_frames[2];
 
         int64_t fps_num;
         int64_t fps_den;
@@ -275,6 +275,8 @@ class WobblyProject {
 
         // Only functions below.
 
+        void setNumFrames(PositionInFilterChain position, int frames);
+
         bool isNameSafeForPython(const std::string &name);
         int maybeTranslate(int frame, bool is_end, PositionInFilterChain position);
 
@@ -306,7 +308,7 @@ class WobblyProject {
         bool isPresetInUse(const std::string &preset_name);
 
 
-        const std::array<int16_t, 5> &getMics(int frame);
+        std::array<int16_t, 5> getMics(int frame);
         int getPreviousFrameWithMic(int minimum, int start_frame);
         int getNextFrameWithMic(int minimum, int start_frame);
 
