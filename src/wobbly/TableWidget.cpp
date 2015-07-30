@@ -25,6 +25,16 @@ TableWidget::TableWidget(int rows, int columns, QWidget *parent)
         for (int i = 0; i < columnCount(); i++)
             horizontalHeaderItem(i)->setTextAlignment(Qt::AlignLeft);
     }
+
+    connect(this, &TableWidget::currentCellChanged, [this] (int currentRow) {
+        if (currentRow < 0)
+            return;
+
+        if (columnCount() < 0)
+            return;
+
+        scrollToItem(item(currentRow, 0));
+    });
 }
 
 
