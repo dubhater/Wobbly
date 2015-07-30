@@ -24,7 +24,8 @@
 
 
 WobblyWindow::WobblyWindow()
-    : splash_image(720, 480, QImage::Format_RGB32)
+    : QMainWindow()
+    , splash_image(720, 480, QImage::Format_RGB32)
     , window_title(QStringLiteral("Wobbly IVTC Assistant v%1").arg(PACKAGE_VERSION))
     , project(nullptr)
     , current_frame(0)
