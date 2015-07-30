@@ -3,6 +3,8 @@ includeflags = -I$(srcdir)/src/shared
 commoncflags = $(FPIC) -O2 $(warningflags) $(includeflags)
 AM_CXXFLAGS = -std=c++11 $(commoncflags)
 AM_CFLAGS = -std=c99 $(commoncflags)
+AM_CPPFLAGS = $(QT5PLATFORMSUPPORT_CFLAGS) $(QT5WIDGETS_CFLAGS) $(VSSCRIPT_CFLAGS)
+AM_LDFLAGS = $(WINDOWS_SUBSYSTEM)
 
 
 
@@ -14,37 +16,47 @@ moc_verbose_0 = @echo "  MOC     " $@;
 moc_%.cpp : %.h
 	$(moc_verbose)$(MOC) -o "$@" "$<"
 
-bin_PROGRAMS = wobbly
+bin_PROGRAMS = wibbly wobbly
 
-moc_files = src/shared/moc_DockWidget.cpp \
-			src/shared/moc_ListWidget.cpp \
-			src/wobbly/moc_PresetTextEdit.cpp \
-			src/wobbly/moc_TableWidget.cpp \
-			src/wobbly/moc_WobblyWindow.cpp
+shared_moc_files = src/shared/moc_DockWidget.cpp \
+				   src/shared/moc_ListWidget.cpp
+
+wibbly_moc_files = src/wibbly/moc_WibblyWindow.cpp
+
+wobbly_moc_files = src/wobbly/moc_PresetTextEdit.cpp \
+				   src/wobbly/moc_TableWidget.cpp \
+				   src/wobbly/moc_WobblyWindow.cpp
 
 
-MOSTLYCLEANFILES = $(moc_files)
+MOSTLYCLEANFILES = $(shared_moc_files) \
+				   $(wibbly_moc_files) \
+				   $(wobbly_moc_files)
 
-wobbly_SOURCES = src/wobbly/PresetTextEdit.cpp \
+shared_sources = src/shared/DockWidget.cpp \
+				 src/shared/DockWidget.h \
+				 src/shared/ListWidget.cpp \
+				 src/shared/ListWidget.h \
+				 src/shared/WobblyProject.cpp \
+				 src/shared/WobblyProject.h \
+				 src/shared/WobblyException.h
+
+wobbly_SOURCES = $(shared_sources) \
+				 src/wobbly/PresetTextEdit.cpp \
 				 src/wobbly/PresetTextEdit.h \
 				 src/wobbly/TableWidget.cpp \
 				 src/wobbly/TableWidget.h \
 				 src/wobbly/Wobbly.cpp \
 				 src/wobbly/WobblyWindow.cpp \
 				 src/wobbly/WobblyWindow.h \
-				 src/shared/DockWidget.cpp \
-				 src/shared/DockWidget.h \
-				 src/shared/ListWidget.cpp \
-				 src/shared/ListWidget.h \
-				 src/shared/WobblyProject.cpp \
-				 src/shared/WobblyProject.h \
-				 src/shared/WobblyException.h \
-				 $(moc_files)
+				 $(shared_moc_files) \
+				 $(wobbly_moc_files)
 
-wobbly_LDADD = $(QT5PLATFORMPLUGIN) $(QT5PLATFORMSUPPORT_LIBS) $(QT5WIDGETS_LIBS) $(VSSCRIPT_LIBS)
-
-wobbly_LDFLAGS = $(WINDOWS_SUBSYSTEM)
-
-wobbly_CPPFLAGS = $(QT5PLATFORMSUPPORT_CFLAGS) $(QT5WIDGETS_CFLAGS) $(VSSCRIPT_CFLAGS)
+wibbly_SOURCES = $(shared_sources) \
+				 src/wibbly/Wibbly.cpp \
+				 src/wibbly/WibblyWindow.cpp \
+				 src/wibbly/WibblyWindow.h \
+				 $(shared_moc_files) \
+				 $(wibbly_moc_files)
 
 
+LDADD = $(QT5PLATFORMPLUGIN) $(QT5PLATFORMSUPPORT_LIBS) $(QT5WIDGETS_LIBS) $(VSSCRIPT_LIBS)
