@@ -1,3 +1,5 @@
+#include <QButtonGroup>
+#include <QCheckBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -11,11 +13,23 @@
 #include "WobblyException.h"
 #include "WibblyWindow.h"
 
+
+enum MetricsGatheringSteps {
+    StepTrim = 1 << 0,
+    StepCrop = 1 << 1,
+    StepFieldMatch = 1 << 2,
+    StepInterlacedFades = 1 << 3,
+    StepDecimation = 1 << 4,
+    StepSceneChanges = 1 << 5,
+};
+
+
 WibblyWindow::WibblyWindow()
     : QMainWindow()
 {
     createUI();
 }
+
 
 void WibblyWindow::createUI() {
     setWindowTitle(QStringLiteral("Wibbly Metrics Collector v%1").arg(PACKAGE_VERSION));
@@ -28,6 +42,7 @@ void WibblyWindow::createUI() {
     createVFMWindow();
     createVDecimateWindow();
 }
+
 
 void WibblyWindow::createMainWindow() {
     main_jobs_list = new ListWidget;
@@ -44,9 +59,22 @@ void WibblyWindow::createMainWindow() {
 
     QPushButton *main_choose_button = new QPushButton("Choose");
 
-    ListWidget *main_steps_list = new ListWidget;
+    std::map<int, QString> steps = {
+        { StepTrim, "Trim" },
+        { StepCrop, "Crop" },
+        { StepFieldMatch, "Field matching" },
+        { StepInterlacedFades, "Interlaced fades" },
+        { StepDecimation, "Decimation" },
+        { StepSceneChanges, "Scene changes" },
+    };
 
-    QPushButton *main_configure_button = new QPushButton("Configure step");
+    QButtonGroup *main_steps_buttons = new QButtonGroup(this);
+    main_steps_buttons->setExclusive(false);
+
+    for (auto it = steps.cbegin(); it != steps.cend(); it++) {
+        main_steps_buttons->addButton(new QCheckBox(it->second), it->first);
+        main_steps_buttons->button(it->first)->setChecked(true);
+    }
 
     main_progress_bar = new QProgressBar;
 
@@ -74,10 +102,15 @@ void WibblyWindow::createMainWindow() {
     vbox2->addWidget(main_move_jobs_up_button);
     vbox2->addWidget(main_move_jobs_down_button);
     vbox2->addStretch(1);
-    vbox2->addWidget(main_configure_button);
     hbox->addLayout(vbox2);
 
-    hbox->addWidget(main_steps_list);
+    vbox2 = new QVBoxLayout;
+    for (auto it = steps.cbegin(); it != steps.cend(); it++) {
+        vbox2->addWidget(main_steps_buttons->button(it->first));
+    }
+    vbox2->addStretch(1);
+
+    hbox->addLayout(vbox2);
 
     vbox->addLayout(hbox);
 
@@ -94,17 +127,21 @@ void WibblyWindow::createMainWindow() {
     setCentralWidget(main_widget);
 }
 
+
 void WibblyWindow::createVideoOutputWindow() {
 
 }
+
 
 void WibblyWindow::createCropWindow() {
 
 }
 
+
 void WibblyWindow::createVFMWindow() {
 
 }
+
 
 void WibblyWindow::createVDecimateWindow() {
 
