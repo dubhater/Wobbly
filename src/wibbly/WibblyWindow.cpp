@@ -228,7 +228,65 @@ void WibblyWindow::createCropWindow() {
 
 
 void WibblyWindow::createVFMWindow() {
+    struct VFMSpin {
+        QSpinBox *spinbox;
+        QString prefix;
+        int minimum;
+        int maximum;
+    };
 
+    std::vector<VFMSpin> vfm_spins = {
+        { nullptr, "order: ",        INT_MIN,          1 },
+        { nullptr, "cthresh: ",           -1,        255 },
+        { nullptr, "mi: ",           INT_MIN,    INT_MAX },
+        { nullptr, "blockx: ",             4,        512 },
+        { nullptr, "blocky: ",             4,        512 },
+        { nullptr, "y0: ",           INT_MIN,    INT_MAX },
+        { nullptr, "y1: ",           INT_MIN,    INT_MAX },
+        { nullptr, "scthresh: ",     INT_MIN,        100 },
+        { nullptr, "micmatch: ",     INT_MIN,          2 }
+    };
+
+    for (size_t i = 0; i < vfm_spins.size(); i++) {
+        vfm_spins[i].spinbox = new QSpinBox;
+        vfm_spins[i].spinbox->setPrefix(vfm_spins[i].prefix);
+        if (vfm_spins[i].minimum != INT_MIN)
+            vfm_spins[i].spinbox->setMinimum(vfm_spins[i].minimum);
+        if (vfm_spins[i].maximum != INT_MAX)
+            vfm_spins[i].spinbox->setMaximum(vfm_spins[i].maximum);
+    }
+
+    QCheckBox *vfm_mchroma_check = new QCheckBox("mchroma");
+    QCheckBox *vfm_chroma_check = new QCheckBox("chroma");
+
+
+    // connect
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    for (size_t i = 0; i < vfm_spins.size(); i++)
+        vbox->addWidget(vfm_spins[i].spinbox);
+    vbox->addWidget(vfm_mchroma_check);
+    vbox->addWidget(vfm_chroma_check);
+    vbox->addStretch(1);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addLayout(vbox);
+    hbox->addStretch(1);
+
+
+    QWidget *vfm_widget = new QWidget;
+    vfm_widget->setLayout(hbox);
+
+
+    vfm_dock = new DockWidget("VFM", this);
+    vfm_dock->setObjectName("vfm window");
+    vfm_dock->setVisible(false);
+    vfm_dock->setFloating(true);
+    vfm_dock->setWidget(vfm_widget);
+    addDockWidget(Qt::RightDockWidgetArea, vfm_dock);
+    //tools_menu->addAction(vfm_dock->toggleViewAction());
+    connect(vfm_dock, &DockWidget::visibilityChanged, vfm_dock, &DockWidget::setEnabled);
 }
 
 

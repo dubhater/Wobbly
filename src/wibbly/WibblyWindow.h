@@ -24,6 +24,8 @@ class WibblyWindow : public QMainWindow
 
     DockWidget *crop_dock;
 
+    DockWidget *vfm_dock;
+
 
     // VapourSynth stuff.
 
