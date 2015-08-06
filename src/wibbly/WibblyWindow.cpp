@@ -3,7 +3,10 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QSpinBox>
 #include <QStatusBar>
+#include <QTimeEdit>
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -79,6 +82,7 @@ void WibblyWindow::createMainWindow() {
     main_progress_bar = new QProgressBar;
 
     QPushButton *main_engage_button = new QPushButton("Engage");
+    QPushButton *main_cancel_button = new QPushButton("Cancel");
 
 
     // connect
@@ -117,6 +121,7 @@ void WibblyWindow::createMainWindow() {
     hbox = new QHBoxLayout;
     hbox->addWidget(main_progress_bar);
     hbox->addWidget(main_engage_button);
+    hbox->addWidget(main_cancel_button);
 
     vbox->addLayout(hbox);
 
@@ -129,7 +134,51 @@ void WibblyWindow::createMainWindow() {
 
 
 void WibblyWindow::createVideoOutputWindow() {
+    video_frame_label = new QLabel;
+    video_frame_label->setMinimumSize(720, 480);
 
+    QScrollArea *video_frame_scroll = new QScrollArea;
+    video_frame_scroll->setFrameShape(QFrame::NoFrame);
+    video_frame_scroll->setFocusPolicy(Qt::NoFocus);
+    video_frame_scroll->setAlignment(Qt::AlignCenter);
+    video_frame_scroll->setWidgetResizable(true);
+    video_frame_scroll->setWidget(video_frame_label);
+
+    QSpinBox *video_frame_spin = new QSpinBox;
+    QTimeEdit *video_time_edit = new QTimeEdit;
+    video_time_edit->setDisplayFormat(QStringLiteral("hh:mm:ss.zzz"));
+
+    video_frame_slider = new QSlider(Qt::Horizontal);
+    video_frame_slider->setTracking(false);
+    video_frame_slider->setFocusPolicy(Qt::NoFocus);
+
+
+    // connect
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(video_frame_scroll);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(video_frame_spin);
+    hbox->addWidget(video_time_edit);
+    hbox->addWidget(video_frame_slider);
+    vbox->addLayout(hbox);
+
+
+    QWidget *video_widget = new QWidget;
+    video_widget->setLayout(vbox);
+
+
+    video_dock = new DockWidget("Video output", this);
+    video_dock->resize(720, 480);
+    video_dock->setObjectName("video output window");
+    video_dock->setVisible(true);
+    video_dock->setFloating(true);
+    video_dock->setWidget(video_widget);
+    addDockWidget(Qt::RightDockWidgetArea, video_dock);
+    //tools_menu->addAction(video_dock->toggleViewAction());
+    connect(video_dock, &DockWidget::visibilityChanged, video_dock, &DockWidget::setEnabled);
 }
 
 
