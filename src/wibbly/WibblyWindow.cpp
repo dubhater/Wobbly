@@ -14,18 +14,8 @@
 
 #include <VSScript.h>
 
-#include "WobblyException.h"
 #include "WibblyWindow.h"
-
-
-enum MetricsGatheringSteps {
-    StepTrim = 1 << 0,
-    StepCrop = 1 << 1,
-    StepFieldMatch = 1 << 2,
-    StepInterlacedFades = 1 << 3,
-    StepDecimation = 1 << 4,
-    StepSceneChanges = 1 << 5,
-};
+#include "WobblyException.h"
 
 
 WibblyWindow::WibblyWindow()
@@ -265,7 +255,6 @@ void WibblyWindow::createVFMWindow() {
         { nullptr, "blocky: ",             4,        512 },
         { nullptr, "y0: ",           INT_MIN,    INT_MAX },
         { nullptr, "y1: ",           INT_MIN,    INT_MAX },
-        { nullptr, "scthresh: ",     INT_MIN,        100 },
         { nullptr, "micmatch: ",     INT_MIN,          2 }
     };
 
@@ -278,6 +267,9 @@ void WibblyWindow::createVFMWindow() {
             vfm_spins[i].spinbox->setMaximum(vfm_spins[i].maximum);
     }
 
+    QDoubleSpinBox *vfm_scthresh_spin = new QDoubleSpinBox;
+    vfm_scthresh_spin->setMaximum(100);
+
     QCheckBox *vfm_mchroma_check = new QCheckBox("mchroma");
     QCheckBox *vfm_chroma_check = new QCheckBox("chroma");
 
@@ -288,6 +280,7 @@ void WibblyWindow::createVFMWindow() {
     QVBoxLayout *vbox = new QVBoxLayout;
     for (size_t i = 0; i < vfm_spins.size(); i++)
         vbox->addWidget(vfm_spins[i].spinbox);
+    vbox->addWidget(vfm_scthresh_spin);
     vbox->addWidget(vfm_mchroma_check);
     vbox->addWidget(vfm_chroma_check);
     vbox->addStretch(1);

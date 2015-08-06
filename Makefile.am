@@ -53,6 +53,8 @@ wobbly_SOURCES = $(shared_sources) \
 
 wibbly_SOURCES = $(shared_sources) \
 				 src/wibbly/Wibbly.cpp \
+				 src/wibbly/WibblyJob.cpp \
+				 src/wibbly/WibblyJob.h \
 				 src/wibbly/WibblyWindow.cpp \
 				 src/wibbly/WibblyWindow.h \
 				 $(shared_moc_files) \

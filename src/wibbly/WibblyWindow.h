@@ -11,6 +11,8 @@
 #include "DockWidget.h"
 #include "ListWidget.h"
 
+#include "WibblyJob.h"
+
 class WibblyWindow : public QMainWindow
 {
     Q_OBJECT
