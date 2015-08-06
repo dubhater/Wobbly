@@ -1,6 +1,7 @@
 #ifndef WIBBLYWINDOW_H
 #define WIBBLYWINDOW_H
 
+#include <QDoubleSpinBox>
 #include <QLabel>
 #include <QMainWindow>
 #include <QProgressBar>
@@ -34,6 +35,9 @@ class WibblyWindow : public QMainWindow
     ListWidget *trim_ranges_list;
     QLabel *trim_label;
 
+    DockWidget *fades_dock;
+    QDoubleSpinBox *fades_threshold_spin;
+
 
     // VapourSynth stuff.
 
@@ -49,6 +53,7 @@ class WibblyWindow : public QMainWindow
     void createCropWindow();
     void createVFMWindow();
     void createTrimWindow();
+    void createInterlacedFadesWindow();
 
 public:
     WibblyWindow();

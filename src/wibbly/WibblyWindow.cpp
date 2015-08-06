@@ -45,6 +45,7 @@ void WibblyWindow::createUI() {
     createCropWindow();
     createVFMWindow();
     createTrimWindow();
+    createInterlacedFadesWindow();
 }
 
 
@@ -354,3 +355,35 @@ void WibblyWindow::createTrimWindow() {
     connect(trim_dock, &DockWidget::visibilityChanged, trim_dock, &DockWidget::setEnabled);
 }
 
+
+void WibblyWindow::createInterlacedFadesWindow() {
+    fades_threshold_spin = new QDoubleSpinBox;
+    fades_threshold_spin->setPrefix(QStringLiteral("Threshold: "));
+
+
+    // connect
+
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(fades_threshold_spin);
+    hbox->addStretch(1);
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addLayout(hbox);
+    vbox->addStretch(1);
+
+
+    QWidget *fades_widget = new QWidget;
+    fades_widget->setLayout(vbox);
+
+
+    fades_dock = new DockWidget("Interlaced fades", this);
+    fades_dock->setObjectName("interlaced fades window");
+    fades_dock->setVisible(false);
+    fades_dock->setFloating(true);
+    fades_dock->setWidget(fades_widget);
+    addDockWidget(Qt::RightDockWidgetArea, fades_dock);
+    QList<QAction *> actions = menu_menu->actions();
+    menu_menu->insertAction(actions[actions.size() - 2], fades_dock->toggleViewAction());
+    connect(fades_dock, &DockWidget::visibilityChanged, fades_dock, &DockWidget::setEnabled);
+}
