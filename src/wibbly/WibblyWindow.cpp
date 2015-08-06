@@ -183,7 +183,47 @@ void WibblyWindow::createVideoOutputWindow() {
 
 
 void WibblyWindow::createCropWindow() {
+    const char *crop_prefixes[4] = {
+        "Left: ",
+        "Top: ",
+        "Right: ",
+        "Bottom: "
+    };
 
+    QSpinBox *crop_spin[4];
+    for (int i = 0; i < 4; i++) {
+        crop_spin[i] = new QSpinBox;
+        crop_spin[i]->setRange(0, 99999);
+        crop_spin[i]->setPrefix(crop_prefixes[i]);
+        crop_spin[i]->setSuffix(QStringLiteral(" px"));
+    }
+
+
+    // connect
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    for (int i = 0; i < 4; i++)
+        vbox->addWidget(crop_spin[i]);
+    vbox->addStretch(1);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addLayout(vbox);
+    hbox->addStretch(1);
+
+
+    QWidget *crop_widget = new QWidget;
+    crop_widget->setLayout(hbox);
+
+
+    crop_dock = new DockWidget("Crop", this);
+    crop_dock->setObjectName("crop window");
+    crop_dock->setVisible(false);
+    crop_dock->setFloating(true);
+    crop_dock->setWidget(crop_widget);
+    addDockWidget(Qt::RightDockWidgetArea, crop_dock);
+    //tools_menu->addAction(crop_dock->toggleViewAction());
+    connect(crop_dock, &DockWidget::visibilityChanged, crop_dock, &DockWidget::setEnabled);
 }
 
 

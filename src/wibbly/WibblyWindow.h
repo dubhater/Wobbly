@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QProgressBar>
 #include <QSlider>
+#include <QSpinBox>
 
 #include "DockWidget.h"
 #include "ListWidget.h"
@@ -20,6 +21,8 @@ class WibblyWindow : public QMainWindow
     DockWidget *video_dock;
     QLabel *video_frame_label;
     QSlider *video_frame_slider;
+
+    DockWidget *crop_dock;
 
 
     // VapourSynth stuff.
