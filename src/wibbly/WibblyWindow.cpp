@@ -2,6 +2,7 @@
 #include <QCheckBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenuBar>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
@@ -47,7 +48,25 @@ void WibblyWindow::createUI() {
 }
 
 
+void WibblyWindow::createMenus() {
+    QMenuBar *bar = menuBar();
+
+    menu_menu = bar->addMenu("&Menu");
+
+    QAction *quit_action = new QAction("&Quit", this);
+    quit_action->setShortcut(QKeySequence("Ctrl+Q"));
+
+    connect(quit_action, &QAction::triggered, this, &WibblyWindow::close);
+
+    menu_menu->addSeparator();
+    menu_menu->addAction(quit_action);
+}
+
+
 void WibblyWindow::createMainWindow() {
+    createMenus();
+
+
     main_jobs_list = new ListWidget;
     main_jobs_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     main_jobs_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -177,7 +196,8 @@ void WibblyWindow::createVideoOutputWindow() {
     video_dock->setFloating(true);
     video_dock->setWidget(video_widget);
     addDockWidget(Qt::RightDockWidgetArea, video_dock);
-    //tools_menu->addAction(video_dock->toggleViewAction());
+    QList<QAction *> actions = menu_menu->actions();
+    menu_menu->insertAction(actions[actions.size() - 2], video_dock->toggleViewAction());
     connect(video_dock, &DockWidget::visibilityChanged, video_dock, &DockWidget::setEnabled);
 }
 
@@ -222,7 +242,8 @@ void WibblyWindow::createCropWindow() {
     crop_dock->setFloating(true);
     crop_dock->setWidget(crop_widget);
     addDockWidget(Qt::RightDockWidgetArea, crop_dock);
-    //tools_menu->addAction(crop_dock->toggleViewAction());
+    QList<QAction *> actions = menu_menu->actions();
+    menu_menu->insertAction(actions[actions.size() - 2], crop_dock->toggleViewAction());
     connect(crop_dock, &DockWidget::visibilityChanged, crop_dock, &DockWidget::setEnabled);
 }
 
@@ -285,7 +306,8 @@ void WibblyWindow::createVFMWindow() {
     vfm_dock->setFloating(true);
     vfm_dock->setWidget(vfm_widget);
     addDockWidget(Qt::RightDockWidgetArea, vfm_dock);
-    //tools_menu->addAction(vfm_dock->toggleViewAction());
+    QList<QAction *> actions = menu_menu->actions();
+    menu_menu->insertAction(actions[actions.size() - 2], vfm_dock->toggleViewAction());
     connect(vfm_dock, &DockWidget::visibilityChanged, vfm_dock, &DockWidget::setEnabled);
 }
 
@@ -327,7 +349,8 @@ void WibblyWindow::createTrimWindow() {
     trim_dock->setFloating(true);
     trim_dock->setWidget(trim_widget);
     addDockWidget(Qt::RightDockWidgetArea, trim_dock);
-    //tools_menu->addAction(trim_dock->toggleViewAction());
+    QList<QAction *> actions = menu_menu->actions();
+    menu_menu->insertAction(actions[actions.size() - 2], trim_dock->toggleViewAction());
     connect(trim_dock, &DockWidget::visibilityChanged, trim_dock, &DockWidget::setEnabled);
 }
 

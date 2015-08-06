@@ -14,6 +14,10 @@ class WibblyWindow : public QMainWindow
 {
     Q_OBJECT
 
+    // Menus.
+    QMenu *menu_menu;
+
+
     // Widgets.
     ListWidget *main_jobs_list;
     QProgressBar *main_progress_bar;
@@ -39,6 +43,7 @@ class WibblyWindow : public QMainWindow
 
     // Functions.
     void createUI();
+    void createMenus();
     void createMainWindow();
     void createVideoOutputWindow();
     void createCropWindow();
