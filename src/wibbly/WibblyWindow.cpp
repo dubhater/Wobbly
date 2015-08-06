@@ -43,7 +43,7 @@ void WibblyWindow::createUI() {
     createVideoOutputWindow();
     createCropWindow();
     createVFMWindow();
-    createVDecimateWindow();
+    createTrimWindow();
 }
 
 
@@ -290,7 +290,44 @@ void WibblyWindow::createVFMWindow() {
 }
 
 
-void WibblyWindow::createVDecimateWindow() {
+void WibblyWindow::createTrimWindow() {
+    trim_ranges_list = new ListWidget;
+    trim_ranges_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    trim_ranges_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
+    trim_label = new QLabel;
+
+    QPushButton *trim_start_button = new QPushButton("Start trim");
+    QPushButton *trim_end_button = new QPushButton("End trim");
+    QPushButton *trim_add_button = new QPushButton("Add trim");
+
+
+    // connect
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(trim_ranges_list);
+    vbox->addWidget(trim_label);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(trim_add_button);
+    hbox->addWidget(trim_start_button);
+    hbox->addWidget(trim_end_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+
+    QWidget *trim_widget = new QWidget;
+    trim_widget->setLayout(vbox);
+
+
+    trim_dock = new DockWidget("Trim", this);
+    trim_dock->setObjectName("trim window");
+    trim_dock->setVisible(false);
+    trim_dock->setFloating(true);
+    trim_dock->setWidget(trim_widget);
+    addDockWidget(Qt::RightDockWidgetArea, trim_dock);
+    //tools_menu->addAction(trim_dock->toggleViewAction());
+    connect(trim_dock, &DockWidget::visibilityChanged, trim_dock, &DockWidget::setEnabled);
 }
 

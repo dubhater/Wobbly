@@ -26,6 +26,10 @@ class WibblyWindow : public QMainWindow
 
     DockWidget *vfm_dock;
 
+    DockWidget *trim_dock;
+    ListWidget *trim_ranges_list;
+    QLabel *trim_label;
+
 
     // VapourSynth stuff.
 
@@ -39,7 +43,7 @@ class WibblyWindow : public QMainWindow
     void createVideoOutputWindow();
     void createCropWindow();
     void createVFMWindow();
-    void createVDecimateWindow();
+    void createTrimWindow();
 
 public:
     WibblyWindow();
