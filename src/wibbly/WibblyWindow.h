@@ -45,6 +45,7 @@ class WibblyWindow : public QMainWindow
 
 
     // Other stuff.
+    std::vector<WibblyJob> jobs;
 
 
     // Functions.
@@ -56,6 +57,8 @@ class WibblyWindow : public QMainWindow
     void createVFMWindow();
     void createTrimWindow();
     void createInterlacedFadesWindow();
+
+    void realOpenVideo(const QString &path);
 
 public:
     WibblyWindow();

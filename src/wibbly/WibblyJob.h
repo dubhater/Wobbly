@@ -49,9 +49,6 @@ class WibblyJob {
 
     float fades_threshold;
 
-public:
-    WibblyJob();
-
 
     void headerToScript(std::string &script);
     void sourceToScript(std::string &script);
@@ -62,6 +59,22 @@ public:
     void decimationToScript(std::string &script);
     void sceneChangesToScript(std::string &script);
     void setOutputToScript(std::string &script);
+
+public:
+    WibblyJob();
+
+
+    std::string getInputFile();
+    void setInputFile(const std::string &path);
+
+
+    std::string getSourceFilter();
+    void setSourceFilter(const std::string &filter);
+
+
+    std::string getOutputFile();
+    void setOutputFile(const std::string &path);
+
 
     std::string generateFinalScript();
     std::string generateDisplayScript();

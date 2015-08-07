@@ -1,5 +1,6 @@
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QFileDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenuBar>
@@ -95,7 +96,67 @@ void WibblyWindow::createMainWindow() {
     QPushButton *main_cancel_button = new QPushButton("Cancel");
 
 
-    // connect
+    connect(main_jobs_list, &ListWidget::deletePressed, main_remove_jobs_button, &QPushButton::click);
+
+    connect(main_add_jobs_button, &QPushButton::clicked, [this] () {
+        QStringList paths = QFileDialog::getOpenFileNames(this, QStringLiteral("Open video file"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
+
+        paths.sort();
+
+        for (int i = 0; i < paths.size(); i++)
+            if (!paths[i].isNull())
+                realOpenVideo(paths[i]);
+    });
+
+    connect(main_remove_jobs_button, &QPushButton::clicked, [this] () {
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = selection.size() - 1; i >= 0; i--) {
+            int row = main_jobs_list->row(selection[i]);
+
+            jobs.erase(jobs.cbegin() + row);
+            delete main_jobs_list->takeItem(row);
+        }
+    });
+
+    connect(main_copy_jobs_button, &QPushButton::clicked, [this] () {
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = selection.size() - 1; i >= 0; i--) {
+            int row = main_jobs_list->row(selection[i]);
+
+            jobs.insert(jobs.cbegin() + row + 1, jobs[row]);
+            main_jobs_list->insertItem(row + 1, main_jobs_list->item(row)->text());
+        }
+    });
+
+    connect(main_move_jobs_up_button, &QPushButton::clicked, [this] () {
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = 0; i < selection.size(); i++) {
+            int row = main_jobs_list->row(selection[i]);
+
+            if (row == 0)
+                return;
+
+            std::swap(jobs[row], jobs[row - 1]);
+            main_jobs_list->insertItem(row, main_jobs_list->takeItem(row - 1));
+        }
+    });
+
+    connect(main_move_jobs_down_button, &QPushButton::clicked, [this] () {
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = selection.size() - 1; i >= 0; i--) {
+            int row = main_jobs_list->row(selection[i]);
+
+            if (row == main_jobs_list->count() - 1)
+                return;
+
+            std::swap(jobs[row], jobs[row + 1]);
+            main_jobs_list->insertItem(row, main_jobs_list->takeItem(row + 1));
+        }
+    });
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
@@ -125,6 +186,7 @@ void WibblyWindow::createMainWindow() {
     vbox2->addStretch(1);
 
     hbox->addLayout(vbox2);
+    hbox->addStretch(1);
 
     vbox->addLayout(hbox);
 
@@ -352,6 +414,7 @@ void WibblyWindow::createTrimWindow() {
 void WibblyWindow::createInterlacedFadesWindow() {
     fades_threshold_spin = new QDoubleSpinBox;
     fades_threshold_spin->setPrefix(QStringLiteral("Threshold: "));
+    fades_threshold_spin->setMaximum(255);
 
 
     // connect
@@ -379,4 +442,30 @@ void WibblyWindow::createInterlacedFadesWindow() {
     QList<QAction *> actions = menu_menu->actions();
     menu_menu->insertAction(actions[actions.size() - 2], fades_dock->toggleViewAction());
     connect(fades_dock, &DockWidget::visibilityChanged, fades_dock, &DockWidget::setEnabled);
+}
+
+
+void WibblyWindow::realOpenVideo(const QString &path) {
+    QString source_filter;
+
+    QString extension = path.mid(path.lastIndexOf('.') + 1);
+
+    QStringList mp4 = { "mp4", "m4v", "mov" };
+
+    if (extension == "d2v")
+        source_filter = "d2v.Source";
+    else if (mp4.contains(extension))
+        source_filter = "lsmas.LibavSMASHSource";
+    else
+        source_filter = "lsmas.LWLibavSource";
+
+    jobs.emplace_back();
+
+    WibblyJob &job = jobs.back();
+
+    job.setInputFile(path.toStdString());
+    job.setSourceFilter(source_filter.toStdString());
+    job.setOutputFile(QStringLiteral("%1.json").arg(path).toStdString());
+
+    main_jobs_list->addItem(path);
 }

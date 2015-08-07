@@ -3,11 +3,41 @@
 
 WibblyJob::WibblyJob()
     : steps(StepTrim | StepCrop | StepFieldMatch | StepInterlacedFades | StepDecimation | StepSceneChanges)
-    , crop{ 0, 0, 0, 0 }
+    , crop{ true, false, 0, 0, 0, 0 }
     , vfm{ 1, 1, 9, 80, 1, 16, 16, 16, 16, 12, 0 }
     , fades_threshold(0.4f)
 {
 
+}
+
+
+std::string WibblyJob::getInputFile() {
+    return input_file;
+}
+
+
+void WibblyJob::setInputFile(const std::string &path) {
+    input_file = path;
+}
+
+
+std::string WibblyJob::getSourceFilter() {
+    return source_filter;
+}
+
+
+void WibblyJob::setSourceFilter(const std::string &filter) {
+    source_filter = filter;
+}
+
+
+std::string WibblyJob::getOutputFile() {
+    return output_file;
+}
+
+
+void WibblyJob::setOutputFile(const std::string &path) {
+    output_file = path;
 }
 
 
