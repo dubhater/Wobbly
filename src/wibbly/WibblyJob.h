@@ -41,18 +41,30 @@ class WibblyJob {
 
     int steps;
 
-    int crop[4];
+    Crop crop;
 
-    std::map<int, FrameRange> trim;
+    std::map<int, FrameRange> trims;
 
     VFMParameters vfm;
 
     float fades_threshold;
 
-    WobblyProject *project;
-
 public:
     WibblyJob();
+
+
+    void headerToScript(std::string &script);
+    void sourceToScript(std::string &script);
+    void trimToScript(std::string &script);
+    void cropToScript(std::string &script);
+    void fieldMatchToScript(std::string &script);
+    void interlacedFadesToScript(std::string &script);
+    void decimationToScript(std::string &script);
+    void sceneChangesToScript(std::string &script);
+    void setOutputToScript(std::string &script);
+
+    std::string generateFinalScript();
+    std::string generateDisplayScript();
 };
 
 #endif // WIBBLYJOB_H
