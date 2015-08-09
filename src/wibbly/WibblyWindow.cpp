@@ -1,9 +1,9 @@
 #include <QButtonGroup>
-#include <QCheckBox>
 #include <QFileDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
@@ -21,6 +21,9 @@
 
 WibblyWindow::WibblyWindow()
     : QMainWindow()
+    , current_frame(0)
+    , trim_start(-1)
+    , trim_end(-1)
 {
     createUI();
 }
@@ -63,15 +66,15 @@ void WibblyWindow::createMainWindow() {
     main_jobs_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     main_jobs_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
+    QLineEdit *main_destination_edit = new QLineEdit;
+
+    QPushButton *main_choose_button = new QPushButton("Choose");
+
     QPushButton *main_add_jobs_button = new QPushButton("Add jobs");
     QPushButton *main_remove_jobs_button = new QPushButton("Remove jobs");
     QPushButton *main_copy_jobs_button = new QPushButton("Copy jobs");
     QPushButton *main_move_jobs_up_button = new QPushButton("Move up");
     QPushButton *main_move_jobs_down_button = new QPushButton("Move down");
-
-    QLineEdit *main_destination_edit = new QLineEdit;
-
-    QPushButton *main_choose_button = new QPushButton("Choose");
 
     std::map<int, QString> steps = {
         { StepTrim, "Trim" },
@@ -96,7 +99,74 @@ void WibblyWindow::createMainWindow() {
     QPushButton *main_cancel_button = new QPushButton("Cancel");
 
 
+    connect(main_jobs_list, &ListWidget::currentRowChanged, [this, main_destination_edit, main_steps_buttons, steps] (int currentRow) {
+        if (currentRow < 0)
+            return;
+
+        const WibblyJob &job = jobs[currentRow];
+
+        main_destination_edit->setText(QString::fromStdString(job.getOutputFile()));
+
+        for (auto it = steps.cbegin(); it != steps.cend(); it++)
+            main_steps_buttons->button(it->first)->setChecked(job.getSteps() & it->first);
+
+        trim_ranges_list->clear();
+        auto trims = job.getTrims();
+        for (auto it = trims.cbegin(); it != trims.cend(); it++) {
+            QListWidgetItem *item = new QListWidgetItem(QStringLiteral("%1,%2").arg(it->second.first).arg(it->second.last), trim_ranges_list);
+            item->setData(Qt::UserRole, it->first);
+        }
+
+        const Crop &crop = job.getCrop();
+        int crop_values[4] = { crop.left, crop.top, crop.right, crop.bottom };
+        for (int i = 0; i < 4; i++) {
+            crop_spin[i]->blockSignals(true);
+            crop_spin[i]->setValue(crop_values[i]);
+            crop_spin[i]->blockSignals(false);
+        }
+
+        fades_threshold_spin->blockSignals(true);
+        fades_threshold_spin->setValue(job.getFadesThreshold());
+        fades_threshold_spin->blockSignals(false);
+
+        for (size_t i = 0; i < vfm_params.size(); i++) {
+            if (vfm_params[i].type == VFMParamInt) {
+                QSpinBox *spin = reinterpret_cast<QSpinBox *>(vfm_params[i].widget);
+                spin->blockSignals(true);
+                spin->setValue(job.getVFMParameterInt(vfm_params[i].name.toStdString()));
+                spin->blockSignals(false);
+            } else if (vfm_params[i].type == VFMParamDouble) {
+                QDoubleSpinBox *spin = reinterpret_cast<QDoubleSpinBox *>(vfm_params[i].widget);
+                spin->blockSignals(true);
+                spin->setValue(job.getVFMParameterDouble(vfm_params[i].name.toStdString()));
+                spin->blockSignals(false);
+            } else if (vfm_params[i].type == VFMParamBool) {
+                QCheckBox *check = reinterpret_cast<QCheckBox *>(vfm_params[i].widget);
+                check->setChecked(job.getVFMParameterBool(vfm_params[i].name.toStdString()));
+            }
+        }
+    });
+
     connect(main_jobs_list, &ListWidget::deletePressed, main_remove_jobs_button, &QPushButton::click);
+
+    auto destinationChanged = [this, main_destination_edit] () {
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = 0; i < selection.size(); i++) {
+            int row = main_jobs_list->row(selection[i]);
+
+            jobs[row].setOutputFile(main_destination_edit->text().toStdString());
+        }
+    };
+
+    connect(main_destination_edit, &QLineEdit::editingFinished, destinationChanged);
+
+    connect(main_choose_button, &QPushButton::clicked, [this, destinationChanged] () {
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), QString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
+
+        if (!path.isEmpty())
+            destinationChanged();
+    });
 
     connect(main_add_jobs_button, &QPushButton::clicked, [this] () {
         QStringList paths = QFileDialog::getOpenFileNames(this, QStringLiteral("Open video file"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
@@ -155,6 +225,23 @@ void WibblyWindow::createMainWindow() {
 
             std::swap(jobs[row], jobs[row + 1]);
             main_jobs_list->insertItem(row, main_jobs_list->takeItem(row + 1));
+        }
+    });
+
+    connect(main_steps_buttons, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this, main_steps_buttons] (int id) {
+        bool checked = main_steps_buttons->button(id)->isChecked();
+
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = 0; i < selection.size(); i++) {
+            int row = main_jobs_list->row(selection[i]);
+
+            int new_steps = jobs[row].getSteps();
+            if (checked)
+                new_steps |= id;
+            else
+                new_steps &= ~id;
+            jobs[row].setSteps(new_steps);
         }
     });
 
@@ -263,7 +350,6 @@ void WibblyWindow::createCropWindow() {
         "Bottom: "
     };
 
-    QSpinBox *crop_spin[4];
     for (int i = 0; i < 4; i++) {
         crop_spin[i] = new QSpinBox;
         crop_spin[i]->setRange(0, 99999);
@@ -272,7 +358,18 @@ void WibblyWindow::createCropWindow() {
     }
 
 
-    // connect
+    auto cropChanged = [this] () {
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = 0; i < selection.size(); i++) {
+            int row = main_jobs_list->row(selection[i]);
+
+            jobs[row].setCrop(crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value());
+        }
+    };
+
+    for (int i = 0; i < 4; i++)
+        connect(crop_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), cropChanged);
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
@@ -302,49 +399,73 @@ void WibblyWindow::createCropWindow() {
 
 
 void WibblyWindow::createVFMWindow() {
-    struct VFMSpin {
-        QSpinBox *spinbox;
-        QString prefix;
-        int minimum;
-        int maximum;
+    vfm_params = {
+        { nullptr, "order",      0,          1, VFMParamInt },
+        { nullptr, "mchroma",    0,          1, VFMParamBool },
+        { nullptr, "cthresh",    1,        255, VFMParamInt },
+        { nullptr, "mi",         0,    INT_MAX, VFMParamInt },
+        { nullptr, "chroma",     0,          1, VFMParamBool },
+        { nullptr, "blockx",     4,        512, VFMParamInt },
+        { nullptr, "blocky",     4,        512, VFMParamInt },
+        { nullptr, "y0",         0,    INT_MAX, VFMParamInt },
+        { nullptr, "y1",         0,    INT_MAX, VFMParamInt },
+        { nullptr, "scthresh",   0,        100, VFMParamDouble },
+        { nullptr, "micmatch",   0,          2, VFMParamInt }
     };
 
-    std::vector<VFMSpin> vfm_spins = {
-        { nullptr, "order: ",        INT_MIN,          1 },
-        { nullptr, "cthresh: ",           -1,        255 },
-        { nullptr, "mi: ",           INT_MIN,    INT_MAX },
-        { nullptr, "blockx: ",             4,        512 },
-        { nullptr, "blocky: ",             4,        512 },
-        { nullptr, "y0: ",           INT_MIN,    INT_MAX },
-        { nullptr, "y1: ",           INT_MIN,    INT_MAX },
-        { nullptr, "micmatch: ",     INT_MIN,          2 }
+    auto parametersChanged = [this] () {
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = 0; i < selection.size(); i++) {
+            int row = main_jobs_list->row(selection[i]);
+
+            WibblyJob &job = jobs[row];
+
+            for (size_t j = 0; j < vfm_params.size(); j++) {
+                if (vfm_params[j].type == VFMParamInt) {
+                    job.setVFMParameter(vfm_params[j].name.toStdString(), reinterpret_cast<QSpinBox *>(vfm_params[j].widget)->value());
+                } else if (vfm_params[j].type == VFMParamDouble) {
+                    job.setVFMParameter(vfm_params[j].name.toStdString(), reinterpret_cast<QDoubleSpinBox *>(vfm_params[j].widget)->value());
+                } else if (vfm_params[j].type == VFMParamBool) {
+                    job.setVFMParameter(vfm_params[j].name.toStdString(), reinterpret_cast<QCheckBox *>(vfm_params[j].widget)->isChecked());
+                }
+            }
+        }
     };
 
-    for (size_t i = 0; i < vfm_spins.size(); i++) {
-        vfm_spins[i].spinbox = new QSpinBox;
-        vfm_spins[i].spinbox->setPrefix(vfm_spins[i].prefix);
-        if (vfm_spins[i].minimum != INT_MIN)
-            vfm_spins[i].spinbox->setMinimum(vfm_spins[i].minimum);
-        if (vfm_spins[i].maximum != INT_MAX)
-            vfm_spins[i].spinbox->setMaximum(vfm_spins[i].maximum);
+    for (size_t i = 0; i < vfm_params.size(); i++) {
+        if (vfm_params[i].type == VFMParamInt) {
+            QSpinBox *spin = new QSpinBox;
+            spin->setPrefix(vfm_params[i].name + ": ");
+            spin->setMinimum(vfm_params[i].minimum);
+            if (vfm_params[i].maximum != INT_MAX)
+                spin->setMaximum(vfm_params[i].maximum);
+
+            connect(spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), parametersChanged);
+
+            vfm_params[i].widget = spin;
+        } else if (vfm_params[i].type == VFMParamDouble) {
+            QDoubleSpinBox *spin = new QDoubleSpinBox;
+            spin->setPrefix(vfm_params[i].name + ": ");
+            spin->setMaximum(vfm_params[i].maximum);
+
+            connect(spin, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), parametersChanged);
+
+            vfm_params[i].widget = spin;
+        } else if (vfm_params[i].type == VFMParamBool) {
+            QCheckBox *check = new QCheckBox(vfm_params[i].name);
+            check->setChecked(true);
+
+            connect(check, &QCheckBox::clicked, parametersChanged);
+
+            vfm_params[i].widget = check;
+        }
     }
-
-    QDoubleSpinBox *vfm_scthresh_spin = new QDoubleSpinBox;
-    vfm_scthresh_spin->setMaximum(100);
-
-    QCheckBox *vfm_mchroma_check = new QCheckBox("mchroma");
-    QCheckBox *vfm_chroma_check = new QCheckBox("chroma");
-
-
-    // connect
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
-    for (size_t i = 0; i < vfm_spins.size(); i++)
-        vbox->addWidget(vfm_spins[i].spinbox);
-    vbox->addWidget(vfm_scthresh_spin);
-    vbox->addWidget(vfm_mchroma_check);
-    vbox->addWidget(vfm_chroma_check);
+    for (size_t i = 0; i < vfm_params.size(); i++)
+        vbox->addWidget(vfm_params[i].widget);
     vbox->addStretch(1);
 
     QHBoxLayout *hbox = new QHBoxLayout;
@@ -373,22 +494,101 @@ void WibblyWindow::createTrimWindow() {
     trim_ranges_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     trim_ranges_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
-    trim_label = new QLabel;
+    QLabel *trim_start_label = new QLabel;
+    QLabel *trim_end_label = new QLabel;
 
     QPushButton *trim_start_button = new QPushButton("Start trim");
     QPushButton *trim_end_button = new QPushButton("End trim");
     QPushButton *trim_add_button = new QPushButton("Add trim");
+    QPushButton *trim_delete_button = new QPushButton("Delete trim");
 
 
-    // connect
+    connect(trim_ranges_list, &ListWidget::deletePressed, trim_delete_button, &QPushButton::click);
+
+    // double click on a range
+
+    connect(trim_start_button, &QPushButton::clicked, [this, trim_start_label] () {
+        trim_start = current_frame;
+
+        trim_start_label->setText(QStringLiteral("Start: %1").arg(trim_start));
+    });
+
+    connect(trim_end_button, &QPushButton::clicked, [this, trim_end_label] () {
+        trim_end = current_frame;
+
+        trim_end_label->setText(QStringLiteral("End: %1").arg(trim_end));
+    });
+
+    connect(trim_add_button, &QPushButton::clicked, [this, trim_start_label, trim_end_label] () {
+        if (trim_start == -1 || trim_end == -1)
+            return;
+
+        auto selection = main_jobs_list->selectedItems();
+
+        if (!selection.size())
+            return;
+
+        if (trim_start > trim_end)
+            std::swap(trim_start, trim_end);
+
+        for (int i = 0; i < selection.size(); i++) {
+            int row = main_jobs_list->row(selection[i]);
+
+            try {
+                jobs[row].addTrim(trim_start, trim_end);
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+            }
+        }
+
+        int current_job = main_jobs_list->currentRow();
+        main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
+        main_jobs_list->setCurrentRow(current_job, QItemSelectionModel::NoUpdate);
+
+        trim_start = trim_end = -1;
+        trim_start_label->clear();
+        trim_end_label->clear();
+    });
+
+    connect(trim_delete_button, &QPushButton::clicked, [this] () {
+        auto job_selection = main_jobs_list->selectedItems();
+
+        if (!job_selection.size())
+            return;
+
+        auto trim_selection = trim_ranges_list->selectedItems();
+
+        if (!trim_selection.size())
+            return;
+
+        for (int i = 0; i < job_selection.size(); i++) {
+            for (int j = 0; j < trim_selection.size(); j++) {
+                jobs[i].deleteTrim(trim_selection[j]->data(Qt::UserRole).toInt());
+            }
+        }
+
+        int current_job = main_jobs_list->currentRow();
+        main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
+        main_jobs_list->setCurrentRow(current_job, QItemSelectionModel::NoUpdate);
+    });
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(trim_ranges_list);
-    vbox->addWidget(trim_label);
 
     QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(trim_start_label);
+    hbox->addWidget(trim_end_label);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
     hbox->addWidget(trim_add_button);
+    hbox->addWidget(trim_delete_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
     hbox->addWidget(trim_start_button);
     hbox->addWidget(trim_end_button);
     hbox->addStretch(1);
@@ -417,7 +617,15 @@ void WibblyWindow::createInterlacedFadesWindow() {
     fades_threshold_spin->setMaximum(255);
 
 
-    // connect
+    connect(fades_threshold_spin, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), [this] (double value) {
+        auto selection = main_jobs_list->selectedItems();
+
+        for (int i = 0; i < selection.size(); i++) {
+            int row = main_jobs_list->row(selection[i]);
+
+            jobs[row].setFadesThreshold(value);
+        }
+    });
 
 
     QHBoxLayout *hbox = new QHBoxLayout;
@@ -468,4 +676,9 @@ void WibblyWindow::realOpenVideo(const QString &path) {
     job.setOutputFile(QStringLiteral("%1.json").arg(path).toStdString());
 
     main_jobs_list->addItem(path);
+}
+
+
+void WibblyWindow::errorPopup(const char *msg) {
+    QMessageBox::information(this, QStringLiteral("Error"), msg);
 }

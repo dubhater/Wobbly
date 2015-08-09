@@ -4,14 +4,32 @@
 WibblyJob::WibblyJob()
     : steps(StepTrim | StepCrop | StepFieldMatch | StepInterlacedFades | StepDecimation | StepSceneChanges)
     , crop{ true, false, 0, 0, 0, 0 }
-    , vfm{ 1, 1, 9, 80, 1, 16, 16, 16, 16, 12, 0 }
-    , fades_threshold(0.4f)
+    , vfm{
+            {
+                { "order", 1 },
+                { "cthresh", 9 },
+                { "mi", 80 },
+                { "blockx", 16 },
+                { "blocky", 16 },
+                { "y0", 16 },
+                { "y1", 16 },
+                { "micmatch", 0 }
+            },
+            {
+                { "scthresh", 12 }
+            },
+            {
+                { "mchroma", true },
+                { "chroma", true }
+            }
+    }
+    , fades_threshold(0.4)
 {
 
 }
 
 
-std::string WibblyJob::getInputFile() {
+std::string WibblyJob::getInputFile() const {
     return input_file;
 }
 
@@ -21,7 +39,7 @@ void WibblyJob::setInputFile(const std::string &path) {
 }
 
 
-std::string WibblyJob::getSourceFilter() {
+std::string WibblyJob::getSourceFilter() const {
     return source_filter;
 }
 
@@ -31,7 +49,7 @@ void WibblyJob::setSourceFilter(const std::string &filter) {
 }
 
 
-std::string WibblyJob::getOutputFile() {
+std::string WibblyJob::getOutputFile() const {
     return output_file;
 }
 
@@ -41,7 +59,97 @@ void WibblyJob::setOutputFile(const std::string &path) {
 }
 
 
-void WibblyJob::headerToScript(std::string &script) {
+int WibblyJob::getSteps() const {
+    return steps;
+}
+
+
+void WibblyJob::setSteps(int new_steps) {
+    steps = new_steps;
+}
+
+
+const Crop &WibblyJob::getCrop() const {
+    return crop;
+}
+
+
+void WibblyJob::setCrop(int left, int top, int right, int bottom) {
+    if (left < 0 || top < 0 || right < 0 || bottom < 0)
+        throw WobblyException("Can't crop (" + std::to_string(left) + "," + std::to_string(top) + "," + std::to_string(right) + "," + std::to_string(bottom) + "): negative values.");
+
+    crop.left = left;
+    crop.top = top;
+    crop.right = right;
+    crop.bottom = bottom;
+}
+
+
+const std::map<int, FrameRange> &WibblyJob::getTrims() const {
+    return trims;
+}
+
+
+void WibblyJob::addTrim(int trim_start, int trim_end) {
+    for (auto it = trims.cbegin(); it != trims.cend(); it++) {
+        if ((it->second.first <= trim_start && trim_start <= it->second.last) ||
+            (it->second.first <= trim_end && trim_end <= it->second.last) ||
+            (trim_start <= it->second.first && it->second.first <= trim_end) ||
+            (trim_start <= it->second.last && it->second.last <= trim_end))
+
+            throw WobblyException("Can't add trim (" + std::to_string(trim_start) + "," + std::to_string(trim_end) + "): overlaps trim (" + std::to_string(it->second.first) + "," + std::to_string(it->second.last) + ").");
+    }
+
+    trims.insert({ trim_start, { trim_start, trim_end } });
+}
+
+
+void WibblyJob::deleteTrim(int trim_start) {
+    trims.erase(trim_start);
+}
+
+
+int WibblyJob::getVFMParameterInt(const std::string &name) const {
+    return vfm.int_params.at(name);
+}
+
+
+double WibblyJob::getVFMParameterDouble(const std::string &name) const {
+    return vfm.double_params.at(name);
+}
+
+
+bool WibblyJob::getVFMParameterBool(const std::string &name) const {
+    return vfm.bool_params.at(name);
+}
+
+
+void WibblyJob::setVFMParameter(const std::string &name, int value) {
+    vfm.int_params[name] = value;
+}
+
+
+void WibblyJob::setVFMParameter(const std::string &name, double value) {
+    vfm.double_params[name] = value;
+}
+
+
+void WibblyJob::setVFMParameter(const std::string &name, bool value) {
+    vfm.bool_params[name] = value;
+}
+
+
+double WibblyJob::getFadesThreshold() const {
+    return fades_threshold;
+}
+
+
+void WibblyJob::setFadesThreshold(double threshold) {
+    fades_threshold = threshold;
+}
+
+
+void WibblyJob::headerToScript(std::string &script) const {
     script +=
             "import vapoursynth as vs\n"
             "\n"
@@ -50,14 +158,14 @@ void WibblyJob::headerToScript(std::string &script) {
 }
 
 
-void WibblyJob::sourceToScript(std::string &script) {
+void WibblyJob::sourceToScript(std::string &script) const {
     script +=
             "src = c." + source_filter + "(r'" + input_file + "')\n"
             "\n";
 }
 
 
-void WibblyJob::trimToScript(std::string &script) {
+void WibblyJob::trimToScript(std::string &script) const {
     if (!trims.size())
         return;
 
@@ -70,7 +178,7 @@ void WibblyJob::trimToScript(std::string &script) {
 }
 
 
-void WibblyJob::cropToScript(std::string &script) {
+void WibblyJob::cropToScript(std::string &script) const {
     script += "src = c.std.CropRel(clip=src, left=";
     script += std::to_string(crop.left) + ", top=";
     script += std::to_string(crop.top) + ", right=";
@@ -79,26 +187,23 @@ void WibblyJob::cropToScript(std::string &script) {
 }
 
 
-void WibblyJob::fieldMatchToScript(std::string &script) {
+void WibblyJob::fieldMatchToScript(std::string &script) const {
     script += "src = c.vivtc.VFM(clip=src";
-    script += ", order=" + std::to_string(vfm.order);
-    script += ", field=" + std::to_string(!vfm.order);
+
+    for (auto it = vfm.int_params.cbegin(); it != vfm.int_params.cend(); it++)
+        script += ", " + it->first + "=" + std::to_string(it->second);
+    for (auto it = vfm.double_params.cbegin(); it != vfm.double_params.cend(); it++)
+        script += ", " + it->first + "=" + std::to_string(it->second);
+    for (auto it = vfm.bool_params.cbegin(); it != vfm.bool_params.cend(); it++)
+        script += ", " + it->first + "=" + std::to_string((int)it->second);
+
+    script += ", field=" + std::to_string(!vfm.int_params.at("order"));
     script += ", mode=" + std::to_string(0);
-    script += ", mchroma=" + std::to_string(vfm.mchroma);
-    script += ", cthresh=" + std::to_string(vfm.cthresh);
-    script += ", mi=" + std::to_string(vfm.mi);
-    script += ", chroma=" + std::to_string(vfm.chroma);
-    script += ", blockx=" + std::to_string(vfm.blockx);
-    script += ", blocky=" + std::to_string(vfm.blocky);
-    script += ", y0=" + std::to_string(vfm.y0);
-    script += ", y1=" + std::to_string(vfm.y1);
-    script += ", scthresh=" + std::to_string(vfm.scthresh);
-    script += ", micmatch=" + std::to_string(vfm.micmatch);
     script += ")\n\n";
 }
 
 
-void WibblyJob::interlacedFadesToScript(std::string &script) {
+void WibblyJob::interlacedFadesToScript(std::string &script) const {
     script += "separated = c.std.SeparateFields(clip=src, tff=True)\n";
     script += "even = c.std.SelectEvery(clip=separated, cycle=2, offsets=0)\n";
     script += "odd = c.std.SelectEvery(clip=separated, cycle=2, offsets=1)\n";
@@ -109,39 +214,45 @@ void WibblyJob::interlacedFadesToScript(std::string &script) {
 }
 
 
-void WibblyJob::decimationToScript(std::string &script) {
+void WibblyJob::decimationToScript(std::string &script) const {
     script += "src = c.vivtc.VDecimate(clip=src, cycle=5, chroma=1, dupthresh=1.1, scthresh=15, blockx=32, blocky=32, dryrun=True)\n\n";
 }
 
 
-void WibblyJob::sceneChangesToScript(std::string &script) {
+void WibblyJob::sceneChangesToScript(std::string &script) const {
     script += "src = c.scxvid.Scxvid(clip=src, use_slices=True)\n\n";
 }
 
 
-void WibblyJob::setOutputToScript(std::string &script) {
+void WibblyJob::setOutputToScript(std::string &script) const {
     script += "src.set_output()\n";
 }
 
 
-std::string WibblyJob::generateFinalScript() {
+std::string WibblyJob::generateFinalScript() const {
     std::string script;
 
     headerToScript(script);
 
     sourceToScript(script);
 
-    trimToScript(script);
+    if (steps & StepTrim)
+        trimToScript(script);
 
-    cropToScript(script);
+    if (steps & StepCrop)
+        cropToScript(script);
 
-    fieldMatchToScript(script);
+    if (steps & StepFieldMatch)
+        fieldMatchToScript(script);
 
-    interlacedFadesToScript(script);
+    if (steps & StepInterlacedFades)
+        interlacedFadesToScript(script);
 
-    decimationToScript(script);
+    if (steps & StepDecimation)
+        decimationToScript(script);
 
-    sceneChangesToScript(script);
+    if (steps & StepSceneChanges)
+        sceneChangesToScript(script);
 
     setOutputToScript(script);
 
@@ -149,7 +260,7 @@ std::string WibblyJob::generateFinalScript() {
 }
 
 
-std::string WibblyJob::generateDisplayScript() {
+std::string WibblyJob::generateDisplayScript() const {
     std::string script;
 
     headerToScript(script);

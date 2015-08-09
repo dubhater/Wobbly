@@ -1,6 +1,7 @@
 #ifndef WIBBLYWINDOW_H
 #define WIBBLYWINDOW_H
 
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QMainWindow>
@@ -12,6 +13,23 @@
 #include "ListWidget.h"
 
 #include "WibblyJob.h"
+
+
+enum VFMParameterTypes {
+    VFMParamInt,
+    VFMParamDouble,
+    VFMParamBool
+};
+
+
+struct VFMParameter {
+    QWidget *widget;
+    QString name;
+    int minimum;
+    int maximum;
+    int type;
+};
+
 
 class WibblyWindow : public QMainWindow
 {
@@ -30,12 +48,13 @@ class WibblyWindow : public QMainWindow
     QSlider *video_frame_slider;
 
     DockWidget *crop_dock;
+    QSpinBox *crop_spin[4];
 
     DockWidget *vfm_dock;
+    std::vector<VFMParameter> vfm_params;
 
     DockWidget *trim_dock;
     ListWidget *trim_ranges_list;
-    QLabel *trim_label;
 
     DockWidget *fades_dock;
     QDoubleSpinBox *fades_threshold_spin;
@@ -46,6 +65,11 @@ class WibblyWindow : public QMainWindow
 
     // Other stuff.
     std::vector<WibblyJob> jobs;
+
+    int current_frame;
+
+    int trim_start;
+    int trim_end;
 
 
     // Functions.
@@ -59,6 +83,8 @@ class WibblyWindow : public QMainWindow
     void createInterlacedFadesWindow();
 
     void realOpenVideo(const QString &path);
+
+    void errorPopup(const char *msg);
 
 public:
     WibblyWindow();
