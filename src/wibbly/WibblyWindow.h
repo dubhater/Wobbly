@@ -2,12 +2,16 @@
 #define WIBBLYWINDOW_H
 
 #include <QCheckBox>
+#include <QCloseEvent>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QMainWindow>
 #include <QProgressBar>
 #include <QSlider>
 #include <QSpinBox>
+#include <QTimeEdit>
+
+#include <VSScript.h>
 
 #include "DockWidget.h"
 #include "ListWidget.h"
@@ -45,6 +49,8 @@ class WibblyWindow : public QMainWindow
 
     DockWidget *video_dock;
     QLabel *video_frame_label;
+    QSpinBox *video_frame_spin;
+    QTimeEdit *video_time_edit;
     QSlider *video_frame_slider;
 
     DockWidget *crop_dock;
@@ -61,6 +67,12 @@ class WibblyWindow : public QMainWindow
 
 
     // VapourSynth stuff.
+    const VSAPI *vsapi;
+    VSScript *vsscript;
+    VSCore *vscore;
+    VSNodeRef *vsnode;
+    const VSVideoInfo *vsvi;
+    const VSFrameRef *vsframe;
 
 
     // Other stuff.
@@ -73,6 +85,12 @@ class WibblyWindow : public QMainWindow
 
 
     // Functions.
+    void initialiseVapourSynth();
+    void cleanUpVapourSynth();
+    void checkRequiredFilters();
+
+    void closeEvent(QCloseEvent *event);
+
     void createUI();
     void createMenus();
     void createMainWindow();
@@ -85,6 +103,9 @@ class WibblyWindow : public QMainWindow
     void realOpenVideo(const QString &path);
 
     void errorPopup(const char *msg);
+
+    void evaluateDisplayScript();
+    void displayFrame(int n);
 
 public:
     WibblyWindow();

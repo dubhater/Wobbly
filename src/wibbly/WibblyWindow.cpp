@@ -6,14 +6,10 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QSpinBox>
 #include <QStatusBar>
-#include <QTimeEdit>
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
-
-#include <VSScript.h>
 
 #include "WibblyWindow.h"
 #include "WobblyException.h"
@@ -21,11 +17,138 @@
 
 WibblyWindow::WibblyWindow()
     : QMainWindow()
+    , vsapi(nullptr)
+    , vsscript(nullptr)
+    , vscore(nullptr)
+    , vsnode(nullptr)
+    , vsvi(nullptr)
+    , vsframe(nullptr)
     , current_frame(0)
     , trim_start(-1)
     , trim_end(-1)
 {
     createUI();
+
+    try {
+        initialiseVapourSynth();
+
+        checkRequiredFilters();
+    } catch (WobblyException &e) {
+        show();
+        errorPopup(e.what());
+        std::exit(1); // Seems a bit heavy-handed, but close() doesn't close the window if called here, so...
+    }
+}
+
+
+void WibblyWindow::initialiseVapourSynth() {
+    if (!vsscript_init())
+        throw WobblyException("Fatal error: failed to initialise VSScript. Your VapourSynth installation is probably broken.");
+
+
+    vsapi = vsscript_getVSApi();
+    if (!vsapi)
+        throw WobblyException("Fatal error: failed to acquire VapourSynth API struct. Did you update the VapourSynth library but not the Python module (or the other way around)?");
+
+    if (vsscript_createScript(&vsscript))
+        throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vsscript_getError(vsscript));
+
+    vscore = vsscript_getCore(vsscript);
+    if (!vscore)
+        throw WobblyException("Fatal error: failed to retrieve VapourSynth core object.");
+}
+
+
+void WibblyWindow::cleanUpVapourSynth() {
+    video_frame_label->setPixmap(QPixmap());
+    vsapi->freeFrame(vsframe);
+    vsframe = nullptr;
+
+    vsapi->freeNode(vsnode);
+    vsnode = nullptr;
+
+    vsscript_freeScript(vsscript);
+    vsscript = nullptr;
+}
+
+
+void WibblyWindow::checkRequiredFilters() {
+    struct Plugin {
+        std::string id;
+        std::vector<std::string> filters;
+        std::string plugin_not_found;
+        std::string filter_not_found;
+    };
+
+    std::vector<Plugin> plugins = {
+        {
+            "com.sources.d2vsource",
+            { "Source" },
+            "d2vsource plugin not found.",
+            ""
+        },
+        {
+            "systems.innocent.lsmas",
+            { "LibavSMASHSource", "LWLibavSource" },
+            "L-SMASH-Works plugin not found.",
+            ""
+        },
+        {
+            "org.ivtc.v",
+            { "VFM", "VDecimate" },
+            "VIVTC plugin not found.",
+            ""
+        },
+        {
+            "com.nodame.scxvid",
+            { "Scxvid" },
+            "SCXVID plugin not found.",
+            ""
+        },
+        {
+            "the.weather.channel",
+            { "Colorspace", "Depth", "Resize" },
+            "zimg plugin not found.",
+            "Arwen broke it."
+        }
+    };
+
+    std::string error;
+
+    for (size_t i = 0; i < plugins.size(); i++) {
+        VSPlugin *plugin = vsapi->getPluginById(plugins[i].id.c_str(), vscore);
+        if (!plugin) {
+            error += "Fatal error: ";
+            error += plugins[i].plugin_not_found;
+            error += "\n";
+        } else {
+            VSMap *map = vsapi->getFunctions(plugin);
+            for (auto it = plugins[i].filters.cbegin(); it != plugins[i].filters.cend(); it++) {
+                if (vsapi->propGetType(map, it->c_str()) == ptUnset) {
+                    error += "Fatal error: plugin '";
+                    error += plugins[i].id;
+                    error += "' found but it lacks filter '";
+                    error += *it;
+                    error += "'.";
+                    if (plugins[i].filter_not_found.size()) {
+                        error += " Likely reason: ";
+                        error += plugins[i].filter_not_found;
+                    }
+                    error += "\n";
+                }
+            }
+        }
+    }
+
+    if (error.size())
+        throw WobblyException(error);
+}
+
+
+void WibblyWindow::closeEvent(QCloseEvent *event) {
+    cleanUpVapourSynth();
+
+    event->accept();
 }
 
 
@@ -144,6 +267,12 @@ void WibblyWindow::createMainWindow() {
                 QCheckBox *check = reinterpret_cast<QCheckBox *>(vfm_params[i].widget);
                 check->setChecked(job.getVFMParameterBool(vfm_params[i].name.toStdString()));
             }
+        }
+
+        try {
+            evaluateDisplayScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
         }
     });
 
@@ -294,7 +423,6 @@ void WibblyWindow::createMainWindow() {
 
 void WibblyWindow::createVideoOutputWindow() {
     video_frame_label = new QLabel;
-    video_frame_label->setMinimumSize(720, 480);
 
     QScrollArea *video_frame_scroll = new QScrollArea;
     video_frame_scroll->setFrameShape(QFrame::NoFrame);
@@ -303,16 +431,29 @@ void WibblyWindow::createVideoOutputWindow() {
     video_frame_scroll->setWidgetResizable(true);
     video_frame_scroll->setWidget(video_frame_label);
 
-    QSpinBox *video_frame_spin = new QSpinBox;
-    QTimeEdit *video_time_edit = new QTimeEdit;
+    video_frame_spin = new QSpinBox;
+
+    video_time_edit = new QTimeEdit;
     video_time_edit->setDisplayFormat(QStringLiteral("hh:mm:ss.zzz"));
+    video_time_edit->setKeyboardTracking(false);
 
     video_frame_slider = new QSlider(Qt::Horizontal);
     video_frame_slider->setTracking(false);
-    video_frame_slider->setFocusPolicy(Qt::NoFocus);
 
 
-    // connect
+    connect(video_frame_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &WibblyWindow::displayFrame);
+
+    connect(video_time_edit, &QTimeEdit::timeChanged, [this] (const QTime &time) {
+        if (!vsvi)
+            return;
+
+        QTime zero(0, 0, 0, 0);
+        int milliseconds = zero.msecsTo(time);
+        int frame = (int)(vsvi->fpsNum * milliseconds / (vsvi->fpsDen * 1000));
+        displayFrame(frame);
+    });
+
+    connect(video_frame_slider, &QSlider::valueChanged, this, &WibblyWindow::displayFrame);
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
@@ -682,3 +823,117 @@ void WibblyWindow::realOpenVideo(const QString &path) {
 void WibblyWindow::errorPopup(const char *msg) {
     QMessageBox::information(this, QStringLiteral("Error"), msg);
 }
+
+
+void WibblyWindow::evaluateDisplayScript() {
+    int current_row = main_jobs_list->currentRow();
+    if (current_row < 0)
+        return;
+
+    const WibblyJob &job = jobs[current_row];
+
+    std::string script;
+
+    script = job.generateDisplayScript();
+
+    // BT 601
+    script +=
+            "src = vs.get_output(index=0)\n"
+            "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n"
+            "src = c.z.Resize(clip=src, width=src.width, height=src.height, filter_uv='bicubic', subsample_w=0, subsample_h=0)\n"
+            "src = c.z.Colorspace(clip=src, matrix_in=5, transfer_in=6, primaries_in=6, matrix_out=0)\n"
+            "src = c.z.Depth(clip=src, depth=8, sample=vs.INTEGER, dither='random')\n"
+            "src = c.std.FlipVertical(clip=src)\n"
+            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
+            "src.set_output()\n";
+
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(QString::fromStdString(job.getInputFile())).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+        std::string error = vsscript_getError(vsscript);
+        // The traceback is mostly unnecessary noise.
+        size_t traceback = error.find("Traceback");
+        if (traceback != std::string::npos)
+            error.insert(traceback, 1, '\n');
+
+        throw WobblyException("Failed to evaluate display script. Error message:\n" + error);
+    }
+
+    vsapi->freeNode(vsnode);
+
+    vsnode = vsscript_getOutput(vsscript, 0);
+    if (!vsnode)
+        throw WobblyException("Display script evaluated successfully, but no node found at output index 0.");
+
+    vsvi = vsapi->getVideoInfo(vsnode);
+
+    video_frame_spin->setMaximum(vsvi->numFrames - 1);
+
+    video_time_edit->blockSignals(true);
+    video_time_edit->setTime(QTime(0, 0, 0, 0));
+    if (vsvi->fpsNum && vsvi->fpsDen) {
+        int milliseconds = (int)(((vsvi->numFrames - 1) * vsvi->fpsDen * 1000 / vsvi->fpsNum) % 1000);
+        int seconds_total = (int)((vsvi->numFrames - 1) * vsvi->fpsDen / vsvi->fpsNum);
+        int seconds = seconds_total % 60;
+        int minutes = (seconds_total / 60) % 60;
+        int hours = seconds_total / 3600;
+        video_time_edit->setMaximumTime(QTime(hours, minutes, seconds, milliseconds));
+    }
+    video_time_edit->blockSignals(false);
+
+    video_frame_slider->setMaximum(vsvi->numFrames - 1);
+    video_frame_slider->setPageStep(vsvi->numFrames * 20 / 100);
+
+    displayFrame(current_frame);
+}
+
+
+void WibblyWindow::displayFrame(int n) {
+    if (!vsnode)
+        return;
+
+    if (n < 0)
+        n = 0;
+    if (n >= vsvi->numFrames)
+        n = vsvi->numFrames - 1;
+
+    std::vector<char> error(1024);
+    if (n == vsvi->numFrames - 1)
+        // Workaround for bug in d2vsource: https://github.com/dwbuiten/d2vsource/issues/12
+        vsapi->freeFrame(vsapi->getFrame(n - 1, vsnode, error.data(), 1024));
+    const VSFrameRef *frame = vsapi->getFrame(n, vsnode, error.data(), 1024);
+
+    if (!frame)
+        throw WobblyException(std::string("Failed to retrieve frame. Error message: ") + error.data());
+
+    const uint8_t *ptr = vsapi->getReadPtr(frame, 0);
+    int width = vsapi->getFrameWidth(frame, 0);
+    int height = vsapi->getFrameHeight(frame, 0);
+    int stride = vsapi->getStride(frame, 0);
+    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32));
+
+    video_frame_label->setPixmap(pixmap);
+    // Must free the frame only after replacing the pixmap.
+    vsapi->freeFrame(vsframe);
+    vsframe = frame;
+
+    current_frame = n;
+
+    video_frame_spin->blockSignals(true);
+    video_frame_spin->setValue(n);
+    video_frame_spin->blockSignals(false);
+
+    if (vsvi->fpsNum && vsvi->fpsDen) {
+        int milliseconds = (int)((n * vsvi->fpsDen * 1000 / vsvi->fpsNum) % 1000);
+        int seconds_total = (int)(n * vsvi->fpsDen / vsvi->fpsNum);
+        int seconds = seconds_total % 60;
+        int minutes = (seconds_total / 60) % 60;
+        int hours = seconds_total / 3600;
+        video_time_edit->blockSignals(true);
+        video_time_edit->setTime(QTime(hours, minutes, seconds, milliseconds));
+        video_time_edit->blockSignals(false);
+    }
+
+    video_frame_slider->blockSignals(true);
+    video_frame_slider->setValue(n);
+    video_frame_slider->blockSignals(false);
+}
+

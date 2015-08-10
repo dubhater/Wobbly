@@ -2502,7 +2502,7 @@ void WobblyWindow::initialiseCMatchSequencesWindow() {
 void WobblyWindow::initialiseUIFromProject() {
     updateWindowTitle();
 
-    frame_slider->setRange(0, project->getNumFrames(PostSource));
+    frame_slider->setRange(0, project->getNumFrames(PostSource) - 1);
     frame_slider->setPageStep(project->getNumFrames(PostSource) * 20 / 100);
 
     // Zoom.
