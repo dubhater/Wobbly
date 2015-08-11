@@ -6,7 +6,7 @@
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QMainWindow>
-#include <QProgressBar>
+#include <QProgressDialog>
 #include <QSlider>
 #include <QSpinBox>
 #include <QTimeEdit>
@@ -19,14 +19,14 @@
 #include "WibblyJob.h"
 
 
-enum VFMParameterTypes {
-    VFMParamInt,
-    VFMParamDouble,
-    VFMParamBool
+enum VIVTCParameterTypes {
+    VIVTCParamInt,
+    VIVTCParamDouble,
+    VIVTCParamBool
 };
 
 
-struct VFMParameter {
+struct VIVTCParameter {
     QWidget *widget;
     QString name;
     int minimum;
@@ -45,7 +45,7 @@ class WibblyWindow : public QMainWindow
 
     // Widgets.
     ListWidget *main_jobs_list;
-    QProgressBar *main_progress_bar;
+    QProgressDialog *main_progress_dialog;
 
     DockWidget *video_dock;
     QLabel *video_frame_label;
@@ -57,7 +57,9 @@ class WibblyWindow : public QMainWindow
     QSpinBox *crop_spin[4];
 
     DockWidget *vfm_dock;
-    std::vector<VFMParameter> vfm_params;
+    std::vector<VIVTCParameter> vfm_params;
+
+    std::vector<VIVTCParameter> vdecimate_params;
 
     DockWidget *trim_dock;
     ListWidget *trim_ranges_list;
@@ -83,6 +85,12 @@ class WibblyWindow : public QMainWindow
     int trim_start;
     int trim_end;
 
+    WobblyProject *current_project;
+    int current_job;
+    int next_frame;
+    int frames_left;
+    bool aborted;
+
 
     // Functions.
     void initialiseVapourSynth();
@@ -97,20 +105,26 @@ class WibblyWindow : public QMainWindow
     void createVideoOutputWindow();
     void createCropWindow();
     void createVFMWindow();
+    void createVDecimateWindow();
     void createTrimWindow();
     void createInterlacedFadesWindow();
 
     void realOpenVideo(const QString &path);
 
     void errorPopup(const char *msg);
+    void errorPopup(const std::string &msg);
 
+    void evaluateFinalScript(int job_index);
     void evaluateDisplayScript();
     void displayFrame(int n);
+
+    void startNextJob();
 
 public:
     WibblyWindow();
 
 public slots:
+    void frameDone(void *frame_v, int n, void *error_msg_v);
 };
 
 #endif // WIBBLYWINDOW_H

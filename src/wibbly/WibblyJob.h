@@ -19,7 +19,7 @@ enum MetricsGatheringSteps {
 };
 
 
-struct VFMParameters {
+struct VIVTCParameters {
     std::unordered_map<std::string, int> int_params;
     std::unordered_map<std::string, double> double_params;
     std::unordered_map<std::string, bool> bool_params;
@@ -39,7 +39,9 @@ class WibblyJob {
 
     std::map<int, FrameRange> trims;
 
-    VFMParameters vfm;
+    VIVTCParameters vfm;
+
+    VIVTCParameters vdecimate;
 
     double fades_threshold;
 
@@ -89,6 +91,14 @@ public:
     void setVFMParameter(const std::string &name, int value);
     void setVFMParameter(const std::string &name, double value);
     void setVFMParameter(const std::string &name, bool value);
+
+
+    int getVDecimateParameterInt(const std::string &name) const;
+    double getVDecimateParameterDouble(const std::string &name) const;
+    bool getVDecimateParameterBool(const std::string &name) const;
+    void setVDecimateParameter(const std::string &name, int value);
+    void setVDecimateParameter(const std::string &name, double value);
+    void setVDecimateParameter(const std::string &name, bool value);
 
 
     double getFadesThreshold() const;

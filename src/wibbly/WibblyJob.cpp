@@ -23,6 +23,19 @@ WibblyJob::WibblyJob()
                 { "chroma", true }
             }
     }
+    , vdecimate{
+            {
+                { "blockx", 32 },
+                { "blocky", 32 }
+            },
+            {
+                { "dupthresh", 1.1 },
+                { "scthresh", 15 }
+            },
+            {
+                { "chroma", true }
+            }
+    }
     , fades_threshold(0.4)
 {
 
@@ -139,6 +152,36 @@ void WibblyJob::setVFMParameter(const std::string &name, bool value) {
 }
 
 
+int WibblyJob::getVDecimateParameterInt(const std::string &name) const {
+    return vdecimate.int_params.at(name);
+}
+
+
+double WibblyJob::getVDecimateParameterDouble(const std::string &name) const {
+    return vdecimate.double_params.at(name);
+}
+
+
+bool WibblyJob::getVDecimateParameterBool(const std::string &name) const {
+    return vdecimate.bool_params.at(name);
+}
+
+
+void WibblyJob::setVDecimateParameter(const std::string &name, int value) {
+    vdecimate.int_params[name] = value;
+}
+
+
+void WibblyJob::setVDecimateParameter(const std::string &name, double value) {
+    vdecimate.double_params[name] = value;
+}
+
+
+void WibblyJob::setVDecimateParameter(const std::string &name, bool value) {
+    vdecimate.bool_params[name] = value;
+}
+
+
 double WibblyJob::getFadesThreshold() const {
     return fades_threshold;
 }
@@ -198,7 +241,8 @@ void WibblyJob::fieldMatchToScript(std::string &script) const {
         script += ", " + it->first + "=" + std::to_string((int)it->second);
 
     script += ", field=" + std::to_string(!vfm.int_params.at("order"));
-    script += ", mode=" + std::to_string(0);
+    script += ", mode=0";
+    script += ", micout=1";
     script += ")\n\n";
 }
 
@@ -215,7 +259,18 @@ void WibblyJob::interlacedFadesToScript(std::string &script) const {
 
 
 void WibblyJob::decimationToScript(std::string &script) const {
-    script += "src = c.vivtc.VDecimate(clip=src, cycle=5, chroma=1, dupthresh=1.1, scthresh=15, blockx=32, blocky=32, dryrun=True)\n\n";
+    script += "src = c.vivtc.VDecimate(clip=src";
+
+    for (auto it = vdecimate.int_params.cbegin(); it != vdecimate.int_params.cend(); it++)
+        script += ", " + it->first + "=" + std::to_string(it->second);
+    for (auto it = vdecimate.double_params.cbegin(); it != vdecimate.double_params.cend(); it++)
+        script += ", " + it->first + "=" + std::to_string(it->second);
+    for (auto it = vdecimate.bool_params.cbegin(); it != vdecimate.bool_params.cend(); it++)
+        script += ", " + it->first + "=" + std::to_string((int)it->second);
+
+    script += ", cycle=5";
+    script += ", dryrun=True";
+    script += ")\n\n";
 }
 
 

@@ -225,6 +225,12 @@ struct PatternGuessing {
 };
 
 
+struct InterlacedFade {
+    int frame;
+    double field_difference;
+};
+
+
 class WobblyProject {
     private:
         int num_frames[2];
@@ -267,6 +273,8 @@ class WobblyProject {
 
         PatternGuessing pattern_guessing;
 
+        std::map<int, InterlacedFade> interlaced_fades; // Key is InterlacedFade::frame
+
         Resize resize;
         Crop crop;
         Depth depth;
@@ -308,9 +316,20 @@ class WobblyProject {
         bool isPresetInUse(const std::string &preset_name);
 
 
+        void addTrim(int trim_start, int trim_end);
+
+
+        void setVFMParameter(const std::string &name, double value);
+        void setVDecimateParameter(const std::string &name, double value);
+
+
         std::array<int16_t, 5> getMics(int frame);
+        void setMics(int frame, int16_t mic_p, int16_t mic_c, int16_t mic_n, int16_t mic_b, int16_t mic_u);
         int getPreviousFrameWithMic(int minimum, int start_frame);
         int getNextFrameWithMic(int minimum, int start_frame);
+
+
+        void setOriginalMatch(int frame, char match);
 
 
         char getMatch(int frame);
@@ -354,6 +373,7 @@ class WobblyProject {
 
 
         int getDecimateMetric(int frame);
+        void setDecimateMetric(int frame, int decimate_metric);
 
 
         void addDecimatedFrame(int frame);
@@ -436,6 +456,9 @@ class WobblyProject {
         bool guessSectionPatternsFromMatches(int section_start, int minimum_length, int use_third_n_match, int drop_duplicate);
         void guessProjectPatternsFromMatches(int minimum_length, int use_third_n_match, int drop_duplicate);
         const PatternGuessing &getPatternGuessing();
+
+
+        void addInterlacedFade(int frame, double field_difference);
 
 
         void sectionsToScript(std::string &script);

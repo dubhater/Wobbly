@@ -49,7 +49,6 @@ WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, co
     setNumFrames(PostSource, _num_frames);
     setNumFrames(PostDecimate, _num_frames);
 
-    trims.insert({ 0, { 0, _num_frames - 1} });
     // XXX What happens when the video happens to be bottom field first?
     vfm_parameters.insert({ "order", 1 });
     original_matches.resize(_num_frames, 'c');
@@ -85,7 +84,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
     QFile file(QString::fromStdString(path));
 
     if (!file.open(QIODevice::WriteOnly))
-        throw WobblyException("Couldn't open project file. Error message: " + file.errorString());
+        throw WobblyException("Couldn't open project file '" + path + "'. Error message: " + file.errorString().toStdString());
 
     QJsonObject json_project;
 
@@ -261,6 +260,19 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
 
     json_project.insert("source filter", QString::fromStdString(source_filter));
+
+
+    QJsonArray json_interlaced_fades;
+
+    for (auto it = interlaced_fades.cbegin(); it != interlaced_fades.cend(); it++) {
+        QJsonObject json_interlaced_fade;
+        json_interlaced_fade.insert("frame", it->second.frame);
+        json_interlaced_fade.insert("field difference", it->second.field_difference);
+
+        json_interlaced_fades.append(json_interlaced_fade);
+    }
+
+    json_project.insert("interlaced fades", json_interlaced_fades);
 
 
     if (is_wobbly) {
@@ -624,6 +636,18 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
     source_filter = json_project["source filter"].toString().toStdString();
+
+
+    QJsonArray json_interlaced_fades = json_project["interlaced fades"].toArray();
+
+    for (int i = 0; i < json_interlaced_fades.size(); i++) {
+        QJsonObject json_interlaced_fade = json_interlaced_fades[i].toObject();
+
+        int frame = (int)json_interlaced_fade["frame"].toDouble();
+        double field_difference = json_interlaced_fade["field difference"].toDouble();
+
+        interlaced_fades.insert({ frame, { frame, field_difference } });
+    }
 }
 
 void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
@@ -803,11 +827,45 @@ bool WobblyProject::isPresetInUse(const std::string &preset_name) {
 }
 
 
+void WobblyProject::addTrim(int trim_start, int trim_end) {
+    if (trim_start > trim_end)
+        std::swap(trim_start, trim_end);
+
+    trims.insert({ trim_start, { trim_start, trim_end } });
+}
+
+
+void WobblyProject::setVFMParameter(const std::string &name, double value) {
+    vfm_parameters[name] = value;
+}
+
+
+void WobblyProject::setVDecimateParameter(const std::string &name, double value) {
+    vdecimate_parameters[name] = value;
+}
+
+
 std::array<int16_t, 5> WobblyProject::getMics(int frame) {
     if (mics.size())
         return mics[frame];
     else
         return { 0, 0, 0, 0, 0 };
+}
+
+
+void WobblyProject::setMics(int frame, int16_t mic_p, int16_t mic_c, int16_t mic_n, int16_t mic_b, int16_t mic_u) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't set the mics for frame " + std::to_string(frame) + ": frame number out of range.");
+
+    if (!mics.size())
+        mics.resize(getNumFrames(PostSource), { 0 });
+
+    auto &mic = mics[frame];
+    mic[0] = mic_p;
+    mic[1] = mic_c;
+    mic[2] = mic_n;
+    mic[3] = mic_b;
+    mic[4] = mic_u;
 }
 
 
@@ -834,6 +892,14 @@ int WobblyProject::getNextFrameWithMic(int minimum, int start_frame) {
     }
 
     return -1;
+}
+
+
+void WobblyProject::setOriginalMatch(int frame, char match) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't set the original match for frame " + std::to_string(frame) + ": frame number out of range.");
+
+    original_matches[frame] = match;
 }
 
 
@@ -1164,6 +1230,17 @@ int WobblyProject::getDecimateMetric(int frame) {
         return decimate_metrics[frame];
     else
         return 0;
+}
+
+
+void WobblyProject::setDecimateMetric(int frame, int decimate_metric) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't set the decimate metric for frame " + std::to_string(frame) + ": frame number out of range.");
+
+    if (!decimate_metrics.size())
+        decimate_metrics.resize(getNumFrames(PostSource), 0);
+
+    decimate_metrics[frame] = decimate_metric;
 }
 
 
@@ -1853,6 +1930,14 @@ const PatternGuessing &WobblyProject::getPatternGuessing() {
 }
 
 
+void WobblyProject::addInterlacedFade(int frame, double field_difference) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't add interlaced fade at frame " + std::to_string(frame) + ": frame number out of range.");
+
+    interlaced_fades.insert({ frame, { frame, field_difference } });
+}
+
+
 void WobblyProject::sectionsToScript(std::string &script) {
     auto samePresets = [] (const std::vector<std::string> &a, const std::vector<std::string> &b) -> bool {
         if (a.size() != b.size())
@@ -2011,6 +2096,9 @@ void WobblyProject::sourceToScript(std::string &script) {
 }
 
 void WobblyProject::trimToScript(std::string &script) {
+    if (!trims.size())
+        return;
+
     script += "src = c.std.Splice(clips=[";
     for (auto it = trims.cbegin(); it != trims.cend(); it++)
         script += "src[" + std::to_string(it->second.first) + ":" + std::to_string(it->second.last + 1) + "],";

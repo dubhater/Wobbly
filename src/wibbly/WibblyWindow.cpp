@@ -26,6 +26,11 @@ WibblyWindow::WibblyWindow()
     , current_frame(0)
     , trim_start(-1)
     , trim_end(-1)
+    , current_project(nullptr)
+    , current_job(-1)
+    , next_frame(0)
+    , frames_left(0)
+    , aborted(false)
 {
     createUI();
 
@@ -155,12 +160,11 @@ void WibblyWindow::closeEvent(QCloseEvent *event) {
 void WibblyWindow::createUI() {
     setWindowTitle(QStringLiteral("Wibbly Metrics Collector v%1").arg(PACKAGE_VERSION));
 
-    statusBar()->setSizeGripEnabled(true);
-
     createMainWindow();
     createVideoOutputWindow();
     createCropWindow();
     createVFMWindow();
+    createVDecimateWindow();
     createTrimWindow();
     createInterlacedFadesWindow();
 }
@@ -216,10 +220,12 @@ void WibblyWindow::createMainWindow() {
         main_steps_buttons->button(it->first)->setChecked(true);
     }
 
-    main_progress_bar = new QProgressBar;
+    main_progress_dialog = new QProgressDialog;
+    main_progress_dialog->setModal(true);
+    main_progress_dialog->setWindowTitle(QStringLiteral("Gathering metrics..."));
+    main_progress_dialog->reset();
 
     QPushButton *main_engage_button = new QPushButton("Engage");
-    QPushButton *main_cancel_button = new QPushButton("Cancel");
 
 
     connect(main_jobs_list, &ListWidget::currentRowChanged, [this, main_destination_edit, main_steps_buttons, steps] (int currentRow) {
@@ -253,17 +259,17 @@ void WibblyWindow::createMainWindow() {
         fades_threshold_spin->blockSignals(false);
 
         for (size_t i = 0; i < vfm_params.size(); i++) {
-            if (vfm_params[i].type == VFMParamInt) {
+            if (vfm_params[i].type == VIVTCParamInt) {
                 QSpinBox *spin = reinterpret_cast<QSpinBox *>(vfm_params[i].widget);
                 spin->blockSignals(true);
                 spin->setValue(job.getVFMParameterInt(vfm_params[i].name.toStdString()));
                 spin->blockSignals(false);
-            } else if (vfm_params[i].type == VFMParamDouble) {
+            } else if (vfm_params[i].type == VIVTCParamDouble) {
                 QDoubleSpinBox *spin = reinterpret_cast<QDoubleSpinBox *>(vfm_params[i].widget);
                 spin->blockSignals(true);
                 spin->setValue(job.getVFMParameterDouble(vfm_params[i].name.toStdString()));
                 spin->blockSignals(false);
-            } else if (vfm_params[i].type == VFMParamBool) {
+            } else if (vfm_params[i].type == VIVTCParamBool) {
                 QCheckBox *check = reinterpret_cast<QCheckBox *>(vfm_params[i].widget);
                 check->setChecked(job.getVFMParameterBool(vfm_params[i].name.toStdString()));
             }
@@ -290,11 +296,13 @@ void WibblyWindow::createMainWindow() {
 
     connect(main_destination_edit, &QLineEdit::editingFinished, destinationChanged);
 
-    connect(main_choose_button, &QPushButton::clicked, [this, destinationChanged] () {
+    connect(main_choose_button, &QPushButton::clicked, [this, main_destination_edit, destinationChanged] () {
         QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), QString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
-        if (!path.isEmpty())
+        if (!path.isEmpty()) {
+            main_destination_edit->setText(path);
             destinationChanged();
+        }
     });
 
     connect(main_add_jobs_button, &QPushButton::clicked, [this] () {
@@ -374,6 +382,23 @@ void WibblyWindow::createMainWindow() {
         }
     });
 
+    connect(main_engage_button, &QPushButton::clicked, this, &WibblyWindow::startNextJob);
+
+    connect(main_progress_dialog, &QProgressDialog::canceled, [this] () {
+        aborted = true;
+
+        delete current_project;
+        current_project = nullptr;
+
+        current_job = -1;
+
+        int current_row = main_jobs_list->currentRow();
+        main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
+        main_jobs_list->setCurrentRow(current_row, QItemSelectionModel::NoUpdate);
+
+        setEnabled(true);
+    });
+
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(main_jobs_list, 1);
@@ -407,10 +432,10 @@ void WibblyWindow::createMainWindow() {
     vbox->addLayout(hbox);
 
     hbox = new QHBoxLayout;
-    hbox->addWidget(main_progress_bar);
     hbox->addWidget(main_engage_button);
-    hbox->addWidget(main_cancel_button);
+    hbox->addStretch(1);
 
+    vbox->addSpacing(10);
     vbox->addLayout(hbox);
 
 
@@ -541,17 +566,17 @@ void WibblyWindow::createCropWindow() {
 
 void WibblyWindow::createVFMWindow() {
     vfm_params = {
-        { nullptr, "order",      0,          1, VFMParamInt },
-        { nullptr, "mchroma",    0,          1, VFMParamBool },
-        { nullptr, "cthresh",    1,        255, VFMParamInt },
-        { nullptr, "mi",         0,    INT_MAX, VFMParamInt },
-        { nullptr, "chroma",     0,          1, VFMParamBool },
-        { nullptr, "blockx",     4,        512, VFMParamInt },
-        { nullptr, "blocky",     4,        512, VFMParamInt },
-        { nullptr, "y0",         0,    INT_MAX, VFMParamInt },
-        { nullptr, "y1",         0,    INT_MAX, VFMParamInt },
-        { nullptr, "scthresh",   0,        100, VFMParamDouble },
-        { nullptr, "micmatch",   0,          2, VFMParamInt }
+        { nullptr, "order",      0,          1, VIVTCParamInt },
+        { nullptr, "mchroma",    0,          1, VIVTCParamBool },
+        { nullptr, "cthresh",    1,        255, VIVTCParamInt },
+        { nullptr, "mi",         0,    INT_MAX, VIVTCParamInt },
+        { nullptr, "chroma",     0,          1, VIVTCParamBool },
+        { nullptr, "blockx",     4,        512, VIVTCParamInt },
+        { nullptr, "blocky",     4,        512, VIVTCParamInt },
+        { nullptr, "y0",         0,    INT_MAX, VIVTCParamInt },
+        { nullptr, "y1",         0,    INT_MAX, VIVTCParamInt },
+        { nullptr, "scthresh",   0,        100, VIVTCParamDouble },
+        { nullptr, "micmatch",   0,          2, VIVTCParamInt }
     };
 
     auto parametersChanged = [this] () {
@@ -563,11 +588,11 @@ void WibblyWindow::createVFMWindow() {
             WibblyJob &job = jobs[row];
 
             for (size_t j = 0; j < vfm_params.size(); j++) {
-                if (vfm_params[j].type == VFMParamInt) {
+                if (vfm_params[j].type == VIVTCParamInt) {
                     job.setVFMParameter(vfm_params[j].name.toStdString(), reinterpret_cast<QSpinBox *>(vfm_params[j].widget)->value());
-                } else if (vfm_params[j].type == VFMParamDouble) {
+                } else if (vfm_params[j].type == VIVTCParamDouble) {
                     job.setVFMParameter(vfm_params[j].name.toStdString(), reinterpret_cast<QDoubleSpinBox *>(vfm_params[j].widget)->value());
-                } else if (vfm_params[j].type == VFMParamBool) {
+                } else if (vfm_params[j].type == VIVTCParamBool) {
                     job.setVFMParameter(vfm_params[j].name.toStdString(), reinterpret_cast<QCheckBox *>(vfm_params[j].widget)->isChecked());
                 }
             }
@@ -575,7 +600,7 @@ void WibblyWindow::createVFMWindow() {
     };
 
     for (size_t i = 0; i < vfm_params.size(); i++) {
-        if (vfm_params[i].type == VFMParamInt) {
+        if (vfm_params[i].type == VIVTCParamInt) {
             QSpinBox *spin = new QSpinBox;
             spin->setPrefix(vfm_params[i].name + ": ");
             spin->setMinimum(vfm_params[i].minimum);
@@ -585,7 +610,7 @@ void WibblyWindow::createVFMWindow() {
             connect(spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), parametersChanged);
 
             vfm_params[i].widget = spin;
-        } else if (vfm_params[i].type == VFMParamDouble) {
+        } else if (vfm_params[i].type == VIVTCParamDouble) {
             QDoubleSpinBox *spin = new QDoubleSpinBox;
             spin->setPrefix(vfm_params[i].name + ": ");
             spin->setMaximum(vfm_params[i].maximum);
@@ -593,7 +618,7 @@ void WibblyWindow::createVFMWindow() {
             connect(spin, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), parametersChanged);
 
             vfm_params[i].widget = spin;
-        } else if (vfm_params[i].type == VFMParamBool) {
+        } else if (vfm_params[i].type == VIVTCParamBool) {
             QCheckBox *check = new QCheckBox(vfm_params[i].name);
             check->setChecked(true);
 
@@ -627,6 +652,19 @@ void WibblyWindow::createVFMWindow() {
     QList<QAction *> actions = menu_menu->actions();
     menu_menu->insertAction(actions[actions.size() - 2], vfm_dock->toggleViewAction());
     connect(vfm_dock, &DockWidget::visibilityChanged, vfm_dock, &DockWidget::setEnabled);
+}
+
+
+void WibblyWindow::createVDecimateWindow() {
+    vdecimate_params = {
+        { nullptr, "chroma",     0,          1, VIVTCParamBool },
+        { nullptr, "dupthresh",  0,        100, VIVTCParamDouble },
+        { nullptr, "scthresh",   0,        100, VIVTCParamDouble },
+        { nullptr, "blockx",     4,        512, VIVTCParamInt },
+        { nullptr, "blocky",     4,        512, VIVTCParamInt },
+    };
+
+    // An actual window later, if really necessary.
 }
 
 
@@ -682,9 +720,9 @@ void WibblyWindow::createTrimWindow() {
             }
         }
 
-        int current_job = main_jobs_list->currentRow();
+        int current_row = main_jobs_list->currentRow();
         main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
-        main_jobs_list->setCurrentRow(current_job, QItemSelectionModel::NoUpdate);
+        main_jobs_list->setCurrentRow(current_row, QItemSelectionModel::NoUpdate);
 
         trim_start = trim_end = -1;
         trim_start_label->clear();
@@ -704,13 +742,13 @@ void WibblyWindow::createTrimWindow() {
 
         for (int i = 0; i < job_selection.size(); i++) {
             for (int j = 0; j < trim_selection.size(); j++) {
-                jobs[i].deleteTrim(trim_selection[j]->data(Qt::UserRole).toInt());
+                jobs[main_jobs_list->row(job_selection[i])].deleteTrim(trim_selection[j]->data(Qt::UserRole).toInt());
             }
         }
 
-        int current_job = main_jobs_list->currentRow();
+        int current_row = main_jobs_list->currentRow();
         main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
-        main_jobs_list->setCurrentRow(current_job, QItemSelectionModel::NoUpdate);
+        main_jobs_list->setCurrentRow(current_row, QItemSelectionModel::NoUpdate);
     });
 
 
@@ -825,6 +863,42 @@ void WibblyWindow::errorPopup(const char *msg) {
 }
 
 
+void WibblyWindow::errorPopup(const std::string &msg) {
+    errorPopup(msg.c_str());
+}
+
+
+void WibblyWindow::evaluateFinalScript(int job_index) {
+    const WibblyJob &job = jobs[job_index];
+
+    std::string script;
+
+    script = job.generateFinalScript();
+
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(QString::fromStdString(job.getInputFile())).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+        std::string error = vsscript_getError(vsscript);
+        // The traceback is mostly unnecessary noise.
+        size_t traceback = error.find("Traceback");
+        if (traceback != std::string::npos)
+            error.insert(traceback, 1, '\n');
+
+        throw WobblyException("Failed to evaluate final script for job number " + std::to_string(job_index) + ". Error message:\n" + error);
+    }
+
+    vsapi->freeNode(vsnode);
+
+    vsnode = vsscript_getOutput(vsscript, 0);
+    if (!vsnode)
+        throw WobblyException("Final script for job number " + std::to_string(job_index) + " evaluated successfully, but no node found at output index 0.");
+
+    vsvi = vsapi->getVideoInfo(vsnode);
+
+    video_frame_label->setPixmap(QPixmap());
+    vsapi->freeFrame(vsframe);
+    vsframe = nullptr;
+}
+
+
 void WibblyWindow::evaluateDisplayScript() {
     int current_row = main_jobs_list->currentRow();
     if (current_row < 0)
@@ -935,5 +1009,167 @@ void WibblyWindow::displayFrame(int n) {
     video_frame_slider->blockSignals(true);
     video_frame_slider->setValue(n);
     video_frame_slider->blockSignals(false);
+}
+
+
+void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
+    WibblyWindow *window = (WibblyWindow *)userData;
+
+    QMetaObject::invokeMethod(window, "frameDone", Qt::DirectConnection, Q_ARG(void *, (void *)f), Q_ARG(int, n), Q_ARG(void *, (void *)errorMsg));
+}
+
+
+void WibblyWindow::startNextJob() {
+    current_job++;
+
+    if (current_job == (int)jobs.size()) {
+        // No more jobs.
+        current_job = -1;
+
+        int current_row = main_jobs_list->currentRow();
+        main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
+        main_jobs_list->setCurrentRow(current_row, QItemSelectionModel::NoUpdate);
+
+        // Re-enable the user interface.
+        setEnabled(true);
+
+        return;
+    }
+
+    setEnabled(false);
+
+    const WibblyJob &job = jobs[current_job];
+
+    try {
+        evaluateFinalScript(current_job);
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+        return;
+    }
+
+    current_project = new WobblyProject(false, job.getInputFile(), job.getSourceFilter(), vsvi->fpsNum, vsvi->fpsDen, vsvi->width, vsvi->height, vsvi->numFrames);
+
+    auto trims = job.getTrims();
+    for (auto it = trims.cbegin(); it != trims.cend(); it++)
+        current_project->addTrim(it->second.first, it->second.last);
+
+    for (size_t i = 0; i < vfm_params.size(); i++) {
+        if (vfm_params[i].type == VIVTCParamInt) {
+            current_project->setVFMParameter(vfm_params[i].name.toStdString(), job.getVFMParameterInt(vfm_params[i].name.toStdString()));
+        } else if (vfm_params[i].type == VIVTCParamDouble) {
+            current_project->setVFMParameter(vfm_params[i].name.toStdString(), job.getVFMParameterDouble(vfm_params[i].name.toStdString()));
+        } else if (vfm_params[i].type == VIVTCParamBool) {
+            current_project->setVFMParameter(vfm_params[i].name.toStdString(), (int)job.getVFMParameterBool(vfm_params[i].name.toStdString()));
+        }
+    }
+
+    for (size_t i = 0; i < vdecimate_params.size(); i++) {
+        if (vdecimate_params[i].type == VIVTCParamInt) {
+            current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), job.getVDecimateParameterInt(vdecimate_params[i].name.toStdString()));
+        } else if (vdecimate_params[i].type == VIVTCParamDouble) {
+            current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), job.getVDecimateParameterDouble(vdecimate_params[i].name.toStdString()));
+        } else if (vdecimate_params[i].type == VIVTCParamBool) {
+            current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), (int)job.getVDecimateParameterBool(vdecimate_params[i].name.toStdString()));
+        }
+    }
+
+    main_progress_dialog->setLabel(new QLabel(QStringLiteral("Job %1/%2:\n%3").arg(current_job + 1).arg(jobs.size()).arg(QString::fromStdString(job.getOutputFile()))));
+    main_progress_dialog->setMinimum(0);
+    main_progress_dialog->setMaximum(vsvi->numFrames);
+    main_progress_dialog->setValue(0);
+
+    const VSCoreInfo *info = vsapi->getCoreInfo(vscore);
+    int requests = std::min(info->numThreads, vsvi->numFrames);
+
+    aborted = false;
+
+    frames_left = vsvi->numFrames;
+
+    next_frame = 0;
+    for (int i = 0; i < requests; i++) {
+        vsapi->getFrameAsync(next_frame, vsnode, frameDoneCallback, (void *)this);
+        next_frame++;
+    }
+}
+
+
+void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
+    const VSFrameRef *frame = (const VSFrameRef *)frame_v;
+    const char *error_msg = (const char *)error_msg_v;
+
+    if (aborted) {
+        vsapi->freeFrame(frame);
+        return;
+    }
+
+    if (frame) {
+        const VSMap *props = vsapi->getFramePropsRO(frame);
+
+        int err;
+
+        const char match_chars[] = { 'p', 'c', 'n', 'b', 'u' };
+        int64_t match = vsapi->propGetInt(props, "VFMMatch", 0, &err);
+        if (!err)
+            current_project->setOriginalMatch(n, match_chars[match]);
+
+        if (vsapi->propGetInt(props, "_Combed", 0, &err))
+            current_project->addCombedFrame(n);
+
+        if (vsapi->propNumElements(props, "VFMMics") == 5) {
+            const int64_t *mics = vsapi->propGetIntArray(props, "VFMMics", &err);
+            current_project->setMics(n, mics[0], mics[1], mics[2], mics[3], mics[4]);
+        }
+
+        if (vsapi->propGetInt(props, "_SceneChangePrev", 0, &err))
+            current_project->addSection(n);
+
+        int64_t decimate_metric = vsapi->propGetInt(props, "VDecimateMaxBlockDiff", 0, &err);
+        if (!err)
+            current_project->setDecimateMetric(n, decimate_metric);
+
+        if (vsapi->propGetInt(props, "VDecimateDrop", 0, &err))
+            current_project->addDecimatedFrame(n);
+
+        double field_difference = vsapi->propGetFloat(props, "WibblyFieldDifference", 0, &err);
+        if (field_difference > jobs[current_job].getFadesThreshold())
+            current_project->addInterlacedFade(n, field_difference);
+
+        vsapi->freeFrame(frame);
+
+        if (next_frame < vsvi->numFrames) {
+            vsapi->getFrameAsync(next_frame, vsnode, frameDoneCallback, (void *)this);
+            next_frame++;
+        }
+
+        frames_left--;
+
+        main_progress_dialog->setValue(vsvi->numFrames - frames_left);
+
+        if (frames_left == 0) {
+            try {
+                current_project->resetRangeMatches(0, vsvi->numFrames - 1);
+
+                // If the project was successfully saved earlier, this will probably work.
+                current_project->writeProject(jobs[current_job].getOutputFile(), false);
+
+                delete current_project;
+                current_project = nullptr;
+
+                startNextJob();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                delete current_project;
+                current_project = nullptr;
+            }
+        }
+    } else {
+        aborted = true;
+
+        delete current_project;
+        current_project = nullptr;
+
+        errorPopup("Job number " + std::to_string(current_job) + ": failed to retrieve frame number " + std::to_string(n) + ". Error message:\n\n" + error_msg);
+    }
 }
 
