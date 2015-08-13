@@ -1001,6 +1001,13 @@ void WibblyWindow::evaluateDisplayScript() {
             "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
             "src.set_output()\n";
 
+    VSMap *m = vsapi->createMap();
+    if (vsscript_getVariable(vsscript, "wibbly_last_input_file", m)) {
+        vsapi->propSetData(m, "wibbly_last_input_file", "", -1, paReplace);
+        vsscript_setVariable(vsscript, m);
+    }
+    vsapi->freeMap(m);
+
     if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(QString::fromStdString(job.getInputFile())).dir().path().toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
         // The traceback is mostly unnecessary noise.
