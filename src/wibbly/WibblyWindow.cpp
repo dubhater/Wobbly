@@ -1,3 +1,4 @@
+#include <QApplication>
 #include <QButtonGroup>
 #include <QFileDialog>
 #include <QLabel>
@@ -33,6 +34,8 @@ WibblyWindow::WibblyWindow()
     , aborted(false)
 {
     createUI();
+
+    readSettings();
 
     try {
         initialiseVapourSynth();
@@ -151,6 +154,8 @@ void WibblyWindow::checkRequiredFilters() {
 
 
 void WibblyWindow::closeEvent(QCloseEvent *event) {
+    writeSettings();
+
     cleanUpVapourSynth();
 
     event->accept();
@@ -167,6 +172,7 @@ void WibblyWindow::createUI() {
     createVDecimateWindow();
     createTrimWindow();
     createInterlacedFadesWindow();
+    createSettingsWindow();
 }
 
 
@@ -832,6 +838,58 @@ void WibblyWindow::createInterlacedFadesWindow() {
 }
 
 
+void WibblyWindow::createSettingsWindow() {
+    settings_font_spin = new QSpinBox;
+    settings_font_spin->setRange(4, 99);
+    settings_font_spin->setPrefix(QStringLiteral("Font size: "));
+
+    settings_compact_projects_check = new QCheckBox("Create compact project files");
+
+
+    connect(settings_font_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
+        QFont font = QApplication::font();
+        font.setPointSize(value);
+        QApplication::setFont(font);
+
+        settings.setValue("user_interface/font_size", value);
+    });
+
+    connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
+        settings.setValue("projects/compact_project_files", checked);
+    });
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(settings_font_spin);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(settings_compact_projects_check);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    vbox->addStretch(1);
+
+
+    QWidget *settings_widget = new QWidget;
+    settings_widget->setLayout(vbox);
+
+
+    settings_dock = new DockWidget("Settings", this);
+    settings_dock->setObjectName("settings window");
+    settings_dock->setVisible(false);
+    settings_dock->setFloating(true);
+    settings_dock->setWidget(settings_widget);
+    addDockWidget(Qt::RightDockWidgetArea, settings_dock);
+    QList<QAction *> actions = menu_menu->actions();
+    menu_menu->insertAction(actions[actions.size() - 2], settings_dock->toggleViewAction());
+    connect(settings_dock, &DockWidget::visibilityChanged, settings_dock, &DockWidget::setEnabled);
+}
+
+
 void WibblyWindow::realOpenVideo(const QString &path) {
     QString source_filter;
 
@@ -1173,3 +1231,22 @@ void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
     }
 }
 
+
+void WibblyWindow::readSettings() {
+    if (settings.contains("user_interface/state"))
+        restoreState(settings.value("user_interface/state").toByteArray());
+
+    if (settings.contains("user_interface/geometry"))
+        restoreGeometry(settings.value("user_interface/geometry").toByteArray());
+
+    settings_font_spin->setValue(settings.value("user_interface/font_size", QApplication::font().pointSize()).toInt());
+
+    settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
+}
+
+
+void WibblyWindow::writeSettings() {
+    settings.setValue("user_interface/state", saveState());
+
+    settings.setValue("user_interface/geometry", saveGeometry());
+}

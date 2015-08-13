@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QProgressDialog>
+#include <QSettings>
 #include <QSlider>
 #include <QSpinBox>
 #include <QTimeEdit>
@@ -67,6 +68,10 @@ class WibblyWindow : public QMainWindow
     DockWidget *fades_dock;
     QDoubleSpinBox *fades_threshold_spin;
 
+    DockWidget *settings_dock;
+    QSpinBox *settings_font_spin;
+    QCheckBox *settings_compact_projects_check;
+
 
     // VapourSynth stuff.
     const VSAPI *vsapi;
@@ -91,6 +96,8 @@ class WibblyWindow : public QMainWindow
     int frames_left;
     bool aborted;
 
+    QSettings settings;
+
 
     // Functions.
     void initialiseVapourSynth();
@@ -108,6 +115,7 @@ class WibblyWindow : public QMainWindow
     void createVDecimateWindow();
     void createTrimWindow();
     void createInterlacedFadesWindow();
+    void createSettingsWindow();
 
     void realOpenVideo(const QString &path);
 
@@ -119,6 +127,9 @@ class WibblyWindow : public QMainWindow
     void displayFrame(int n);
 
     void startNextJob();
+
+    void readSettings();
+    void writeSettings();
 
 public:
     WibblyWindow();
