@@ -36,7 +36,7 @@ WibblyJob::WibblyJob()
                 { "chroma", true }
             }
     }
-    , fades_threshold(0.4)
+    , fades_threshold(0.4 / 255)
 {
 
 }
@@ -258,6 +258,20 @@ void WibblyJob::interlacedFadesToScript(std::string &script) const {
 }
 
 
+void WibblyJob::framePropsToScript(std::string &script) const {
+    script += "src = c.text.FrameProps(clip=src, props=[";
+
+    std::string props;
+    if (steps & StepFieldMatch)
+        props += "'VFMMatch', 'VFMMics', 'VFMSceneChange', '_Combed', ";
+    if (steps & StepInterlacedFades)
+        props += "'WibblyFieldDifference', ";
+
+    script += props;
+    script += "])\n\n";
+}
+
+
 void WibblyJob::decimationToScript(std::string &script) const {
     script += "src = c.vivtc.VDecimate(clip=src";
 
@@ -322,7 +336,17 @@ std::string WibblyJob::generateDisplayScript() const {
 
     sourceToScript(script);
 
-    cropToScript(script);
+    if (steps & StepCrop)
+        cropToScript(script);
+
+    if (steps & StepFieldMatch)
+        fieldMatchToScript(script);
+
+    if (steps & StepInterlacedFades)
+        interlacedFadesToScript(script);
+
+    if (steps & StepFieldMatch || steps & StepInterlacedFades)
+        framePropsToScript(script);
 
     setOutputToScript(script);
 

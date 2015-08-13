@@ -52,6 +52,7 @@ class WibblyJob {
     void cropToScript(std::string &script) const;
     void fieldMatchToScript(std::string &script) const;
     void interlacedFadesToScript(std::string &script) const;
+    void framePropsToScript(std::string &script) const;
     void decimationToScript(std::string &script) const;
     void sceneChangesToScript(std::string &script) const;
     void setOutputToScript(std::string &script) const;

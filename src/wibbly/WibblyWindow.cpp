@@ -799,7 +799,9 @@ void WibblyWindow::createTrimWindow() {
 void WibblyWindow::createInterlacedFadesWindow() {
     fades_threshold_spin = new QDoubleSpinBox;
     fades_threshold_spin->setPrefix(QStringLiteral("Threshold: "));
-    fades_threshold_spin->setMaximum(255);
+    fades_threshold_spin->setMaximum(1);
+    fades_threshold_spin->setDecimals(5);
+    fades_threshold_spin->setSingleStep(0.0004);
 
 
     connect(fades_threshold_spin, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), [this] (double value) {
