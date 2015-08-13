@@ -1160,24 +1160,50 @@ void WibblyWindow::startNextJob() {
     for (auto it = trims.cbegin(); it != trims.cend(); it++)
         current_project->addTrim(it->second.first, it->second.last);
 
-    for (size_t i = 0; i < vfm_params.size(); i++) {
-        if (vfm_params[i].type == VIVTCParamInt) {
-            current_project->setVFMParameter(vfm_params[i].name.toStdString(), job.getVFMParameterInt(vfm_params[i].name.toStdString()));
-        } else if (vfm_params[i].type == VIVTCParamDouble) {
-            current_project->setVFMParameter(vfm_params[i].name.toStdString(), job.getVFMParameterDouble(vfm_params[i].name.toStdString()));
-        } else if (vfm_params[i].type == VIVTCParamBool) {
-            current_project->setVFMParameter(vfm_params[i].name.toStdString(), (int)job.getVFMParameterBool(vfm_params[i].name.toStdString()));
+    int steps = job.getSteps();
+
+    if (steps & StepFieldMatch) {
+        for (size_t i = 0; i < vfm_params.size(); i++) {
+            if (vfm_params[i].type == VIVTCParamInt) {
+                current_project->setVFMParameter(vfm_params[i].name.toStdString(), job.getVFMParameterInt(vfm_params[i].name.toStdString()));
+            } else if (vfm_params[i].type == VIVTCParamDouble) {
+                current_project->setVFMParameter(vfm_params[i].name.toStdString(), job.getVFMParameterDouble(vfm_params[i].name.toStdString()));
+            } else if (vfm_params[i].type == VIVTCParamBool) {
+                current_project->setVFMParameter(vfm_params[i].name.toStdString(), (int)job.getVFMParameterBool(vfm_params[i].name.toStdString()));
+            }
         }
     }
 
-    for (size_t i = 0; i < vdecimate_params.size(); i++) {
-        if (vdecimate_params[i].type == VIVTCParamInt) {
-            current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), job.getVDecimateParameterInt(vdecimate_params[i].name.toStdString()));
-        } else if (vdecimate_params[i].type == VIVTCParamDouble) {
-            current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), job.getVDecimateParameterDouble(vdecimate_params[i].name.toStdString()));
-        } else if (vdecimate_params[i].type == VIVTCParamBool) {
-            current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), (int)job.getVDecimateParameterBool(vdecimate_params[i].name.toStdString()));
+    if (steps & StepDecimation) {
+        for (size_t i = 0; i < vdecimate_params.size(); i++) {
+            if (vdecimate_params[i].type == VIVTCParamInt) {
+                current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), job.getVDecimateParameterInt(vdecimate_params[i].name.toStdString()));
+            } else if (vdecimate_params[i].type == VIVTCParamDouble) {
+                current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), job.getVDecimateParameterDouble(vdecimate_params[i].name.toStdString()));
+            } else if (vdecimate_params[i].type == VIVTCParamBool) {
+                current_project->setVDecimateParameter(vdecimate_params[i].name.toStdString(), (int)job.getVDecimateParameterBool(vdecimate_params[i].name.toStdString()));
+            }
         }
+    }
+
+    if (!(steps & StepFieldMatch || steps & StepInterlacedFades || steps & StepDecimation || steps & StepSceneChanges)) {
+        // No metrics to collect. Just create the project file and move on.
+        try {
+            current_project->writeProject(job.getOutputFile(), false);
+
+            delete current_project;
+            current_project = nullptr;
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+
+            delete current_project;
+            current_project = nullptr;
+        }
+
+        // A little recursion, but surely there won't be enough jobs to make it a problem.
+        startNextJob();
+
+        return;
     }
 
     main_progress_dialog->setLabel(new QLabel(QStringLiteral("Job %1/%2:\n%3").arg(current_job + 1).arg(jobs.size()).arg(QString::fromStdString(job.getOutputFile()))));
