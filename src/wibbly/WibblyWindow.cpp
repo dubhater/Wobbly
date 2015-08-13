@@ -386,6 +386,14 @@ void WibblyWindow::createMainWindow() {
                 new_steps &= ~id;
             jobs[row].setSteps(new_steps);
         }
+
+        if (id == StepCrop || id == StepFieldMatch || id == StepInterlacedFades) {
+            try {
+                evaluateDisplayScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+            }
+        }
     });
 
     connect(main_engage_button, &QPushButton::clicked, this, &WibblyWindow::startNextJob);
@@ -538,6 +546,12 @@ void WibblyWindow::createCropWindow() {
 
             jobs[row].setCrop(crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value());
         }
+
+        try {
+            evaluateDisplayScript();
+        } catch (WobblyException &e) {
+//            errorPopup(e.what());
+        }
     };
 
     for (int i = 0; i < 4; i++)
@@ -602,6 +616,12 @@ void WibblyWindow::createVFMWindow() {
                     job.setVFMParameter(vfm_params[j].name.toStdString(), reinterpret_cast<QCheckBox *>(vfm_params[j].widget)->isChecked());
                 }
             }
+        }
+
+        try {
+            evaluateDisplayScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
         }
     };
 
