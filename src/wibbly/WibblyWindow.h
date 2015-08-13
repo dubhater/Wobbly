@@ -66,6 +66,8 @@ class WibblyWindow : public QMainWindow
 
     DockWidget *trim_dock;
     ListWidget *trim_ranges_list;
+    QLabel *trim_start_label;
+    QLabel *trim_end_label;
 
     DockWidget *fades_dock;
     QDoubleSpinBox *fades_threshold_spin;
@@ -110,6 +112,7 @@ class WibblyWindow : public QMainWindow
 
     void createUI();
     void createMenus();
+    void createShortcuts();
     void createMainWindow();
     void createVideoOutputWindow();
     void createCropWindow();
@@ -135,6 +138,23 @@ class WibblyWindow : public QMainWindow
 
     void readJobs();
     void writeJobs();
+
+    void jumpRelative(int offset);
+    void jump1Backward();
+    void jump1Forward();
+    void jump5Backward();
+    void jump5Forward();
+    void jump50Backward();
+    void jump50Forward();
+    void jumpToStart();
+    void jumpToEnd();
+    void jumpALotBackward();
+    void jumpALotForward();
+    void selectPreviousJob();
+    void selectNextJob();
+    void startTrim();
+    void endTrim();
+    void addTrim();
 
 public:
     WibblyWindow();

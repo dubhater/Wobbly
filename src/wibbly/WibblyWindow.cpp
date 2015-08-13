@@ -6,6 +6,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QShortcut>
 #include <QStatusBar>
 
 #include <QHBoxLayout>
@@ -196,8 +197,41 @@ void WibblyWindow::createMenus() {
 }
 
 
+void WibblyWindow::createShortcuts() {
+    struct Shortcut {
+        const char *keys;
+        void (WibblyWindow::* func)();
+    };
+
+    // Sequences starting with Delete prevent the list widgets from receiving the key press event.
+    std::vector<Shortcut> shortcuts = {
+        { "Left", &WibblyWindow::jump1Backward },
+        { "Right", &WibblyWindow::jump1Forward },
+        { "Ctrl+Left", &WibblyWindow::jump5Backward },
+        { "Ctrl+Right", &WibblyWindow::jump5Forward },
+        { "Alt+Left", &WibblyWindow::jump50Backward },
+        { "Alt+Right", &WibblyWindow::jump50Forward },
+        { "Ctrl+Home", &WibblyWindow::jumpToStart },
+        { "Ctrl+End", &WibblyWindow::jumpToEnd },
+        { "PgDown", &WibblyWindow::jumpALotBackward },
+        { "PgUp", &WibblyWindow::jumpALotForward },
+        { "Ctrl+Up", &WibblyWindow::selectPreviousJob },
+        { "Ctrl+Down", &WibblyWindow::selectNextJob },
+        { "[", &WibblyWindow::startTrim },
+        { "]", &WibblyWindow::endTrim },
+        { "A", &WibblyWindow::addTrim }
+    };
+
+    for (size_t i = 0; i < shortcuts.size(); i++) {
+        QShortcut *s = new QShortcut(QKeySequence(shortcuts[i].keys), this);
+        connect(s, &QShortcut::activated, this, shortcuts[i].func);
+    }
+}
+
+
 void WibblyWindow::createMainWindow() {
     createMenus();
+    createShortcuts();
 
 
     main_jobs_list = new ListWidget;
@@ -704,8 +738,8 @@ void WibblyWindow::createTrimWindow() {
     trim_ranges_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     trim_ranges_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
-    QLabel *trim_start_label = new QLabel;
-    QLabel *trim_end_label = new QLabel;
+    trim_start_label = new QLabel;
+    trim_end_label = new QLabel;
 
     QPushButton *trim_start_button = new QPushButton("Start trim");
     QPushButton *trim_end_button = new QPushButton("End trim");
@@ -717,48 +751,11 @@ void WibblyWindow::createTrimWindow() {
 
     // double click on a range
 
-    connect(trim_start_button, &QPushButton::clicked, [this, trim_start_label] () {
-        trim_start = current_frame;
+    connect(trim_start_button, &QPushButton::clicked, this, &WibblyWindow::startTrim);
 
-        trim_start_label->setText(QStringLiteral("Start: %1").arg(trim_start));
-    });
+    connect(trim_end_button, &QPushButton::clicked, this, &WibblyWindow::endTrim);
 
-    connect(trim_end_button, &QPushButton::clicked, [this, trim_end_label] () {
-        trim_end = current_frame;
-
-        trim_end_label->setText(QStringLiteral("End: %1").arg(trim_end));
-    });
-
-    connect(trim_add_button, &QPushButton::clicked, [this, trim_start_label, trim_end_label] () {
-        if (trim_start == -1 || trim_end == -1)
-            return;
-
-        auto selection = main_jobs_list->selectedItems();
-
-        if (!selection.size())
-            return;
-
-        if (trim_start > trim_end)
-            std::swap(trim_start, trim_end);
-
-        for (int i = 0; i < selection.size(); i++) {
-            int row = main_jobs_list->row(selection[i]);
-
-            try {
-                jobs[row].addTrim(trim_start, trim_end);
-            } catch (WobblyException &e) {
-                errorPopup(e.what());
-            }
-        }
-
-        int current_row = main_jobs_list->currentRow();
-        main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
-        main_jobs_list->setCurrentRow(current_row, QItemSelectionModel::NoUpdate);
-
-        trim_start = trim_end = -1;
-        trim_start_label->clear();
-        trim_end_label->clear();
-    });
+    connect(trim_add_button, &QPushButton::clicked, this, &WibblyWindow::addTrim);
 
     connect(trim_delete_button, &QPushButton::clicked, [this] () {
         auto job_selection = main_jobs_list->selectedItems();
@@ -1395,4 +1392,132 @@ void WibblyWindow::writeJobs() {
 
         settings.setValue(key + "fades_threshold", job->getFadesThreshold());
     }
+}
+
+
+void WibblyWindow::jumpRelative(int offset) {
+    int target = current_frame + offset;
+
+    displayFrame(target);
+}
+
+
+void WibblyWindow::jump1Backward() {
+    jumpRelative(-1);
+}
+
+
+void WibblyWindow::jump1Forward() {
+    jumpRelative(1);
+}
+
+
+void WibblyWindow::jump5Backward() {
+    jumpRelative(-5);
+}
+
+
+void WibblyWindow::jump5Forward() {
+    jumpRelative(5);
+}
+
+
+void WibblyWindow::jump50Backward() {
+    jumpRelative(-50);
+}
+
+
+void WibblyWindow::jump50Forward() {
+    jumpRelative(50);
+}
+
+
+void WibblyWindow::jumpALotBackward() {
+    int twenty_percent = vsvi->numFrames * 20 / 100;
+
+    jumpRelative(-twenty_percent);
+}
+
+
+void WibblyWindow::jumpALotForward() {
+    int twenty_percent = vsvi->numFrames * 20 / 100;
+
+    jumpRelative(twenty_percent);
+}
+
+
+void WibblyWindow::jumpToStart() {
+    jumpRelative(0 - current_frame);
+}
+
+
+void WibblyWindow::jumpToEnd() {
+    jumpRelative(vsvi->numFrames - current_frame);
+}
+
+
+void WibblyWindow::selectPreviousJob() {
+    if (!main_jobs_list->count())
+        return;
+
+    int current_row = main_jobs_list->currentRow();
+    if (current_row > 0)
+        main_jobs_list->setCurrentRow(current_row - 1);
+}
+
+
+void WibblyWindow::selectNextJob() {
+    int count = main_jobs_list->count();
+    if (!count)
+        return;
+
+    int current_row = main_jobs_list->currentRow();
+    if (current_row < count - 1)
+        main_jobs_list->setCurrentRow(current_row + 1);
+}
+
+
+void WibblyWindow::startTrim() {
+    trim_start = current_frame;
+
+    trim_start_label->setText(QStringLiteral("Start: %1").arg(trim_start));
+}
+
+
+void WibblyWindow::endTrim() {
+    trim_end = current_frame;
+
+    trim_end_label->setText(QStringLiteral("End: %1").arg(trim_end));
+}
+
+
+void WibblyWindow::addTrim() {
+    if (trim_start == -1 || trim_end == -1)
+        return;
+
+    auto selection = main_jobs_list->selectedItems();
+
+    if (!selection.size())
+        return;
+
+    if (trim_start > trim_end)
+        std::swap(trim_start, trim_end);
+
+    for (int i = 0; i < selection.size(); i++) {
+        int row = main_jobs_list->row(selection[i]);
+
+        try {
+            jobs[row].addTrim(trim_start, trim_end);
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+        }
+    }
+
+    int current_row = main_jobs_list->currentRow();
+    main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
+    main_jobs_list->setCurrentRow(current_row, QItemSelectionModel::NoUpdate);
+
+    trim_start = trim_end = -1;
+    trim_start_label->clear();
+    trim_end_label->clear();
 }
