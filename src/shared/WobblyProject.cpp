@@ -354,7 +354,8 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
     if (compact_project)
         json_format = QJsonDocument::Compact;
 
-    file.write(json_doc.toJson(json_format));
+    if (file.write(json_doc.toJson(json_format)) < 0)
+        throw WobblyException("Couldn't write the project to file '" + path + "'. Error message: " + file.errorString().toStdString());
 }
 
 void WobblyProject::readProject(const std::string &path) {

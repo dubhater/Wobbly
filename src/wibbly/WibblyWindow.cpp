@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QButtonGroup>
+#include <QFile>
 #include <QFileDialog>
 #include <QLabel>
 #include <QMenuBar>
@@ -452,7 +453,59 @@ void WibblyWindow::createMainWindow() {
         }
     });
 
-    connect(main_engage_button, &QPushButton::clicked, this, &WibblyWindow::startNextJob);
+    connect(main_engage_button, &QPushButton::clicked, [this] () {
+        setEnabled(false);
+        QApplication::processEvents();
+
+        QString errors;
+
+        for (auto job = jobs.cbegin(); job != jobs.cend(); job++) {
+            int index = std::distance(jobs.cbegin(), job) + 1;
+
+            QString path = QString::fromStdString(job->getOutputFile());
+
+            QFile file(path);
+
+            bool opened = file.open(QIODevice::WriteOnly);
+            if (!opened)
+                errors += QStringLiteral("Couldn't open the destination file for job number %1 (%2). Error message: %3\n\n").arg(index).arg(path).arg(file.errorString());
+
+            if (opened) {
+                qint64 written = file.write("42");
+                if (written < 0)
+                    errors += QStringLiteral("Couldn't write '42' to the destination file for job number %1 (%2). Error message: %3\n\n").arg(index).arg(path).arg(file.errorString());
+
+                file.close();
+            }
+
+            try {
+                evaluateFinalScript(index - 1);
+            } catch (WobblyException &e) {
+                errors += e.what();
+                errors += "\n\n";
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            QMessageBox msg;
+            msg.setText(QStringLiteral("Some sanity checks failed."));
+            msg.setDetailedText(errors);
+            msg.exec();
+
+            setEnabled(true);
+            QApplication::processEvents();
+
+            try {
+                evaluateDisplayScript();
+            } catch (WobblyException &) {
+
+            }
+
+            return;
+        }
+
+        startNextJob();
+    });
 
     connect(main_progress_dialog, &QProgressDialog::canceled, [this] () {
         aborted = true;
@@ -982,14 +1035,14 @@ void WibblyWindow::evaluateFinalScript(int job_index) {
         if (traceback != std::string::npos)
             error.insert(traceback, 1, '\n');
 
-        throw WobblyException("Failed to evaluate final script for job number " + std::to_string(job_index) + ". Error message:\n" + error);
+        throw WobblyException("Failed to evaluate final script for job number " + std::to_string(job_index + 1) + ". Error message:\n" + error);
     }
 
     vsapi->freeNode(vsnode);
 
     vsnode = vsscript_getOutput(vsscript, 0);
     if (!vsnode)
-        throw WobblyException("Final script for job number " + std::to_string(job_index) + " evaluated successfully, but no node found at output index 0.");
+        throw WobblyException("Final script for job number " + std::to_string(job_index + 1) + " evaluated successfully, but no node found at output index 0.");
 
     vsvi = vsapi->getVideoInfo(vsnode);
 
@@ -1199,6 +1252,8 @@ void WibblyWindow::startNextJob() {
             delete current_project;
             current_project = nullptr;
         }
+
+        QApplication::processEvents();
 
         // A little recursion, but surely there won't be enough jobs to make it a problem.
         startNextJob();
