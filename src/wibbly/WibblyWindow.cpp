@@ -241,6 +241,7 @@ void WibblyWindow::createMainWindow() {
     main_destination_edit = new QLineEdit;
 
     QPushButton *main_choose_button = new QPushButton("Choose");
+    QPushButton *main_autonumber_button = new QPushButton("Autonumber");
 
     QPushButton *main_add_jobs_button = new QPushButton("Add jobs");
     QPushButton *main_remove_jobs_button = new QPushButton("Remove jobs");
@@ -347,6 +348,22 @@ void WibblyWindow::createMainWindow() {
         if (!path.isEmpty()) {
             main_destination_edit->setText(path);
             destinationChanged();
+        }
+    });
+
+    connect(main_autonumber_button, &QPushButton::clicked, [this] () {
+        auto selection = main_jobs_list->selectedItems();
+
+        int field_width = QString::number(selection.size() - 1).size();
+
+        for (int i = 0; i < selection.size(); i++) {
+            int row = main_jobs_list->row(selection[i]);
+
+            QString output_file = QString::fromStdString(jobs[row].getOutputFile()).arg(i + 1, field_width, 10, QLatin1Char('0'));
+            jobs[row].setOutputFile(output_file.toStdString());
+
+            if (row == main_jobs_list->currentRow())
+                main_destination_edit->setText(output_file);
         }
     });
 
@@ -460,6 +477,7 @@ void WibblyWindow::createMainWindow() {
     hbox->addWidget(new QLabel("Destination:"));
     hbox->addWidget(main_destination_edit);
     hbox->addWidget(main_choose_button);
+    hbox->addWidget(main_autonumber_button);
     vbox->addLayout(hbox);
 
     hbox = new QHBoxLayout;

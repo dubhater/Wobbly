@@ -11,6 +11,9 @@ signals:
 
 private:
     void keyPressEvent(QKeyEvent *event);
+
+public:
+    QList<QListWidgetItem *> selectedItems() const;
 };
 
 #endif // LISTWIDGET_H

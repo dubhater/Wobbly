@@ -13,3 +13,15 @@ void ListWidget::keyPressEvent(QKeyEvent *event) {
 
     QListWidget::keyPressEvent(event);
 }
+
+
+QList<QListWidgetItem *> ListWidget::selectedItems() const {
+    auto selection = QListWidget::selectedItems();
+
+    auto cmp = [this] (const QListWidgetItem *a, const QListWidgetItem *b) -> bool {
+        return row(a) < row(b);
+    };
+    std::sort(selection.begin(), selection.end(), cmp);
+
+    return selection;
+}
