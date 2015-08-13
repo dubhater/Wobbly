@@ -2,7 +2,6 @@
 #include <QButtonGroup>
 #include <QFileDialog>
 #include <QLabel>
-#include <QLineEdit>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
@@ -35,8 +34,6 @@ WibblyWindow::WibblyWindow()
 {
     createUI();
 
-    readSettings();
-
     try {
         initialiseVapourSynth();
 
@@ -46,6 +43,10 @@ WibblyWindow::WibblyWindow()
         errorPopup(e.what());
         std::exit(1); // Seems a bit heavy-handed, but close() doesn't close the window if called here, so...
     }
+
+    readSettings();
+
+    readJobs();
 }
 
 
@@ -154,6 +155,10 @@ void WibblyWindow::checkRequiredFilters() {
 
 
 void WibblyWindow::closeEvent(QCloseEvent *event) {
+    QMetaObject::invokeMethod(main_destination_edit, "editingFinished", Qt::DirectConnection);
+
+    writeJobs();
+
     writeSettings();
 
     cleanUpVapourSynth();
@@ -199,7 +204,7 @@ void WibblyWindow::createMainWindow() {
     main_jobs_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     main_jobs_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
-    QLineEdit *main_destination_edit = new QLineEdit;
+    main_destination_edit = new QLineEdit;
 
     QPushButton *main_choose_button = new QPushButton("Choose");
 
@@ -234,7 +239,7 @@ void WibblyWindow::createMainWindow() {
     QPushButton *main_engage_button = new QPushButton("Engage");
 
 
-    connect(main_jobs_list, &ListWidget::currentRowChanged, [this, main_destination_edit, main_steps_buttons, steps] (int currentRow) {
+    connect(main_jobs_list, &ListWidget::currentRowChanged, [this, main_steps_buttons, steps] (int currentRow) {
         if (currentRow < 0)
             return;
 
@@ -290,7 +295,7 @@ void WibblyWindow::createMainWindow() {
 
     connect(main_jobs_list, &ListWidget::deletePressed, main_remove_jobs_button, &QPushButton::click);
 
-    auto destinationChanged = [this, main_destination_edit] () {
+    auto destinationChanged = [this] () {
         auto selection = main_jobs_list->selectedItems();
 
         for (int i = 0; i < selection.size(); i++) {
@@ -302,7 +307,7 @@ void WibblyWindow::createMainWindow() {
 
     connect(main_destination_edit, &QLineEdit::editingFinished, destinationChanged);
 
-    connect(main_choose_button, &QPushButton::clicked, [this, main_destination_edit, destinationChanged] () {
+    connect(main_choose_button, &QPushButton::clicked, [this, destinationChanged] () {
         QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), QString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
         if (!path.isEmpty()) {
@@ -1278,4 +1283,116 @@ void WibblyWindow::writeSettings() {
     settings.setValue("user_interface/state", saveState());
 
     settings.setValue("user_interface/geometry", saveGeometry());
+}
+
+
+void WibblyWindow::readJobs() {
+    int job_count = settings.value("jobs/count", 0).toInt();
+
+    if (!job_count)
+        return;
+
+    jobs.resize(job_count);
+
+    int field_width = QString::number(jobs.size() - 1).size();
+
+    for (auto job = jobs.begin(); job != jobs.end(); job++) {
+        QString key = QStringLiteral("jobs/job%1/").arg(std::distance(jobs.begin(), job), field_width, 10, QLatin1Char('0'));
+
+        job->setInputFile(settings.value(key + "input_file").toString().toStdString());
+
+        job->setSourceFilter(settings.value(key + "source_filter").toString().toStdString());
+
+        job->setOutputFile(settings.value(key + "output_file").toString().toStdString());
+
+        job->setSteps(settings.value(key + "steps").toInt());
+
+        QList<QVariant> crop_list = settings.value(key + "crop").toList();
+        job->setCrop(crop_list[0].toInt(), crop_list[1].toInt(), crop_list[2].toInt(), crop_list[3].toInt());
+
+        QList<QVariant> trim_list = settings.value(key + "trims").toList();
+        for (int i = 0; i < trim_list.size(); i += 2)
+            job->addTrim(trim_list[i].toInt(), trim_list[i + 1].toInt());
+
+        for (auto param = vfm_params.cbegin(); param != vfm_params.cend(); param++) {
+            if (param->type == VIVTCParamInt)
+                job->setVFMParameter(param->name.toStdString(), settings.value(key + "vfm/" + param->name).toInt());
+            else if (param->type == VIVTCParamDouble)
+                job->setVFMParameter(param->name.toStdString(), settings.value(key + "vfm/" + param->name).toDouble());
+            else if (param->type == VIVTCParamBool)
+                job->setVFMParameter(param->name.toStdString(), settings.value(key + "vfm/" + param->name).toBool());
+        }
+
+        for (auto param = vdecimate_params.cbegin(); param != vdecimate_params.cend(); param++) {
+            if (param->type == VIVTCParamInt)
+                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + "vdecimate/" + param->name).toInt());
+            else if (param->type == VIVTCParamDouble)
+                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + "vdecimate/" + param->name).toDouble());
+            else if (param->type == VIVTCParamBool)
+                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + "vdecimate/" + param->name).toBool());
+        }
+
+        job->setFadesThreshold(settings.value(key + "fades_threshold").toDouble());
+
+        main_jobs_list->addItem(QString::fromStdString(job->getInputFile()));
+    }
+
+    main_jobs_list->setCurrentRow(0);
+}
+
+
+void WibblyWindow::writeJobs() {
+    settings.remove("jobs");
+
+    if (!jobs.size())
+        return;
+
+    settings.setValue("jobs/count", (int)jobs.size());
+
+    int field_width = QString::number(jobs.size() - 1).size();
+
+    for (auto job = jobs.cbegin(); job != jobs.cend(); job++) {
+        QString key = QStringLiteral("jobs/job%1/").arg(std::distance(jobs.cbegin(), job), field_width, 10, QLatin1Char('0'));
+
+        settings.setValue(key + "input_file", QString::fromStdString(job->getInputFile()));
+
+        settings.setValue(key + "source_filter", QString::fromStdString(job->getSourceFilter()));
+
+        settings.setValue(key + "output_file", QString::fromStdString(job->getOutputFile()));
+
+        settings.setValue(key + "steps", job->getSteps());
+
+        const Crop &crop = job->getCrop();
+        QList<QVariant> crop_list = { crop.left, crop.top, crop.right, crop.bottom };
+        settings.setValue(key + "crop", crop_list);
+
+        const auto &trims = job->getTrims();
+        QList<QVariant> trim_list;
+        trim_list.reserve(trims.size() * 2);
+        for (auto it = trims.cbegin(); it != trims.cend(); it++) {
+            trim_list.push_back(it->second.first);
+            trim_list.push_back(it->second.last);
+        }
+        settings.setValue(key + "trims", trim_list);
+
+        for (auto param = vfm_params.cbegin(); param != vfm_params.cend(); param++) {
+            if (param->type == VIVTCParamInt)
+                settings.setValue(key + "vfm/" + param->name, job->getVFMParameterInt(param->name.toStdString()));
+            else if (param->type == VIVTCParamDouble)
+                settings.setValue(key + "vfm/" + param->name, job->getVFMParameterDouble(param->name.toStdString()));
+            else if (param->type == VIVTCParamBool)
+                settings.setValue(key + "vfm/" + param->name, job->getVFMParameterBool(param->name.toStdString()));
+        }
+
+        for (auto param = vdecimate_params.cbegin(); param != vdecimate_params.cend(); param++) {
+            if (param->type == VIVTCParamInt)
+                settings.setValue(key + "vdecimate/" + param->name, job->getVDecimateParameterInt(param->name.toStdString()));
+            else if (param->type == VIVTCParamDouble)
+                settings.setValue(key + "vdecimate/" + param->name, job->getVDecimateParameterDouble(param->name.toStdString()));
+            else if (param->type == VIVTCParamBool)
+                settings.setValue(key + "vdecimate/" + param->name, job->getVDecimateParameterBool(param->name.toStdString()));
+        }
+
+        settings.setValue(key + "fades_threshold", job->getFadesThreshold());
+    }
 }

@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QDoubleSpinBox>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMainWindow>
 #include <QProgressDialog>
 #include <QSettings>
@@ -46,6 +47,7 @@ class WibblyWindow : public QMainWindow
 
     // Widgets.
     ListWidget *main_jobs_list;
+    QLineEdit *main_destination_edit;
     QProgressDialog *main_progress_dialog;
 
     DockWidget *video_dock;
@@ -130,6 +132,9 @@ class WibblyWindow : public QMainWindow
 
     void readSettings();
     void writeSettings();
+
+    void readJobs();
+    void writeJobs();
 
 public:
     WibblyWindow();
