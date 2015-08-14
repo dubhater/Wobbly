@@ -349,6 +349,7 @@ class WobblyProject {
         int getNextFrameWithMic(int minimum, int start_frame);
 
 
+        char getOriginalMatch(int frame);
         void setOriginalMatch(int frame, char match);
 
 

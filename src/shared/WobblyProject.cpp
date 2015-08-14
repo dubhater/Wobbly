@@ -71,8 +71,6 @@ WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, co
 
     // XXX What happens when the video happens to be bottom field first?
     vfm_parameters.insert({ "order", 1 });
-    original_matches.resize(_num_frames, 'c');
-    matches.resize(_num_frames, 'c');
     decimated_frames.resize((_num_frames - 1) / 5 + 1);
     addSection(0);
     resize.width = _width;
@@ -540,18 +538,18 @@ void WobblyProject::readProject(const std::string &path) {
 
 
     json_matches = json_project["matches"].toArray();
-    matches.resize(getNumFrames(PostSource), 'c');
-    for (int i = 0; i < std::min(json_matches.size(), (int)matches.size()); i++)
-        matches[i] = json_matches[i].toString().toStdString()[0];
+    if (json_matches.size()) {
+        matches.resize(getNumFrames(PostSource), 'c');
+        for (int i = 0; i < std::min(json_matches.size(), (int)matches.size()); i++)
+            matches[i] = json_matches[i].toString().toStdString()[0];
+    }
 
 
     json_original_matches = json_project["original matches"].toArray();
-    original_matches.resize(getNumFrames(PostSource), 'c');
-    for (int i = 0; i < std::min(json_original_matches.size(), (int)original_matches.size()); i++)
-        original_matches[i] = json_original_matches[i].toString().toStdString()[0];
-
-    if (json_matches.size() == 0 && json_original_matches.size() != 0) {
-        memcpy(matches.data(), original_matches.data(), matches.size());
+    if (json_original_matches.size()) {
+        original_matches.resize(getNumFrames(PostSource), 'c');
+        for (int i = 0; i < std::min(json_original_matches.size(), (int)original_matches.size()); i++)
+            original_matches[i] = json_original_matches[i].toString().toStdString()[0];
     }
 
 
@@ -916,20 +914,39 @@ int WobblyProject::getNextFrameWithMic(int minimum, int start_frame) {
 }
 
 
+char WobblyProject::getOriginalMatch(int frame) {
+    if (original_matches.size())
+        return original_matches[frame];
+    else
+        return 'c';
+}
+
+
 void WobblyProject::setOriginalMatch(int frame, char match) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't set the original match for frame " + std::to_string(frame) + ": frame number out of range.");
+
+    if (!original_matches.size())
+        original_matches.resize(getNumFrames(PostSource), 'c');
 
     original_matches[frame] = match;
 }
 
 
 char WobblyProject::getMatch(int frame) {
-    return matches[frame];
+    if (matches.size())
+        return matches[frame];
+    else if (original_matches.size())
+        return original_matches[frame];
+    else
+        return 'c';
 }
 
 
 void WobblyProject::setMatch(int frame, char match) {
+    if (!matches.size())
+        matches.resize(getNumFrames(PostSource), 'c');
+
     matches[frame] = match;
 }
 
@@ -937,7 +954,7 @@ void WobblyProject::setMatch(int frame, char match) {
 void WobblyProject::cycleMatchBCN(int frame) {
     // N -> C -> B. This is the order Yatta uses, so we use it.
 
-    char match = matches[frame];
+    char match = getMatch(frame);
 
     if (match == 'n')
         match = 'c';
@@ -953,14 +970,14 @@ void WobblyProject::cycleMatchBCN(int frame) {
             match = 'n';
     }
 
-    matches[frame] = match;
+    setMatch(frame, match);
 }
 
 
 void WobblyProject::cycleMatch(int frame) {
     // U -> B -> N -> C -> P
 
-    char match = matches[frame];
+    char match = getMatch(frame);
 
     if (match == 'u') {
         if (frame == 0)
@@ -986,7 +1003,7 @@ void WobblyProject::cycleMatch(int frame) {
             match = 'u';
     }
 
-    matches[frame] = match;
+    setMatch(frame, match);
 }
 
 
@@ -1059,7 +1076,7 @@ void WobblyProject::setRangeMatchesFromPattern(int range_start, int range_end, c
             // Skip the first and last frame if their new matches are incompatible.
             continue;
 
-        matches[i] = pattern[i % 5];
+        setMatch(i, pattern[i % 5]);
     }
 }
 
@@ -1081,7 +1098,13 @@ void WobblyProject::resetRangeMatches(int start, int end) {
     if (start < 0 || end >= getNumFrames(PostSource))
         throw WobblyException("Can't reset the matches for range [" + std::to_string(start) + "," + std::to_string(end) + "]: values out of range.");
 
-    memcpy(matches.data() + start, original_matches.data() + start, end - start + 1);
+    if (!matches.size())
+        matches.resize(getNumFrames(PostSource), 'c');
+
+    if (original_matches.size())
+        memcpy(matches.data() + start, original_matches.data() + start, end - start + 1);
+    else
+        memset(matches.data() + start, 'c', end - start + 1);
 }
 
 
@@ -1350,10 +1373,17 @@ std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) {
     size_t start = 0;
     size_t length = 0;
 
-    for (size_t i = 0; i < matches.size(); i++) {
-        if (matches[i] == 'c') {
+    auto cbegin = matches.cbegin();
+    auto cend = matches.cend();
+    if (!matches.size()) {
+        cbegin = original_matches.cbegin();
+        cend = original_matches.cend();
+    }
+
+    for (auto match = cbegin; match != cend; match++) {
+        if (*match == 'c') {
             if (length == 0)
-                start = i;
+                start = std::distance(cbegin, match);
             length++;
         } else {
             if (length >= (size_t)minimum)
@@ -1361,6 +1391,9 @@ std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) {
             length = 0;
         }
     }
+
+    if (!matches.size() && !original_matches.size())
+        length = getNumFrames(PostSource);
 
     // The very last sequence.
     if (length > 0)
@@ -1835,7 +1868,7 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
     int total = 0;
 
     for (int i = section_start; i < std::min(section_end, getNumFrames(PostSource) - 1); i++) {
-        if (original_matches[i] == 'n' && original_matches[i + 1] == 'c') {
+        if (getOriginalMatch(i) == 'n' && getOriginalMatch(i + 1) == 'c') {
             positions[i % 5]++;
             total++;
         }
@@ -1891,20 +1924,20 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
                 int16_t mic_n = getMics(i)[matchCharToIndex('n')];
                 int16_t mic_c = getMics(i)[matchCharToIndex('c')];
                 if (mic_n < mic_c)
-                    matches[i] = 'n';
+                    setMatch(i, 'n');
                 else
-                    matches[i] = 'c';
+                    setMatch(i, 'c');
             } else {
-                matches[i] = pattern[i % 5];
+                setMatch(i, pattern[i % 5]);
             }
         }
 
         // If the last frame of the section has much higher mic with c/n matches than with b match, use the b match.
-        char match_index = matchCharToIndex(matches[section_end - 1]);
+        char match_index = matchCharToIndex(getMatch(section_end - 1));
         int16_t mic_cn = getMics(section_end - 1)[match_index];
         int16_t mic_b = getMics(section_end - 1)[matchCharToIndex('b')];
         if (mic_cn > mic_b * 2)
-            matches[section_end - 1] = 'b';
+            setMatch(section_end - 1, 'b');
 
         // A pattern was found.
         pattern_guessing.failures.erase(section_start);
@@ -2117,10 +2150,16 @@ void WobblyProject::trimToScript(std::string &script) {
 }
 
 void WobblyProject::fieldHintToScript(std::string &script) {
+    if (!matches.size() && !original_matches.size())
+        return;
+
     script += "src = c.fh.FieldHint(clip=src, tff=";
     script += std::to_string((int)vfm_parameters["order"]);
     script += ", matches='";
-    script.append(matches.data(), matches.size());
+    if (matches.size())
+        script.append(matches.data(), matches.size());
+    else
+        script.append(original_matches.data(), original_matches.size());
     script +=
             "')\n"
             "\n";
