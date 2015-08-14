@@ -12,6 +12,7 @@ Compilation
 ===========
 
 The usual steps work::
+
     ./autogen.sh
     ./configure
     make
