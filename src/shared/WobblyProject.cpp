@@ -1042,25 +1042,13 @@ void WobblyProject::setSectionPreset(int section_start, const std::string &prese
 void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
     int section_end = getSectionEnd(section_start);
 
-    for (int i = section_start; i < section_end; i++) {
-        if ((i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
-            (i == getNumFrames(PostSource) - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
-            // Skip the first and last frame if their new matches are incompatible.
-            continue;
-
-        matches[i] = pattern[i % 5];
-    }
+    setRangeMatchesFromPattern(section_start, section_end - 1, pattern);
 }
 
 void WobblyProject::setSectionDecimationFromPattern(int section_start, const std::string &pattern) {
     int section_end = getSectionEnd(section_start);
 
-    for (int i = section_start; i < section_end; i++) {
-        if (pattern[i % 5] == 'd')
-            addDecimatedFrame(i);
-        else
-            deleteDecimatedFrame(i);
-    }
+    setRangeDecimationFromPattern(section_start, section_end - 1, pattern);
 }
 
 
