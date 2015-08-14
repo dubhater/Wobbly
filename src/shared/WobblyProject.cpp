@@ -417,13 +417,13 @@ void WobblyProject::readProject(const std::string &path) {
     fps_den = (int64_t)json_project["input frame rate"].toArray()[1].toDouble();
 
 
-    width = (int)json_project["input resolution"].toArray()[0].toDouble();
-    height = (int)json_project["input resolution"].toArray()[1].toDouble();
+    width = json_project["input resolution"].toArray()[0].toInt();
+    height = json_project["input resolution"].toArray()[1].toInt();
 
 
     QJsonObject json_ui = json_project["user interface"].toObject();
-    zoom = (int)json_ui["zoom"].toDouble(1);
-    last_visited_frame = (int)json_ui["last visited frame"].toDouble(0);
+    zoom = json_ui["zoom"].toInt(1);
+    last_visited_frame = json_ui["last visited frame"].toInt(0);
     ui_state = json_ui["state"].toString().toStdString();
     ui_geometry = json_ui["geometry"].toString().toStdString();
 
@@ -436,8 +436,8 @@ void WobblyProject::readProject(const std::string &path) {
         shown_frame_rates = { true, false, true, true, true };
     }
 
-    mic_search_minimum = (int)json_ui["mic search minimum"].toDouble(mic_search_minimum);
-    c_match_sequences_minimum = (int)json_ui["c match sequences minimum"].toDouble(c_match_sequences_minimum);
+    mic_search_minimum = json_ui["mic search minimum"].toInt(mic_search_minimum);
+    c_match_sequences_minimum = json_ui["c match sequences minimum"].toInt(c_match_sequences_minimum);
 
     QJsonObject json_pattern_guessing = json_ui["pattern guessing"].toObject();
 
@@ -448,7 +448,7 @@ void WobblyProject::readProject(const std::string &path) {
         };
         pattern_guessing.method = guessing_methods[json_pattern_guessing["method"].toString("from mics").toStdString()];
 
-        pattern_guessing.minimum_length = (int)json_pattern_guessing["minimum length"].toDouble();
+        pattern_guessing.minimum_length = json_pattern_guessing["minimum length"].toInt();
 
         std::unordered_map<std::string, int> third_n_match = {
             { "always", 0 },
@@ -488,7 +488,7 @@ void WobblyProject::readProject(const std::string &path) {
         for (int i = 0; i < json_failures.size(); i++) {
             QJsonObject json_failure = json_failures[i].toObject();
             FailedPatternGuessing fail;
-            fail.start = (int)json_failure["start"].toDouble();
+            fail.start = json_failure["start"].toInt();
             fail.reason = reasons[json_failure["reason"].toString().toStdString()];
             pattern_guessing.failures.insert({ fail.start, fail });
         }
@@ -501,8 +501,8 @@ void WobblyProject::readProject(const std::string &path) {
     for (int i = 0; i < json_trims.size(); i++) {
         QJsonArray json_trim = json_trims[i].toArray();
         FrameRange range;
-        range.first = (int)json_trim[0].toDouble();
-        range.last = (int)json_trim[1].toDouble();
+        range.first = json_trim[0].toInt();
+        range.last = json_trim[1].toInt();
         trims.insert(std::make_pair(range.first, range));
         setNumFrames(PostSource, getNumFrames(PostSource) + (range.last - range.first + 1));
     }
@@ -555,13 +555,13 @@ void WobblyProject::readProject(const std::string &path) {
 
     json_combed_frames = json_project["combed frames"].toArray();
     for (int i = 0; i < json_combed_frames.size(); i++)
-        addCombedFrame((int)json_combed_frames[i].toDouble());
+        addCombedFrame(json_combed_frames[i].toInt());
 
 
     decimated_frames.resize((getNumFrames(PostSource) - 1) / 5 + 1);
     json_decimated_frames = json_project["decimated frames"].toArray();
     for (int i = 0; i < json_decimated_frames.size(); i++)
-        addDecimatedFrame((int)json_decimated_frames[i].toDouble());
+        addDecimatedFrame(json_decimated_frames[i].toInt());
 
     // num_frames[PostDecimate] is correct at this point.
 
@@ -569,7 +569,7 @@ void WobblyProject::readProject(const std::string &path) {
     if (json_decimate_metrics.size()) {
         decimate_metrics.resize(getNumFrames(PostSource), 0);
         for (int i = 0; i < std::min(json_decimate_metrics.size(), (int)decimate_metrics.size()); i++)
-            decimate_metrics[i] = (int)json_decimate_metrics[i].toDouble();
+            decimate_metrics[i] = json_decimate_metrics[i].toInt();
     }
 
 
@@ -585,7 +585,7 @@ void WobblyProject::readProject(const std::string &path) {
     json_frozen_frames = json_project["frozen frames"].toArray();
     for (int i = 0; i < json_frozen_frames.size(); i++) {
         QJsonArray json_ff = json_frozen_frames[i].toArray();
-        addFreezeFrame((int)json_ff[0].toDouble(), (int)json_ff[1].toDouble(), (int)json_ff[2].toDouble());
+        addFreezeFrame(json_ff[0].toInt(), json_ff[1].toInt(), json_ff[2].toInt());
     }
 
 
@@ -595,7 +595,7 @@ void WobblyProject::readProject(const std::string &path) {
 
     for (int j = 0; j < json_sections.size(); j++) {
         QJsonObject json_section = json_sections[j].toObject();
-        int section_start = (int)json_section["start"].toDouble();
+        int section_start = json_section["start"].toInt();
         Section section(section_start);
         json_presets = json_section["presets"].toArray();
         section.presets.resize(json_presets.size());
@@ -618,12 +618,12 @@ void WobblyProject::readProject(const std::string &path) {
 
         CustomList list(json_list["name"].toString().toStdString(),
                 json_list["preset"].toString().toStdString(),
-                (int)json_list["position"].toDouble());
+                json_list["position"].toInt());
 
         QJsonArray json_frames = json_list["frames"].toArray();
         for (int j = 0; j < json_frames.size(); j++) {
             QJsonArray json_range = json_frames[j].toArray();
-            list.addFrameRange((int)json_range[0].toDouble(), (int)json_range[1].toDouble());
+            list.addFrameRange(json_range[0].toInt(), json_range[1].toInt());
         }
 
         addCustomList(list);
@@ -634,22 +634,22 @@ void WobblyProject::readProject(const std::string &path) {
 
     json_resize = json_project["resize"].toObject();
     resize.enabled = !json_resize.isEmpty();
-    resize.width = (int)json_resize["width"].toDouble(width);
-    resize.height = (int)json_resize["height"].toDouble(height);
+    resize.width = json_resize["width"].toInt(width);
+    resize.height = json_resize["height"].toInt(height);
     resize.filter = json_resize["filter"].toString().toStdString();
 
     json_crop = json_project["crop"].toObject();
     crop.enabled = !json_crop.isEmpty();
     crop.early = json_crop["early"].toBool();
-    crop.left = (int)json_crop["left"].toDouble();
-    crop.top = (int)json_crop["top"].toDouble();
-    crop.right = (int)json_crop["right"].toDouble();
-    crop.bottom = (int)json_crop["bottom"].toDouble();
+    crop.left = json_crop["left"].toInt();
+    crop.top = json_crop["top"].toInt();
+    crop.right = json_crop["right"].toInt();
+    crop.bottom = json_crop["bottom"].toInt();
 
     json_depth = json_project["depth"].toObject();
     depth.enabled = !json_depth.isEmpty();
     if (depth.enabled) {
-        depth.bits = (int)json_depth["bits"].toDouble();
+        depth.bits = json_depth["bits"].toInt();
         depth.float_samples = json_depth["float samples"].toBool();
         depth.dither = json_depth["dither"].toString().toStdString();
     }
@@ -662,7 +662,7 @@ void WobblyProject::readProject(const std::string &path) {
     for (int i = 0; i < json_interlaced_fades.size(); i++) {
         QJsonObject json_interlaced_fade = json_interlaced_fades[i].toObject();
 
-        int frame = (int)json_interlaced_fade["frame"].toDouble();
+        int frame = json_interlaced_fade["frame"].toInt();
         double field_difference = json_interlaced_fade["field difference"].toDouble();
 
         interlaced_fades.insert({ frame, { frame, field_difference } });
