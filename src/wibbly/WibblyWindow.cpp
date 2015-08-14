@@ -657,10 +657,13 @@ void WibblyWindow::createCropWindow() {
             jobs[row].setCrop(crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value());
         }
 
-        try {
-            evaluateDisplayScript();
-        } catch (WobblyException &e) {
-//            errorPopup(e.what());
+        int current_row = main_jobs_list->currentRow();
+        if (current_row > -1 && jobs[current_row].getSteps() & StepCrop) {
+            try {
+                evaluateDisplayScript();
+            } catch (WobblyException &e) {
+//                errorPopup(e.what());
+            }
         }
     };
 
@@ -728,10 +731,13 @@ void WibblyWindow::createVFMWindow() {
             }
         }
 
-        try {
-            evaluateDisplayScript();
-        } catch (WobblyException &e) {
-            errorPopup(e.what());
+        int current_row = main_jobs_list->currentRow();
+        if (current_row > -1 && jobs[current_row].getSteps() & StepFieldMatch) {
+            try {
+                evaluateDisplayScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+            }
         }
     };
 
