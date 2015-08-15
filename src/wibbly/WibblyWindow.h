@@ -129,6 +129,8 @@ class WibblyWindow : public QMainWindow
     void checkRequiredFilters();
 
     void closeEvent(QCloseEvent *event);
+    void dragEnterEvent(QDragEnterEvent *event);
+    void dropEvent(QDropEvent *event);
 
     void createUI();
     void createMenus();

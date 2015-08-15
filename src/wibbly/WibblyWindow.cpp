@@ -25,6 +25,7 @@ SOFTWARE.
 #include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QShortcut>
@@ -189,7 +190,34 @@ void WibblyWindow::closeEvent(QCloseEvent *event) {
 }
 
 
+void WibblyWindow::dragEnterEvent(QDragEnterEvent *event) {
+    if (event->mimeData()->hasUrls())
+        event->acceptProposedAction();
+}
+
+
+void WibblyWindow::dropEvent(QDropEvent *event) {
+    QList<QUrl> urls = event->mimeData()->urls();
+
+    QStringList paths;
+    paths.reserve(urls.size());
+
+    for (int i = 0; i < urls.size(); i++)
+        if (urls[i].isLocalFile())
+            paths.push_back(urls[i].toLocalFile());
+
+    paths.sort();
+
+    for (int i = 0; i < paths.size(); i++)
+        realOpenVideo(paths[i]);
+
+    event->acceptProposedAction();
+}
+
+
 void WibblyWindow::createUI() {
+    setAcceptDrops(true);
+
     setWindowTitle(QStringLiteral("Wibbly Metrics Collector v%1").arg(PACKAGE_VERSION));
 
     createMainWindow();
