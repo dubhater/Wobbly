@@ -29,6 +29,7 @@ SOFTWARE.
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegExpValidator>
+#include <QScrollArea>
 #include <QShortcut>
 #include <QSpinBox>
 #include <QStatusBar>
@@ -2038,7 +2039,16 @@ void WobblyWindow::createUI() {
     drawColorBars();
 
     frame_label = new QLabel;
+    frame_label->setAlignment(Qt::AlignCenter);
     frame_label->setPixmap(QPixmap::fromImage(splash_image));
+
+    QScrollArea *frame_scroll = new QScrollArea;
+    frame_scroll->resize(720, 480);
+    frame_scroll->setFrameShape(QFrame::NoFrame);
+    frame_scroll->setFocusPolicy(Qt::NoFocus);
+    frame_scroll->setAlignment(Qt::AlignCenter);
+    frame_scroll->setWidgetResizable(true);
+    frame_scroll->setWidget(frame_label);
 
     frame_slider = new QSlider(Qt::Horizontal);
     frame_slider->setTracking(false);
@@ -2054,7 +2064,7 @@ void WobblyWindow::createUI() {
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
-    vbox->addWidget(frame_label);
+    vbox->addWidget(frame_scroll);
     vbox->addWidget(frame_slider);
 
     QWidget *central_widget = new QWidget;
@@ -3902,17 +3912,6 @@ void WobblyWindow::zoom(bool in) {
     }
 
     zoom_label->setText(QStringLiteral("Zoom: %1x").arg(zoom));
-
-    if (!in) {
-        int width = vsapi->getFrameWidth(vsframe, 0);
-        int height = vsapi->getFrameHeight(vsframe, 0);
-
-        // Who the hell even knows the minimum combination of these that works.
-        QApplication::processEvents();
-        resize(width, height);
-        QApplication::processEvents();
-        resize(width, height);
-    }
 }
 
 

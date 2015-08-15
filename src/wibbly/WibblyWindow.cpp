@@ -620,6 +620,7 @@ void WibblyWindow::createMainWindow() {
 
 void WibblyWindow::createVideoOutputWindow() {
     video_frame_label = new QLabel;
+    video_frame_label->setAlignment(Qt::AlignCenter);
 
     QScrollArea *video_frame_scroll = new QScrollArea;
     video_frame_scroll->setFrameShape(QFrame::NoFrame);
