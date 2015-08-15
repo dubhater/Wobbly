@@ -446,24 +446,36 @@ void WobblyProject::readProject(const std::string &path) {
             { "from matches", PatternGuessingFromMatches },
             { "from mics", PatternGuessingFromMics }
         };
-        pattern_guessing.method = guessing_methods[json_pattern_guessing["method"].toString("from mics").toStdString()];
+        try {
+            pattern_guessing.method = guessing_methods.at(json_pattern_guessing["method"].toString("from mics").toStdString());
+        } catch (std::out_of_range &) {
+
+        }
 
         pattern_guessing.minimum_length = json_pattern_guessing["minimum length"].toInt();
 
         std::unordered_map<std::string, int> third_n_match = {
-            { "always", 0 },
-            { "never", 1 },
-            { "if it has lower mic", 2 }
+            { "always", UseThirdNMatchAlways },
+            { "never", UseThirdNMatchNever },
+            { "if it has lower mic", UseThirdNMatchIfPrettier }
         };
-        pattern_guessing.third_n_match = third_n_match[json_pattern_guessing["use third n match"].toString("never").toStdString()];
+        try {
+            pattern_guessing.third_n_match = third_n_match.at(json_pattern_guessing["use third n match"].toString("never").toStdString());
+        } catch (std::out_of_range &) {
+
+        }
 
         std::unordered_map<std::string, int> decimate = {
-            { "first duplicate", 0 },
-            { "second duplicate", 1 },
-            { "duplicate with higher mic per cycle", 2 },
-            { "duplicate with higher mic per section", 3 }
+            { "first duplicate", DropFirstDuplicate },
+            { "second duplicate", DropSecondDuplicate },
+            { "duplicate with higher mic per cycle", DropUglierDuplicatePerCycle },
+            { "duplicate with higher mic per section", DropUglierDuplicatePerSection }
         };
-        pattern_guessing.decimation = decimate[json_pattern_guessing["decimate"].toString("first duplicate").toStdString()];
+        try {
+            pattern_guessing.decimation = decimate.at(json_pattern_guessing["decimate"].toString("first duplicate").toStdString());
+        } catch (std::out_of_range &) {
+
+        }
 
         std::unordered_map<std::string, int> use_patterns = {
             { "cccnn", PatternCCCNN },
@@ -482,14 +494,19 @@ void WobblyProject::readProject(const std::string &path) {
         QJsonArray json_failures = json_pattern_guessing["failures"].toArray();
 
         std::unordered_map<std::string, int> reasons = {
-            { "section too short", 0 },
-            { "ambiguous pattern", 1 }
+            { "section too short", SectionTooShort },
+            { "ambiguous pattern", AmbiguousMatchPattern }
         };
         for (int i = 0; i < json_failures.size(); i++) {
             QJsonObject json_failure = json_failures[i].toObject();
             FailedPatternGuessing fail;
             fail.start = json_failure["start"].toInt();
-            fail.reason = reasons[json_failure["reason"].toString().toStdString()];
+            try {
+                fail.reason = reasons.at(json_failure["reason"].toString("ambiguous pattern").toStdString());
+            } catch (std::out_of_range &) {
+                fail.reason = AmbiguousMatchPattern;
+            }
+
             pattern_guessing.failures.insert({ fail.start, fail });
         }
     }
