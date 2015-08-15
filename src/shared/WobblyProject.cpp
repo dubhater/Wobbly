@@ -748,11 +748,7 @@ std::vector<FreezeFrame> WobblyProject::getFreezeFrames() const {
 
 
 void WobblyProject::addPreset(const std::string &preset_name) {
-    std::string contents =
-            "# The preset is a Python function. It takes a single parameter, called 'clip'.\n"
-            "# Filter that and assign the result to the same variable.\n"
-            "# The VapourSynth core object is called 'c'.\n";
-    addPreset(preset_name, contents);
+    addPreset(preset_name, "");
 }
 
 

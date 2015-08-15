@@ -622,6 +622,12 @@ void WobblyWindow::createPresetEditor() {
     preset_edit = new PresetTextEdit;
     preset_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
     preset_edit->setTabChangesFocus(true);
+    preset_edit->setToolTip(QStringLiteral(
+                "The preset is a Python function. It takes a single parameter, called 'clip'.\n"
+                "Filter that and assign the result to the same variable.\n"
+                "The return statement will be added automatically.\n"
+                "The VapourSynth core object is called 'c'."
+    ));
     connect(preset_edit, &PresetTextEdit::focusLost, this, &WobblyWindow::presetEdited);
 
     QPushButton *new_button = new QPushButton(QStringLiteral("New"));
