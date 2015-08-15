@@ -2151,9 +2151,6 @@ void WobblyProject::sourceToScript(std::string &script) const {
 }
 
 void WobblyProject::trimToScript(std::string &script) const {
-    if (!trims.size())
-        return;
-
     script += "src = c.std.Splice(clips=[";
     for (auto it = trims.cbegin(); it != trims.cend(); it++)
         script += "src[" + std::to_string(it->second.first) + ":" + std::to_string(it->second.last + 1) + "],";

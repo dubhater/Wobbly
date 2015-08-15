@@ -2639,6 +2639,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
             delete project;
 
         project = new WobblyProject(true, path.toStdString(), source_filter.toStdString(), vi.fpsNum, vi.fpsDen, vi.width, vi.height, vi.numFrames);
+        project->addTrim(0, vi.numFrames - 1);
 
         video_path = path;
         project_path.clear();

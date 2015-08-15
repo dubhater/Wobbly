@@ -1267,6 +1267,9 @@ void WibblyWindow::startNextJob() {
     for (auto it = trims.cbegin(); it != trims.cend(); it++)
         current_project->addTrim(it->second.first, it->second.last);
 
+    if (!trims.size())
+        current_project->addTrim(0, vsvi->numFrames - 1);
+
     int steps = job.getSteps();
 
     if (steps & StepFieldMatch) {
