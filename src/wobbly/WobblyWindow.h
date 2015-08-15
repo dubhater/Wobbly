@@ -133,6 +133,7 @@ private:
     DockWidget *settings_dock;
     QSpinBox *settings_font_spin;
     QCheckBox *settings_compact_projects_check;
+    QComboBox *settings_colormatrix_combo;
     TableWidget *settings_shortcuts_table;
 
 

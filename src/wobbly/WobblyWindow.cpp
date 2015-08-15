@@ -90,6 +90,9 @@ void WobblyWindow::readSettings() {
 
     settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
 
+    if (settings.contains("user_interface/colormatrix"))
+        settings_colormatrix_combo->setCurrentText(settings.value("user_interface/colormatrix").toString());
+
     settings_shortcuts_table->setRowCount(shortcuts.size());
     for (size_t i = 0; i < shortcuts.size(); i++) {
         QString settings_key = "user_interface/keys/" + shortcuts[i].description;
@@ -1820,6 +1823,15 @@ void WobblyWindow::createSettingsWindow() {
 
     settings_compact_projects_check = new QCheckBox("Create compact project files");
 
+    settings_colormatrix_combo = new QComboBox;
+    settings_colormatrix_combo->addItems({
+                                             "BT 601",
+                                             "BT 709",
+                                             "BT 2020 NCL",
+                                             "BT 2020 CL"
+                                         });
+    settings_colormatrix_combo->setCurrentIndex(1);
+
     settings_shortcuts_table = new TableWidget(0, 3, this);
     settings_shortcuts_table->setHorizontalHeaderLabels({ "Current", "Default", "Description" });
 
@@ -1838,6 +1850,19 @@ void WobblyWindow::createSettingsWindow() {
 
     connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
         settings.setValue("projects/compact_project_files", checked);
+    });
+
+    connect(settings_colormatrix_combo, &QComboBox::currentTextChanged, [this] (const QString &text) {
+        settings.setValue("user_interface/colormatrix", text);
+
+        if (!project)
+            return;
+
+        try {
+            evaluateScript(preview);
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+        }
     });
 
     connect(settings_shortcuts_table, &TableWidget::cellDoubleClicked, settings_shortcut_edit, static_cast<void (QLineEdit::*)()>(&QLineEdit::setFocus));
@@ -1911,6 +1936,12 @@ void WobblyWindow::createSettingsWindow() {
 
     hbox = new QHBoxLayout;
     hbox->addWidget(settings_compact_projects_check);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(new QLabel("Colormatrix:"));
+    hbox->addWidget(settings_colormatrix_combo);
     hbox->addStretch(1);
     vbox->addLayout(hbox);
 
@@ -2922,16 +2953,43 @@ void WobblyWindow::evaluateScript(bool final_script) {
     else
         script = project->generateMainDisplayScript(crop_dock->isVisible());
 
-    // BT 601
+    // Magic numbers obtained from zimg.h.
+    QString m = settings_colormatrix_combo->currentText();
+    // BT 709
+    int matrix = 1;
+    int transfer = 1;
+    int primaries = 1;
+
+    if (m == "BT 601") {
+        matrix = 5;
+        transfer = 6;
+        primaries = 6;
+    } else if (m == "BT 709") {
+        matrix = 1;
+        transfer = 1;
+        primaries = 1;
+    } else if (m == "BT 2020 NCL") {
+        matrix = 9;
+        transfer = 1;
+        primaries = 9;
+    } else if (m == "BT 2020 CL") {
+        matrix = 10;
+        transfer = 1;
+        primaries = 9;
+    }
+
     script +=
             "src = vs.get_output(index=0)\n"
-            "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n"
-            "src = c.z.Resize(clip=src, width=src.width, height=src.height, filter_uv='bicubic', subsample_w=0, subsample_h=0)\n"
-            "src = c.z.Colorspace(clip=src, matrix_in=5, transfer_in=6, primaries_in=6, matrix_out=0)\n"
-            "src = c.z.Depth(clip=src, depth=8, sample=vs.INTEGER, dither='random')\n"
-            "src = c.std.FlipVertical(clip=src)\n"
-            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
-            "src.set_output()\n";
+            "if src.format is None:\n"
+            "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n"
+            "if src.format.color_family != vs.RGB:\n"
+            "    src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n"
+            "    src = c.z.Resize(clip=src, width=src.width, height=src.height, filter_uv='bicubic', subsample_w=0, subsample_h=0)\n"
+            "    src = c.z.Colorspace(clip=src, matrix_in=" + std::to_string(matrix) + ", transfer_in=" + std::to_string(transfer) + ", primaries_in=" + std::to_string(primaries) + ", matrix_out=0)\n"
+            "    src = c.z.Depth(clip=src, depth=8, sample=vs.INTEGER, dither='random')\n"
+            "    src = c.std.FlipVertical(clip=src)\n"
+            "    src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
+            "    src.set_output()\n";
 
     if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project_path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
