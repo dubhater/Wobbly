@@ -1066,7 +1066,7 @@ void WobblyWindow::createCustomListsEditor() {
         cl_presets_box->setCurrentText(QString::fromStdString(cl[currentRow].preset));
 
         cl_ranges_list->clear();
-        for (auto it = cl[currentRow].frames.cbegin(); it != cl[currentRow].frames.cend(); it++) {
+        for (auto it = cl[currentRow].ranges.cbegin(); it != cl[currentRow].ranges.cend(); it++) {
             QListWidgetItem *item = new QListWidgetItem(QStringLiteral("%1,%2").arg(it->second.first).arg(it->second.last));
             item->setData(Qt::UserRole, it->second.first);
             cl_ranges_list->addItem(item);
@@ -3165,12 +3165,12 @@ void WobblyWindow::updateFrameDetails() {
 
     QString custom_lists;
     const std::vector<CustomList> &lists = project->getCustomLists();
-    for (auto it = lists.cbegin(); it != lists.cend(); it++) {
-        const FrameRange *range = it->findFrameRange(current_frame);
+    for (size_t i =  0; i < lists.size(); i++) {
+        const FrameRange *range = project->findCustomListRange(i, current_frame);
         if (range) {
             if (!custom_lists.isEmpty())
                 custom_lists += "\n";
-            custom_lists += QStringLiteral("%1: [%2,%3]").arg(QString::fromStdString(it->name)).arg(range->first).arg(range->last);
+            custom_lists += QStringLiteral("%1: [%2,%3]").arg(QString::fromStdString(lists[i].name)).arg(range->first).arg(range->last);
         }
     }
 

@@ -99,54 +99,13 @@ struct CustomList {
     std::string name;
     std::string preset; // Preset name.
     int position;
-    std::map<int, FrameRange> frames; // Key is FrameRange::first
+    std::map<int, FrameRange> ranges; // Key is FrameRange::first
 
     CustomList(const std::string &_name, const std::string &_preset = "", int _position = 0)
         : name(_name)
         , preset(_preset)
         , position(_position)
     { }
-
-    void addFrameRange(int first, int last) {
-        if (first > last)
-            std::swap(first, last);
-
-        const FrameRange *overlap = findFrameRange(first);
-        if (!overlap)
-            overlap = findFrameRange(last);
-        if (!overlap) {
-            auto it = frames.upper_bound(first);
-            if (it != frames.cend() && it->second.first < last)
-                overlap = &it->second;
-        }
-
-        if (overlap)
-            throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + name + "': overlaps range (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + ").");
-
-        FrameRange range = { first, last };
-        frames.insert(std::make_pair(range.first, range));
-    }
-
-    void deleteFrameRange(int first) {
-        frames.erase(first);
-    }
-
-    const FrameRange *findFrameRange(int frame) const {
-        if (!frames.size())
-            return nullptr;
-
-        auto it = frames.upper_bound(frame);
-
-        if (it == frames.cbegin())
-            return nullptr;
-
-        it--;
-
-        if (it->second.first <= frame && frame <= it->second.last)
-            return &it->second;
-
-        return nullptr;
-    }
 };
 
 

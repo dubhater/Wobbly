@@ -325,7 +325,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
             json_custom_list.insert("preset", QString::fromStdString(custom_lists[i].preset));
             json_custom_list.insert("position", custom_lists[i].position);
             QJsonArray json_frames;
-            for (auto it = custom_lists[i].frames.cbegin(); it != custom_lists[i].frames.cend(); it++) {
+            for (auto it = custom_lists[i].ranges.cbegin(); it != custom_lists[i].ranges.cend(); it++) {
                 QJsonArray json_pair;
                 json_pair.append(it->second.first);
                 json_pair.append(it->second.last);
@@ -637,13 +637,13 @@ void WobblyProject::readProject(const std::string &path) {
                 json_list["preset"].toString().toStdString(),
                 json_list["position"].toInt());
 
+        addCustomList(list);
+
         QJsonArray json_frames = json_list["frames"].toArray();
         for (int j = 0; j < json_frames.size(); j++) {
             QJsonArray json_range = json_frames[j].toArray();
-            list.addFrameRange(json_range[0].toInt(), json_range[1].toInt());
+            addCustomListRange(i, json_range[0].toInt(), json_range[1].toInt());
         }
-
-        addCustomList(list);
     }
 
 
@@ -770,7 +770,9 @@ void WobblyProject::addPreset(const std::string &preset_name, const std::string 
     Preset preset;
     preset.name = preset_name;
     preset.contents = preset_contents;
-    presets.insert(std::make_pair(preset_name, preset));
+    auto ret = presets.insert(std::make_pair(preset_name, preset));
+    if (!ret.second)
+        throw WobblyException("Can't add preset '" + preset_name + "': preset name already in use.");
 }
 
 void WobblyProject::renamePreset(const std::string &old_name, const std::string &new_name) {
@@ -878,6 +880,9 @@ void WobblyProject::setVDecimateParameter(const std::string &name, double value)
 
 
 std::array<int16_t, 5> WobblyProject::getMics(int frame) const {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the mics for frame " + std::to_string(frame) + ": frame number out of range.");
+
     if (mics.size())
         return mics[frame];
     else
@@ -902,6 +907,9 @@ void WobblyProject::setMics(int frame, int16_t mic_p, int16_t mic_c, int16_t mic
 
 
 int WobblyProject::getPreviousFrameWithMic(int minimum, int start_frame) const {
+    if (start_frame < 0 || start_frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the previous frame with mic " + std::to_string(minimum) + " or greater: frame " + std::to_string(start_frame) + " is out of range.");
+
     for (int i = start_frame - 1; i >= 0; i--) {
         int index = matchCharToIndex(getMatch(i));
         int16_t mic = getMics(i)[index];
@@ -915,6 +923,9 @@ int WobblyProject::getPreviousFrameWithMic(int minimum, int start_frame) const {
 
 
 int WobblyProject::getNextFrameWithMic(int minimum, int start_frame) const {
+    if (start_frame < 0 || start_frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the next frame with mic " + std::to_string(minimum) + " or greater: frame " + std::to_string(start_frame) + " is out of range.");
+
     for (int i = start_frame + 1; i < getNumFrames(PostSource); i++) {
         int index = matchCharToIndex(getMatch(i));
         int16_t mic = getMics(i)[index];
@@ -928,6 +939,9 @@ int WobblyProject::getNextFrameWithMic(int minimum, int start_frame) const {
 
 
 char WobblyProject::getOriginalMatch(int frame) const {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the original match for frame " + std::to_string(frame) + ": frame number out of range.");
+
     if (original_matches.size())
         return original_matches[frame];
     else
@@ -939,6 +953,9 @@ void WobblyProject::setOriginalMatch(int frame, char match) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't set the original match for frame " + std::to_string(frame) + ": frame number out of range.");
 
+    if (match != 'p' && match != 'c' && match != 'n' && match != 'b' && match != 'u')
+        throw WobblyException("Can't set the original match for frame " + std::to_string(frame) + ": '" + match + "' is not a valid match character.");
+
     if (!original_matches.size())
         original_matches.resize(getNumFrames(PostSource), 'c');
 
@@ -947,6 +964,9 @@ void WobblyProject::setOriginalMatch(int frame, char match) {
 
 
 char WobblyProject::getMatch(int frame) const {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the match for frame " + std::to_string(frame) + ": frame number out of range.");
+
     if (matches.size())
         return matches[frame];
     else if (original_matches.size())
@@ -957,6 +977,12 @@ char WobblyProject::getMatch(int frame) const {
 
 
 void WobblyProject::setMatch(int frame, char match) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't set the match for frame " + std::to_string(frame) + ": frame number out of range.");
+
+    if (match != 'p' && match != 'c' && match != 'n' && match != 'b' && match != 'u')
+        throw WobblyException("Can't set the match for frame " + std::to_string(frame) + ": '" + match + "' is not a valid match character.");
+
     if (!matches.size())
         matches.resize(getNumFrames(PostSource), 'c');
 
@@ -965,6 +991,9 @@ void WobblyProject::setMatch(int frame, char match) {
 
 
 void WobblyProject::cycleMatchBCN(int frame) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't cycle the match for frame " + std::to_string(frame) + ": frame number out of range.");
+
     // N -> C -> B. This is the order Yatta uses, so we use it.
 
     char match = getMatch(frame);
@@ -988,6 +1017,9 @@ void WobblyProject::cycleMatchBCN(int frame) {
 
 
 void WobblyProject::cycleMatch(int frame) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't cycle the match for frame " + std::to_string(frame) + ": frame number out of range.");
+
     // U -> B -> N -> C -> P
 
     char match = getMatch(frame);
@@ -1033,18 +1065,30 @@ void WobblyProject::addSection(const Section &section) {
 }
 
 void WobblyProject::deleteSection(int section_start) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't delete section starting at " + std::to_string(section_start) + ": value out of range.");
+
+    if (!sections.count(section_start))
+        throw WobblyException("Can't delete section starting at " + std::to_string(section_start) + ": no such section.");
+
     // Never delete the very first section.
     if (section_start > 0)
         sections.erase(section_start);
 }
 
 Section *WobblyProject::findSection(int frame) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't find the section frame " + std::to_string(frame) + " belongs to: frame number out of range.");
+
     auto it = sections.upper_bound(frame);
     it--;
     return &it->second;
 }
 
 Section *WobblyProject::findNextSection(int frame) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't find the section after frame " + std::to_string(frame) + ": frame number out of range.");
+
     auto it = sections.upper_bound(frame);
 
     if (it != sections.cend())
@@ -1054,6 +1098,9 @@ Section *WobblyProject::findNextSection(int frame) {
 }
 
 int WobblyProject::getSectionEnd(int frame) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't find the end of the section frame " + std::to_string(frame) + " belongs to: frame number out of range.");
+
     const Section *next_section = findNextSection(frame);
     if (next_section)
         return next_section->start;
@@ -1062,6 +1109,12 @@ int WobblyProject::getSectionEnd(int frame) {
 }
 
 void WobblyProject::setSectionPreset(int section_start, const std::string &preset_name) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections.count(section_start))
+        throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": no such section.");
+
     if (!presets.count(preset_name))
         throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": no such preset.");
 
@@ -1070,12 +1123,24 @@ void WobblyProject::setSectionPreset(int section_start, const std::string &prese
 }
 
 void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't apply match pattern to section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections.count(section_start))
+        throw WobblyException("Can't apply match pattern to section starting at " + std::to_string(section_start) + ": no such section.");
+
     int section_end = getSectionEnd(section_start);
 
     setRangeMatchesFromPattern(section_start, section_end - 1, pattern);
 }
 
 void WobblyProject::setSectionDecimationFromPattern(int section_start, const std::string &pattern) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't apply decimation pattern to section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections.count(section_start))
+        throw WobblyException("Can't apply decimation pattern to section starting at " + std::to_string(section_start) + ": no such section.");
+
     int section_end = getSectionEnd(section_start);
 
     setRangeDecimationFromPattern(section_start, section_end - 1, pattern);
@@ -1083,6 +1148,12 @@ void WobblyProject::setSectionDecimationFromPattern(int section_start, const std
 
 
 void WobblyProject::setRangeMatchesFromPattern(int range_start, int range_end, const std::string &pattern) {
+    if (range_start > range_end)
+        std::swap(range_start, range_end);
+
+    if (range_start < 0 || range_end >= getNumFrames(PostSource))
+        throw WobblyException("Can't apply match pattern to frames [" + std::to_string(range_start) + "," + std::to_string(range_end) + "]: frame numbers out of range.");
+
     for (int i = range_start; i <= range_end; i++) {
         if ((i == 0 && (pattern[i % 5] == 'p' || pattern[i % 5] == 'b')) ||
             (i == getNumFrames(PostSource) - 1 && (pattern[i % 5] == 'n' || pattern[i % 5] == 'u')))
@@ -1095,6 +1166,12 @@ void WobblyProject::setRangeMatchesFromPattern(int range_start, int range_end, c
 
 
 void WobblyProject::setRangeDecimationFromPattern(int range_start, int range_end, const std::string &pattern) {
+    if (range_start > range_end)
+        std::swap(range_start, range_end);
+
+    if (range_start < 0 || range_end >= getNumFrames(PostSource))
+        throw WobblyException("Can't apply decimation pattern to frames [" + std::to_string(range_start) + "," + std::to_string(range_end) + "]: frame numbers out of range.");
+
     for (int i = range_start; i <= range_end; i++) {
         if (pattern[i % 5] == 'd')
             addDecimatedFrame(i);
@@ -1109,7 +1186,7 @@ void WobblyProject::resetRangeMatches(int start, int end) {
         std::swap(start, end);
 
     if (start < 0 || end >= getNumFrames(PostSource))
-        throw WobblyException("Can't reset the matches for range [" + std::to_string(start) + "," + std::to_string(end) + "]: values out of range.");
+        throw WobblyException("Can't reset the matches for frames [" + std::to_string(start) + "," + std::to_string(end) + "]: values out of range.");
 
     if (!matches.size())
         matches.resize(getNumFrames(PostSource), 'c');
@@ -1122,6 +1199,12 @@ void WobblyProject::resetRangeMatches(int start, int end) {
 
 
 void WobblyProject::resetSectionMatches(int section_start) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't reset the matches for section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections.count(section_start))
+        throw WobblyException("Can't reset the matches for section starting at " + std::to_string(section_start) + ": no such section.");
+
     int section_end = getSectionEnd(section_start);
 
     resetRangeMatches(section_start, section_end - 1);
@@ -1250,7 +1333,24 @@ void WobblyProject::addCustomListRange(int list_index, int first, int last) {
         last < 0 || last >= getNumFrames(PostSource))
         throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + custom_lists[list_index].name + "': values out of range.");
 
-    custom_lists[list_index].addFrameRange(first, last);
+    auto &ranges = custom_lists[list_index].ranges;
+
+    if (first > last)
+        std::swap(first, last);
+
+    const FrameRange *overlap = findCustomListRange(list_index, first);
+    if (!overlap)
+        overlap = findCustomListRange(list_index, last);
+    if (!overlap) {
+        auto it = ranges.upper_bound(first);
+        if (it != ranges.cend() && it->second.first < last)
+            overlap = &it->second;
+    }
+
+    if (overlap)
+        throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + custom_lists[list_index].name + "': overlaps range (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + ").");
+
+    ranges.insert({ first, { first, last } });
 }
 
 
@@ -1258,7 +1358,12 @@ void WobblyProject::deleteCustomListRange(int list_index, int first) {
     if (list_index < 0 || list_index >= (int)custom_lists.size())
         throw WobblyException("Can't delete a range from custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    custom_lists[list_index].deleteFrameRange(first);
+    auto &ranges = custom_lists[list_index].ranges;
+
+    if (!ranges.count(first))
+        throw WobblyException("Can't delete range starting at frame " + std::to_string(first) + " from custom list '" + custom_lists[list_index].name + "': no such range.");
+
+    custom_lists[list_index].ranges.erase(first);
 }
 
 
@@ -1266,11 +1371,29 @@ const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) 
     if (list_index < 0 || list_index >= (int)custom_lists.size())
         throw WobblyException("Can't find a range in custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    return custom_lists[list_index].findFrameRange(frame);
+    const auto &ranges = custom_lists[list_index].ranges;
+
+    if (!ranges.size())
+        return nullptr;
+
+    auto it = ranges.upper_bound(frame);
+
+    if (it == ranges.cbegin())
+        return nullptr;
+
+    it--;
+
+    if (it->second.first <= frame && frame <= it->second.last)
+        return &it->second;
+
+    return nullptr;
 }
 
 
 int WobblyProject::getDecimateMetric(int frame) const {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the decimation metric for frame " + std::to_string(frame) + ": frame number out of range.");
+
     if (decimate_metrics.size())
         return decimate_metrics[frame];
     else
@@ -1280,7 +1403,7 @@ int WobblyProject::getDecimateMetric(int frame) const {
 
 void WobblyProject::setDecimateMetric(int frame, int decimate_metric) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
-        throw WobblyException("Can't set the decimate metric for frame " + std::to_string(frame) + ": frame number out of range.");
+        throw WobblyException("Can't set the decimation metric for frame " + std::to_string(frame) + ": frame number out of range.");
 
     if (!decimate_metrics.size())
         decimate_metrics.resize(getNumFrames(PostSource), 0);
@@ -1425,11 +1548,17 @@ void WobblyProject::addCombedFrame(int frame) {
 
 
 void WobblyProject::deleteCombedFrame(int frame) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't mark frame " + std::to_string(frame) + " as not combed: value out of range.");
+
     combed_frames.erase(frame);
 }
 
 
 bool WobblyProject::isCombedFrame(int frame) const {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't check if frame " + std::to_string(frame) + " is combed: value out of range.");
+
     return (bool)combed_frames.count(frame);
 }
 
@@ -1534,7 +1663,7 @@ int WobblyProject::getZoom() const {
 
 void WobblyProject::setZoom(int ratio) {
     if (ratio < 1)
-        throw WobblyException("Can't set zoom to ratio " + std::to_string(ratio) + ": invalid value.");
+        throw WobblyException("Can't set zoom to ratio " + std::to_string(ratio) + ": ratio must be at least 1.");
 
     zoom = ratio;
 }
@@ -1601,6 +1730,9 @@ void WobblyProject::setCMatchSequencesMinimum(int minimum) {
 
 
 std::string WobblyProject::frameToTime(int frame) const {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't convert frame " + std::to_string(frame) + " to a time: frame number out of range.");
+
     int milliseconds = (int)((frame * fps_den * 1000 / fps_num) % 1000);
     int seconds_total = (int)(frame * fps_den / fps_num);
     int seconds = seconds_total % 60;
@@ -1751,6 +1883,13 @@ bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_
     if (!mics.size())
         throw WobblyException("Can't guess patterns from mics because there are no mics in the project.");
 
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't guess patterns from mics for section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections.count(section_start))
+        throw WobblyException("Can't reset patterns from mics for section starting at " + std::to_string(section_start) + ": no such section.");
+
+
     int section_end = getSectionEnd(section_start);
 
     if (section_end - section_start < minimum_length) {
@@ -1864,6 +2003,12 @@ void WobblyProject::guessProjectPatternsFromMics(int minimum_length, int use_pat
 
 
 bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minimum_length, int use_third_n_match, int drop_duplicate) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't guess patterns from matches for section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections.count(section_start))
+        throw WobblyException("Can't reset patterns from matches for section starting at " + std::to_string(section_start) + ": no such section.");
+
     int section_end = getSectionEnd(section_start);
 
     if (section_end - section_start < minimum_length) {
@@ -2062,7 +2207,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
             continue;
 
         // Ignore lists with no frame ranges.
-        if (!custom_lists[i].frames.size())
+        if (!custom_lists[i].ranges.size())
             continue;
 
         // Complain if the custom list doesn't have a preset assigned.
@@ -2077,7 +2222,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
 
         std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
 
-        auto it = custom_lists[i].frames.cbegin();
+        auto it = custom_lists[i].ranges.cbegin();
         auto it_prev = it;
 
         if (it->second.first > 0) {
@@ -2088,7 +2233,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
         splice += list_name + "[" + std::to_string(maybeTranslate(it->second.first, false, position)) + ":" + std::to_string(maybeTranslate(it->second.last, true, position) + 1) + "],";
 
         it++;
-        for ( ; it != custom_lists[i].frames.cend(); it++, it_prev++) {
+        for ( ; it != custom_lists[i].ranges.cend(); it++, it_prev++) {
             int previous_last = maybeTranslate(it_prev->second.last, true, position);
             int current_first = maybeTranslate(it->second.first, false, position);
             int current_last = maybeTranslate(it->second.last, true, position);
