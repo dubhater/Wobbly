@@ -78,7 +78,7 @@ WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, co
 }
 
 
-int WobblyProject::getNumFrames(PositionInFilterChain position) {
+int WobblyProject::getNumFrames(PositionInFilterChain position) const {
     if (position == PostSource)
         return num_frames[0];
     else if (position == PostDecimate)
@@ -98,7 +98,7 @@ void WobblyProject::setNumFrames(PositionInFilterChain position, int frames) {
 }
 
 
-void WobblyProject::writeProject(const std::string &path, bool compact_project) {
+void WobblyProject::writeProject(const std::string &path, bool compact_project) const {
     QFile file(QString::fromStdString(path));
 
     if (!file.open(QIODevice::WriteOnly))
@@ -702,7 +702,7 @@ void WobblyProject::deleteFreezeFrame(int frame) {
     frozen_frames.erase(frame);
 }
 
-const FreezeFrame *WobblyProject::findFreezeFrame(int frame) {
+const FreezeFrame *WobblyProject::findFreezeFrame(int frame) const {
     if (!frozen_frames.size())
         return nullptr;
 
@@ -717,7 +717,7 @@ const FreezeFrame *WobblyProject::findFreezeFrame(int frame) {
 }
 
 
-std::vector<FreezeFrame> WobblyProject::getFreezeFrames() {
+std::vector<FreezeFrame> WobblyProject::getFreezeFrames() const {
 
     std::vector<FreezeFrame> ff;
 
@@ -739,7 +739,7 @@ void WobblyProject::addPreset(const std::string &preset_name) {
 }
 
 
-bool WobblyProject::isNameSafeForPython(const std::string &name) {
+bool WobblyProject::isNameSafeForPython(const std::string &name) const {
     for (size_t i = 0; i < name.size(); i++) {
         const char &c = name[i];
 
@@ -801,7 +801,7 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
             it->preset.clear();
 }
 
-std::vector<std::string> WobblyProject::getPresets() {
+std::vector<std::string> WobblyProject::getPresets() const {
     std::vector<std::string> preset_list;
 
     preset_list.reserve(presets.size());
@@ -812,7 +812,7 @@ std::vector<std::string> WobblyProject::getPresets() {
     return preset_list;
 }
 
-const std::string &WobblyProject::getPresetContents(const std::string &preset_name) {
+const std::string &WobblyProject::getPresetContents(const std::string &preset_name) const {
     if (!presets.count(preset_name))
         throw WobblyException("Can't retrieve the contents of preset '" + preset_name + "': no such preset.");
 
@@ -829,7 +829,7 @@ void WobblyProject::setPresetContents(const std::string &preset_name, const std:
 }
 
 
-bool WobblyProject::isPresetInUse(const std::string &preset_name) {
+bool WobblyProject::isPresetInUse(const std::string &preset_name) const {
     if (!presets.count(preset_name))
         throw WobblyException("Can't check if preset '" + preset_name + "' is in use: no such preset.");
 
@@ -864,7 +864,7 @@ void WobblyProject::setVDecimateParameter(const std::string &name, double value)
 }
 
 
-std::array<int16_t, 5> WobblyProject::getMics(int frame) {
+std::array<int16_t, 5> WobblyProject::getMics(int frame) const {
     if (mics.size())
         return mics[frame];
     else
@@ -888,7 +888,7 @@ void WobblyProject::setMics(int frame, int16_t mic_p, int16_t mic_c, int16_t mic
 }
 
 
-int WobblyProject::getPreviousFrameWithMic(int minimum, int start_frame) {
+int WobblyProject::getPreviousFrameWithMic(int minimum, int start_frame) const {
     for (int i = start_frame - 1; i >= 0; i--) {
         int index = matchCharToIndex(getMatch(i));
         int16_t mic = getMics(i)[index];
@@ -901,7 +901,7 @@ int WobblyProject::getPreviousFrameWithMic(int minimum, int start_frame) {
 }
 
 
-int WobblyProject::getNextFrameWithMic(int minimum, int start_frame) {
+int WobblyProject::getNextFrameWithMic(int minimum, int start_frame) const {
     for (int i = start_frame + 1; i < getNumFrames(PostSource); i++) {
         int index = matchCharToIndex(getMatch(i));
         int16_t mic = getMics(i)[index];
@@ -914,7 +914,7 @@ int WobblyProject::getNextFrameWithMic(int minimum, int start_frame) {
 }
 
 
-char WobblyProject::getOriginalMatch(int frame) {
+char WobblyProject::getOriginalMatch(int frame) const {
     if (original_matches.size())
         return original_matches[frame];
     else
@@ -933,7 +933,7 @@ void WobblyProject::setOriginalMatch(int frame, char match) {
 }
 
 
-char WobblyProject::getMatch(int frame) {
+char WobblyProject::getMatch(int frame) const {
     if (matches.size())
         return matches[frame];
     else if (original_matches.size())
@@ -1115,7 +1115,7 @@ void WobblyProject::resetSectionMatches(int section_start) {
 }
 
 
-const std::vector<CustomList> &WobblyProject::getCustomLists() {
+const std::vector<CustomList> &WobblyProject::getCustomLists() const {
     return custom_lists;
 }
 
@@ -1249,7 +1249,7 @@ void WobblyProject::deleteCustomListRange(int list_index, int first) {
 }
 
 
-const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) {
+const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) const {
     if (list_index < 0 || list_index >= (int)custom_lists.size())
         throw WobblyException("Can't find a range in custom list with index " + std::to_string(list_index) + ": index out of range.");
 
@@ -1257,7 +1257,7 @@ const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) 
 }
 
 
-int WobblyProject::getDecimateMetric(int frame) {
+int WobblyProject::getDecimateMetric(int frame) const {
     if (decimate_metrics.size())
         return decimate_metrics[frame];
     else
@@ -1298,7 +1298,7 @@ void WobblyProject::deleteDecimatedFrame(int frame) {
 }
 
 
-bool WobblyProject::isDecimatedFrame(int frame) {
+bool WobblyProject::isDecimatedFrame(int frame) const {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't check if frame " + std::to_string(frame) + " is decimated: value out of range.");
 
@@ -1320,7 +1320,7 @@ void WobblyProject::clearDecimatedFramesFromCycle(int frame) {
 }
 
 
-std::vector<DecimationRange> WobblyProject::getDecimationRanges() {
+std::vector<DecimationRange> WobblyProject::getDecimationRanges() const {
     std::vector<DecimationRange> ranges;
 
     DecimationRange current_range;
@@ -1349,7 +1349,7 @@ static bool areDecimationPatternsEqual(const std::set<int8_t> &a, const std::set
     return true;
 }
 
-std::vector<DecimationPatternRange> WobblyProject::getDecimationPatternRanges() {
+std::vector<DecimationPatternRange> WobblyProject::getDecimationPatternRanges() const {
     std::vector<DecimationPatternRange> ranges;
 
     DecimationPatternRange current_range;
@@ -1367,7 +1367,7 @@ std::vector<DecimationPatternRange> WobblyProject::getDecimationPatternRanges() 
 }
 
 
-std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) {
+std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) const {
     std::map<size_t, size_t> sequences;
 
     size_t start = 0;
@@ -1416,12 +1416,12 @@ void WobblyProject::deleteCombedFrame(int frame) {
 }
 
 
-bool WobblyProject::isCombedFrame(int frame) {
+bool WobblyProject::isCombedFrame(int frame) const {
     return (bool)combed_frames.count(frame);
 }
 
 
-const Resize &WobblyProject::getResize() {
+const Resize &WobblyProject::getResize() const {
     return resize;
 }
 
@@ -1441,12 +1441,12 @@ void WobblyProject::setResizeEnabled(bool enabled) {
 }
 
 
-bool WobblyProject::isResizeEnabled() {
+bool WobblyProject::isResizeEnabled() const {
     return resize.enabled;
 }
 
 
-const Crop &WobblyProject::getCrop() {
+const Crop &WobblyProject::getCrop() const {
     return crop;
 }
 
@@ -1467,7 +1467,7 @@ void WobblyProject::setCropEnabled(bool enabled) {
 }
 
 
-bool WobblyProject::isCropEnabled() {
+bool WobblyProject::isCropEnabled() const {
     return crop.enabled;
 }
 
@@ -1477,12 +1477,12 @@ void WobblyProject::setCropEarly(bool early) {
 }
 
 
-bool WobblyProject::isCropEarly() {
+bool WobblyProject::isCropEarly() const {
     return crop.early;
 }
 
 
-const Depth &WobblyProject::getBitDepth() {
+const Depth &WobblyProject::getBitDepth() const {
     return depth;
 }
 
@@ -1499,12 +1499,12 @@ void WobblyProject::setBitDepthEnabled(bool enabled) {
 }
 
 
-bool WobblyProject::isBitDepthEnabled() {
+bool WobblyProject::isBitDepthEnabled() const {
     return depth.enabled;
 }
 
 
-const std::string &WobblyProject::getSourceFilter() {
+const std::string &WobblyProject::getSourceFilter() const {
     return source_filter;
 }
 
@@ -1514,7 +1514,7 @@ void WobblyProject::setSourceFilter(const std::string &filter) {
 }
 
 
-int WobblyProject::getZoom() {
+int WobblyProject::getZoom() const {
     return zoom;
 }
 
@@ -1527,7 +1527,7 @@ void WobblyProject::setZoom(int ratio) {
 }
 
 
-int WobblyProject::getLastVisitedFrame() {
+int WobblyProject::getLastVisitedFrame() const {
     return last_visited_frame;
 }
 
@@ -1537,7 +1537,7 @@ void WobblyProject::setLastVisitedFrame(int frame) {
 }
 
 
-std::string WobblyProject::getUIState() {
+std::string WobblyProject::getUIState() const {
     return ui_state;
 }
 
@@ -1547,7 +1547,7 @@ void WobblyProject::setUIState(const std::string &state) {
 }
 
 
-std::string WobblyProject::getUIGeometry() {
+std::string WobblyProject::getUIGeometry() const {
     return ui_geometry;
 }
 
@@ -1557,7 +1557,7 @@ void WobblyProject::setUIGeometry(const std::string &geometry) {
 }
 
 
-std::array<bool, 5> WobblyProject::getShownFrameRates() {
+std::array<bool, 5> WobblyProject::getShownFrameRates() const {
     return shown_frame_rates;
 }
 
@@ -1567,7 +1567,7 @@ void WobblyProject::setShownFrameRates(const std::array<bool, 5> &rates) {
 }
 
 
-int WobblyProject::getMicSearchMinimum() {
+int WobblyProject::getMicSearchMinimum() const {
     return mic_search_minimum;
 }
 
@@ -1577,7 +1577,7 @@ void WobblyProject::setMicSearchMinimum(int minimum) {
 }
 
 
-int WobblyProject::getCMatchSequencesMinimum() {
+int WobblyProject::getCMatchSequencesMinimum() const {
     return c_match_sequences_minimum;
 }
 
@@ -1587,7 +1587,7 @@ void WobblyProject::setCMatchSequencesMinimum(int minimum) {
 }
 
 
-std::string WobblyProject::frameToTime(int frame) {
+std::string WobblyProject::frameToTime(int frame) const {
     int milliseconds = (int)((frame * fps_den * 1000 / fps_num) % 1000);
     int seconds_total = (int)(frame * fps_den / fps_num);
     int seconds = seconds_total % 60;
@@ -1607,7 +1607,7 @@ std::string WobblyProject::frameToTime(int frame) {
 }
 
 
-int WobblyProject::frameNumberAfterDecimation(int frame) {
+int WobblyProject::frameNumberAfterDecimation(int frame) const {
     if (frame < 0)
         return 0;
 
@@ -1980,7 +1980,7 @@ void WobblyProject::addInterlacedFade(int frame, double field_difference) {
 }
 
 
-void WobblyProject::sectionsToScript(std::string &script) {
+void WobblyProject::sectionsToScript(std::string &script) const {
     auto samePresets = [] (const std::vector<std::string> &a, const std::vector<std::string> &b) -> bool {
         if (a.size() != b.size())
             return false;
@@ -2032,7 +2032,7 @@ void WobblyProject::sectionsToScript(std::string &script) {
     script += splice;
 }
 
-int WobblyProject::maybeTranslate(int frame, bool is_end, PositionInFilterChain position) {
+int WobblyProject::maybeTranslate(int frame, bool is_end, PositionInFilterChain position) const {
     if (position == PostDecimate) {
         if (is_end)
             while (isDecimatedFrame(frame))
@@ -2042,7 +2042,7 @@ int WobblyProject::maybeTranslate(int frame, bool is_end, PositionInFilterChain 
         return frame;
 }
 
-void WobblyProject::customListsToScript(std::string &script, PositionInFilterChain position) {
+void WobblyProject::customListsToScript(std::string &script, PositionInFilterChain position) const {
     for (size_t i = 0; i < custom_lists.size(); i++) {
         // Ignore lists that are in a different position in the filter chain.
         if (custom_lists[i].position != position)
@@ -2102,7 +2102,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
     }
 }
 
-void WobblyProject::headerToScript(std::string &script) {
+void WobblyProject::headerToScript(std::string &script) const {
     script +=
             "import vapoursynth as vs\n"
             "\n"
@@ -2110,7 +2110,7 @@ void WobblyProject::headerToScript(std::string &script) {
             "\n";
 }
 
-void WobblyProject::presetsToScript(std::string &script) {
+void WobblyProject::presetsToScript(std::string &script) const {
     for (auto it = presets.cbegin(); it != presets.cend(); it++) {
         if (!isPresetInUse(it->second.name))
             continue;
@@ -2127,7 +2127,7 @@ void WobblyProject::presetsToScript(std::string &script) {
     }
 }
 
-void WobblyProject::sourceToScript(std::string &script) {
+void WobblyProject::sourceToScript(std::string &script) const {
     script +=
             "try:\n"
             "    src = vs.get_output(index=1)\n"
@@ -2137,7 +2137,7 @@ void WobblyProject::sourceToScript(std::string &script) {
             "\n";
 }
 
-void WobblyProject::trimToScript(std::string &script) {
+void WobblyProject::trimToScript(std::string &script) const {
     if (!trims.size())
         return;
 
@@ -2149,12 +2149,12 @@ void WobblyProject::trimToScript(std::string &script) {
             "\n";
 }
 
-void WobblyProject::fieldHintToScript(std::string &script) {
+void WobblyProject::fieldHintToScript(std::string &script) const {
     if (!matches.size() && !original_matches.size())
         return;
 
     script += "src = c.fh.FieldHint(clip=src, tff=";
-    script += std::to_string((int)vfm_parameters["order"]);
+    script += std::to_string((int)vfm_parameters.at("order"));
     script += ", matches='";
     if (matches.size())
         script.append(matches.data(), matches.size());
@@ -2165,7 +2165,7 @@ void WobblyProject::fieldHintToScript(std::string &script) {
             "\n";
 }
 
-void WobblyProject::freezeFramesToScript(std::string &script) {
+void WobblyProject::freezeFramesToScript(std::string &script) const {
     std::string ff_first = ", first=[";
     std::string ff_last = ", last=[";
     std::string ff_replacement = ", replacement=[";
@@ -2188,7 +2188,7 @@ void WobblyProject::freezeFramesToScript(std::string &script) {
             "\n";
 }
 
-void WobblyProject::decimatedFramesToScript(std::string &script) {
+void WobblyProject::decimatedFramesToScript(std::string &script) const {
     std::string delete_frames;
 
     const std::vector<DecimationRange> &decimation_ranges = getDecimationRanges();
@@ -2278,7 +2278,7 @@ void WobblyProject::decimatedFramesToScript(std::string &script) {
         script += select_every;
 }
 
-void WobblyProject::cropToScript(std::string &script) {
+void WobblyProject::cropToScript(std::string &script) const {
     script += "src = c.std.CropRel(clip=src, left=";
     script += std::to_string(crop.left) + ", top=";
     script += std::to_string(crop.top) + ", right=";
@@ -2286,7 +2286,7 @@ void WobblyProject::cropToScript(std::string &script) {
     script += std::to_string(crop.bottom) + ")\n\n";
 }
 
-void WobblyProject::showCropToScript(std::string &script) {
+void WobblyProject::showCropToScript(std::string &script) const {
     script += "src = c.std.AddBorders(clip=src, left=";
     script += std::to_string(crop.left) + ", top=";
     script += std::to_string(crop.top) + ", right=";
@@ -2294,7 +2294,7 @@ void WobblyProject::showCropToScript(std::string &script) {
     script += std::to_string(crop.bottom) + ", color=[128, 230, 180])\n\n";
 }
 
-void WobblyProject::resizeToScript(std::string &script) {
+void WobblyProject::resizeToScript(std::string &script) const {
     script += "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n";
     script += "src = c.z.Resize(clip=src";
     script += ", width=" + std::to_string(resize.width);
@@ -2303,7 +2303,7 @@ void WobblyProject::resizeToScript(std::string &script) {
     script += ")\n\n";
 }
 
-void WobblyProject::bitDepthToScript(std::string &script) {
+void WobblyProject::bitDepthToScript(std::string &script) const {
     script += "src = c.z.Depth(clip=src";
     script += ", depth=" + std::to_string(depth.bits);
     script += ", sample=" + std::string(depth.float_samples ? "vs.FLOAT" : "vs.INTEGER");
@@ -2311,11 +2311,11 @@ void WobblyProject::bitDepthToScript(std::string &script) {
     script += ")\n\n";
 }
 
-void WobblyProject::setOutputToScript(std::string &script) {
+void WobblyProject::setOutputToScript(std::string &script) const {
     script += "src.set_output()\n";
 }
 
-std::string WobblyProject::generateFinalScript() {
+std::string WobblyProject::generateFinalScript() const {
     // XXX Insert comments before and after each part.
     std::string script;
 
@@ -2366,7 +2366,7 @@ std::string WobblyProject::generateFinalScript() {
     return script;
 }
 
-std::string WobblyProject::generateMainDisplayScript(bool show_crop) {
+std::string WobblyProject::generateMainDisplayScript(bool show_crop) const {
     std::string script;
 
     headerToScript(script);
@@ -2391,7 +2391,7 @@ std::string WobblyProject::generateMainDisplayScript(bool show_crop) {
 }
 
 
-std::string WobblyProject::generateTimecodesV1() {
+std::string WobblyProject::generateTimecodesV1() const {
     std::string tc =
             "# timecode format v1\n"
             "Assume ";

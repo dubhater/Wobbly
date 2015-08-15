@@ -305,8 +305,8 @@ class WobblyProject {
 
         void setNumFrames(PositionInFilterChain position, int frames);
 
-        bool isNameSafeForPython(const std::string &name);
-        int maybeTranslate(int frame, bool is_end, PositionInFilterChain position);
+        bool isNameSafeForPython(const std::string &name) const;
+        int maybeTranslate(int frame, bool is_end, PositionInFilterChain position) const;
 
         void applyPatternGuessingDecimation(const int section_start, const int section_end, const int first_duplicate, int drop_duplicate);
 
@@ -314,26 +314,26 @@ class WobblyProject {
         WobblyProject(bool _is_wobbly);
         WobblyProject(bool _is_wobbly, const std::string &_input_file, const std::string &_source_filter, int64_t _fps_num, int64_t _fps_den, int _width, int _height, int _num_frames);
 
-        int getNumFrames(PositionInFilterChain position);
+        int getNumFrames(PositionInFilterChain position) const;
 
-        void writeProject(const std::string &path, bool compact_project);
+        void writeProject(const std::string &path, bool compact_project) const;
         void readProject(const std::string &path);
 
 
         void addFreezeFrame(int first, int last, int replacement);
         void deleteFreezeFrame(int frame);
-        const FreezeFrame *findFreezeFrame(int frame);
-        std::vector<FreezeFrame> getFreezeFrames();
+        const FreezeFrame *findFreezeFrame(int frame) const;
+        std::vector<FreezeFrame> getFreezeFrames() const;
 
 
         void addPreset(const std::string &preset_name);
         void addPreset(const std::string &preset_name, const std::string &preset_contents);
         void renamePreset(const std::string &old_name, const std::string &new_name);
         void deletePreset(const std::string &preset_name);
-        std::vector<std::string> getPresets();
-        const std::string &getPresetContents(const std::string &preset_name);
+        std::vector<std::string> getPresets() const;
+        const std::string &getPresetContents(const std::string &preset_name) const;
         void setPresetContents(const std::string &preset_name, const std::string &preset_contents);
-        bool isPresetInUse(const std::string &preset_name);
+        bool isPresetInUse(const std::string &preset_name) const;
 
 
         void addTrim(int trim_start, int trim_end);
@@ -343,17 +343,17 @@ class WobblyProject {
         void setVDecimateParameter(const std::string &name, double value);
 
 
-        std::array<int16_t, 5> getMics(int frame);
+        std::array<int16_t, 5> getMics(int frame) const;
         void setMics(int frame, int16_t mic_p, int16_t mic_c, int16_t mic_n, int16_t mic_b, int16_t mic_u);
-        int getPreviousFrameWithMic(int minimum, int start_frame);
-        int getNextFrameWithMic(int minimum, int start_frame);
+        int getPreviousFrameWithMic(int minimum, int start_frame) const;
+        int getNextFrameWithMic(int minimum, int start_frame) const;
 
 
-        char getOriginalMatch(int frame);
+        char getOriginalMatch(int frame) const;
         void setOriginalMatch(int frame, char match);
 
 
-        char getMatch(int frame);
+        char getMatch(int frame) const;
         void setMatch(int frame, char match);
         void cycleMatchBCN(int frame);
         void cycleMatch(int frame);
@@ -378,7 +378,7 @@ class WobblyProject {
         void resetRangeMatches(int start, int end);
 
 
-        const std::vector<CustomList> &getCustomLists();
+        const std::vector<CustomList> &getCustomLists() const;
         void addCustomList(const std::string &list_name);
         void addCustomList(const CustomList &list);
         void renameCustomList(const std::string &old_name, const std::string &new_name);
@@ -390,85 +390,85 @@ class WobblyProject {
         void setCustomListPosition(int list_index, PositionInFilterChain position);
         void addCustomListRange(int list_index, int first, int last);
         void deleteCustomListRange(int list_index, int first);
-        const FrameRange *findCustomListRange(int list_index, int frame);
+        const FrameRange *findCustomListRange(int list_index, int frame) const;
 
 
-        int getDecimateMetric(int frame);
+        int getDecimateMetric(int frame) const;
         void setDecimateMetric(int frame, int decimate_metric);
 
 
         void addDecimatedFrame(int frame);
         void deleteDecimatedFrame(int frame);
-        bool isDecimatedFrame(int frame);
+        bool isDecimatedFrame(int frame) const;
         void clearDecimatedFramesFromCycle(int frame);
 
 
-        std::vector<DecimationRange> getDecimationRanges();
-        std::vector<DecimationPatternRange> getDecimationPatternRanges();
+        std::vector<DecimationRange> getDecimationRanges() const;
+        std::vector<DecimationPatternRange> getDecimationPatternRanges() const;
 
 
-        std::map<size_t, size_t> getCMatchSequences(int minimum);
+        std::map<size_t, size_t> getCMatchSequences(int minimum) const;
 
 
         void addCombedFrame(int frame);
         void deleteCombedFrame(int frame);
-        bool isCombedFrame(int frame);
+        bool isCombedFrame(int frame) const;
 
 
-        const Resize &getResize();
+        const Resize &getResize() const;
         void setResize(int new_width, int new_height, const std::string &filter);
         void setResizeEnabled(bool enabled);
-        bool isResizeEnabled();
+        bool isResizeEnabled() const;
 
-        const Crop &getCrop();
+        const Crop &getCrop() const;
         void setCrop(int left, int top, int right, int bottom);
         void setCropEnabled(bool enabled);
-        bool isCropEnabled();
+        bool isCropEnabled() const;
         void setCropEarly(bool early);
-        bool isCropEarly();
+        bool isCropEarly() const;
 
-        const Depth &getBitDepth();
+        const Depth &getBitDepth() const;
         void setBitDepth(int bits, bool float_samples, const std::string &dither);
         void setBitDepthEnabled(bool enabled);
-        bool isBitDepthEnabled();
+        bool isBitDepthEnabled() const;
 
 
-        const std::string &getSourceFilter();
+        const std::string &getSourceFilter() const;
         void setSourceFilter(const std::string &filter);
 
 
-        int getZoom();
+        int getZoom() const;
         void setZoom(int ratio);
 
 
-        int getLastVisitedFrame();
+        int getLastVisitedFrame() const;
         void setLastVisitedFrame(int frame);
 
 
-        std::string getUIState();
+        std::string getUIState() const;
         void setUIState(const std::string &state);
 
 
-        std::string getUIGeometry();
+        std::string getUIGeometry() const;
         void setUIGeometry(const std::string &geometry);
 
 
-        std::array<bool, 5> getShownFrameRates();
+        std::array<bool, 5> getShownFrameRates() const;
         void setShownFrameRates(const std::array<bool, 5> &rates);
 
 
-        int getMicSearchMinimum();
+        int getMicSearchMinimum() const;
         void setMicSearchMinimum(int minimum);
 
 
-        int getCMatchSequencesMinimum();
+        int getCMatchSequencesMinimum() const;
         void setCMatchSequencesMinimum(int minimum);
 
 
-        std::string frameToTime(int frame);
+        std::string frameToTime(int frame) const;
 
 
-        int frameNumberAfterDecimation(int frame);
+        int frameNumberAfterDecimation(int frame) const;
 
 
         bool guessSectionPatternsFromMics(int section_start, int minimum_length, int use_patterns, int drop_duplicate);
@@ -482,25 +482,25 @@ class WobblyProject {
         void addInterlacedFade(int frame, double field_difference);
 
 
-        void sectionsToScript(std::string &script);
-        void customListsToScript(std::string &script, PositionInFilterChain position);
-        void headerToScript(std::string &script);
-        void presetsToScript(std::string &script);
-        void sourceToScript(std::string &script);
-        void trimToScript(std::string &script);
-        void fieldHintToScript(std::string &script);
-        void freezeFramesToScript(std::string &script);
-        void decimatedFramesToScript(std::string &script);
-        void cropToScript(std::string &script);
-        void showCropToScript(std::string &script);
-        void resizeToScript(std::string &script);
-        void bitDepthToScript(std::string &script);
-        void setOutputToScript(std::string &script);
+        void sectionsToScript(std::string &script) const;
+        void customListsToScript(std::string &script, PositionInFilterChain position) const;
+        void headerToScript(std::string &script) const;
+        void presetsToScript(std::string &script) const;
+        void sourceToScript(std::string &script) const;
+        void trimToScript(std::string &script) const;
+        void fieldHintToScript(std::string &script) const;
+        void freezeFramesToScript(std::string &script) const;
+        void decimatedFramesToScript(std::string &script) const;
+        void cropToScript(std::string &script) const;
+        void showCropToScript(std::string &script) const;
+        void resizeToScript(std::string &script) const;
+        void bitDepthToScript(std::string &script) const;
+        void setOutputToScript(std::string &script) const;
 
-        std::string generateFinalScript();
-        std::string generateMainDisplayScript(bool show_crop);
+        std::string generateFinalScript() const;
+        std::string generateMainDisplayScript(bool show_crop) const;
 
-        std::string generateTimecodesV1();
+        std::string generateTimecodesV1() const;
 };
 
 #endif // WOBBLYPROJECT_H
