@@ -95,6 +95,7 @@ class WibblyWindow : public QMainWindow
     DockWidget *settings_dock;
     QSpinBox *settings_font_spin;
     QCheckBox *settings_compact_projects_check;
+    QSpinBox *settings_cache_spin;
 
 
     // VapourSynth stuff.

@@ -93,6 +93,9 @@ void WobblyWindow::readSettings() {
     if (settings.contains("user_interface/colormatrix"))
         settings_colormatrix_combo->setCurrentText(settings.value("user_interface/colormatrix").toString());
 
+    if (settings.contains("user_interface/maximum_cache_size"))
+        settings_cache_spin->setValue(settings.value("user_interface/maximum_cache_size").toInt());
+
     settings_shortcuts_table->setRowCount(shortcuts.size());
     for (size_t i = 0; i < shortcuts.size(); i++) {
         QString settings_key = "user_interface/keys/" + shortcuts[i].description;
@@ -371,7 +374,7 @@ void WobblyWindow::createFrameDetailsViewer() {
     time_label = new QLabel;
     matches_label = new QLabel;
     matches_label->setTextFormat(Qt::RichText);
-    matches_label->setMinimumWidth(QFontMetrics(matches_label->font()).width("CCCCCCCCCCCCCCCCCCCCC"));
+    matches_label->resize(QFontMetrics(matches_label->font()).width("CCCCCCCCCCCCCCCCCCCCC"), matches_label->height());
     section_label = new QLabel;
     custom_list_label = new QLabel;
     freeze_label = new QLabel;
@@ -1866,6 +1869,12 @@ void WobblyWindow::createSettingsWindow() {
                                          });
     settings_colormatrix_combo->setCurrentIndex(1);
 
+    settings_cache_spin = new QSpinBox;
+    settings_cache_spin->setRange(1, 99999);
+    settings_cache_spin->setValue(200);
+    settings_cache_spin->setPrefix(QStringLiteral("Maximum cache size: "));
+    settings_cache_spin->setSuffix(QStringLiteral(" MiB"));
+
     settings_shortcuts_table = new TableWidget(0, 3, this);
     settings_shortcuts_table->setHorizontalHeaderLabels({ "Current", "Default", "Description" });
 
@@ -1897,6 +1906,10 @@ void WobblyWindow::createSettingsWindow() {
         } catch (WobblyException &e) {
             errorPopup(e.what());
         }
+    });
+
+    connect(settings_cache_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
+        settings.setValue("user_interface/maximum_cache_size", value);
     });
 
     connect(settings_shortcuts_table, &TableWidget::cellDoubleClicked, settings_shortcut_edit, static_cast<void (QLineEdit::*)()>(&QLineEdit::setFocus));
@@ -1976,6 +1989,11 @@ void WobblyWindow::createSettingsWindow() {
     hbox = new QHBoxLayout;
     hbox->addWidget(new QLabel("Colormatrix:"));
     hbox->addWidget(settings_colormatrix_combo);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(settings_cache_spin);
     hbox->addStretch(1);
     vbox->addLayout(hbox);
 
@@ -3024,6 +3042,9 @@ void WobblyWindow::evaluateScript(bool final_script) {
             "    src = c.std.FlipVertical(clip=src)\n"
             "    src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
             "    src.set_output()\n";
+
+    script +=
+            "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
 
     if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project_path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);

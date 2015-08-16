@@ -134,6 +134,7 @@ private:
     QSpinBox *settings_font_spin;
     QCheckBox *settings_compact_projects_check;
     QComboBox *settings_colormatrix_combo;
+    QSpinBox *settings_cache_spin;
     TableWidget *settings_shortcuts_table;
 
 

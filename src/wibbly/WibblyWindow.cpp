@@ -1029,6 +1029,12 @@ void WibblyWindow::createSettingsWindow() {
 
     settings_compact_projects_check = new QCheckBox("Create compact project files");
 
+    settings_cache_spin = new QSpinBox;
+    settings_cache_spin->setRange(1, 99999);
+    settings_cache_spin->setValue(200);
+    settings_cache_spin->setPrefix(QStringLiteral("Maximum cache size: "));
+    settings_cache_spin->setSuffix(QStringLiteral(" MiB"));
+
 
     connect(settings_font_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
         QFont font = QApplication::font();
@@ -1042,6 +1048,10 @@ void WibblyWindow::createSettingsWindow() {
         settings.setValue("projects/compact_project_files", checked);
     });
 
+    connect(settings_cache_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
+        settings.setValue("user_interface/maximum_cache_size", value);
+    });
+
 
     QVBoxLayout *vbox = new QVBoxLayout;
 
@@ -1052,6 +1062,11 @@ void WibblyWindow::createSettingsWindow() {
 
     hbox = new QHBoxLayout;
     hbox->addWidget(settings_compact_projects_check);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(settings_cache_spin);
     hbox->addStretch(1);
     vbox->addLayout(hbox);
 
@@ -1162,6 +1177,9 @@ void WibblyWindow::evaluateDisplayScript() {
             "src = c.std.FlipVertical(clip=src)\n"
             "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
             "src.set_output()\n";
+
+    script +=
+            "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
 
     VSMap *m = vsapi->createMap();
     if (vsscript_getVariable(vsscript, "wibbly_last_input_file", m)) {
@@ -1464,6 +1482,9 @@ void WibblyWindow::readSettings() {
     settings_font_spin->setValue(settings.value("user_interface/font_size", QApplication::font().pointSize()).toInt());
 
     settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
+
+    if (settings.contains("user_interface/maximum_cache_size"))
+        settings_cache_spin->setValue(settings.value("user_interface/maximum_cache_size").toInt());
 }
 
 
