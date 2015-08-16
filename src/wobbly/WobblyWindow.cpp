@@ -2280,7 +2280,7 @@ void WobblyWindow::checkRequiredFilters() {
 }
 
 
-void WobblyWindow::initialisePresets() {
+void WobblyWindow::updatePresets() {
     // Presets.
     const auto &presets = project->getPresets();
     QStringList preset_list;
@@ -2628,7 +2628,7 @@ void WobblyWindow::initialiseUIFromProject() {
     zoom_label->setText(QStringLiteral("Zoom: %1x").arg(project->getZoom()));
 
 
-    initialisePresets();
+    updatePresets();
 
     initialiseCropAssistant();
     initialisePresetEditor();
@@ -3619,9 +3619,7 @@ void WobblyWindow::presetNew() {
             try {
                 project->addPreset(preset_name.toStdString());
 
-                QStringList preset_list = presets_model->stringList();
-                preset_list.append(preset_name);
-                presets_model->setStringList(preset_list);
+                updatePresets();
 
                 preset_combo->setCurrentText(preset_name);
 
@@ -3654,9 +3652,11 @@ void WobblyWindow::presetRename() {
             try {
                 project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
 
-                QStringList preset_list = presets_model->stringList();
-                preset_list[preset_combo->currentIndex()] = preset_name;
-                presets_model->setStringList(preset_list);
+                updatePresets();
+
+                preset_combo->setCurrentText(preset_name);
+
+                updateCustomListsEditor();
 
                 updateSectionsEditor();
 
@@ -3692,12 +3692,10 @@ void WobblyWindow::presetDelete() {
 
     project->deletePreset(preset);
 
-    QStringList preset_list = presets_model->stringList();
-    preset_list.removeAt(index);
-    presets_model->setStringList(preset_list);
+    updatePresets();
 
-    if (preset_list.size()) {
-        index = std::min(index, preset_list.size() - 1);
+    if (preset_combo->count()) {
+        index = std::min(index, preset_combo->count() - 1);
         preset_combo->setCurrentIndex(index);
     }
     presetChanged(preset_combo->currentText());

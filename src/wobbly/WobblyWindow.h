@@ -214,7 +214,7 @@ private:
     void cleanUpVapourSynth();
     void checkRequiredFilters();
 
-    void initialisePresets();
+    void updatePresets();
 
     void updateWindowTitle();
     void initialiseCropAssistant();
