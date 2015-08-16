@@ -2364,6 +2364,12 @@ void WobblyWindow::initialisePresetEditor() {
 
 
 void WobblyWindow::updateSectionsEditor() {
+    auto selection = sections_table->selectedRanges();
+
+    int row_count_before = sections_table->rowCount();
+
+    int current_row = sections_table->currentRow();
+
     sections_table->setRowCount(0);
     int rows = 0;
     const Section *section = project->findSection(0);
@@ -2391,11 +2397,26 @@ void WobblyWindow::updateSectionsEditor() {
 
     sections_table->resizeColumnsToContents();
 
-    sections_table->selectRow(0);
+    int row_count_after = sections_table->rowCount();
+
+    if (row_count_before == row_count_after) {
+        if (current_row > -1)
+            sections_table->setCurrentCell(current_row, 0);
+
+        for (int i = 0; i < selection.size(); i++)
+            sections_table->setRangeSelected(selection[i], true);
+    } else if (row_count_after)
+        sections_table->selectRow(0);
 }
 
 
 void WobblyWindow::updateCustomListsEditor() {
+    auto selection = cl_table->selectedRanges();
+
+    int row_count_before = cl_table->rowCount();
+
+    int current_row = cl_table->currentRow();
+
     cl_table->setRowCount(0);
 
     cl_copy_range_menu->clear();
@@ -2430,7 +2451,15 @@ void WobblyWindow::updateCustomListsEditor() {
 
     cl_table->resizeColumnsToContents();
 
-    if (cl.size())
+    int row_count_after = cl_table->rowCount();
+
+    if (row_count_before == row_count_after) {
+        if (current_row > -1)
+            cl_table->setCurrentCell(current_row, 0);
+
+        for (int i = 0; i < selection.size(); i++)
+            cl_table->setRangeSelected(selection[i], true);
+    } else if (row_count_after)
         cl_table->selectRow(0);
 }
 
@@ -2484,7 +2513,7 @@ void WobblyWindow::updateFrameRatesViewer() {
     if (row_count_before == row_count_after) {
         for (int i = 0; i < selection.size(); i++)
             frame_rates_table->setRangeSelected(selection[i], true);
-    } else
+    } else if (row_count_after)
         frame_rates_table->selectRow(0);
 }
 
