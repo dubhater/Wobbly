@@ -3752,7 +3752,12 @@ void WobblyWindow::presetNew() {
             try {
                 project->addPreset(preset_name.toStdString());
 
+                QStringList presets = presets_model->stringList();
+                QString selected = presets[getSelectedPreset()];
+
                 updatePresets();
+
+                setSelectedPreset(presets.indexOf(selected));
 
                 preset_combo->setCurrentText(preset_name);
 
@@ -3786,6 +3791,9 @@ void WobblyWindow::presetRename() {
                 project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
 
                 updatePresets();
+
+                int index = presets_model->stringList().indexOf(preset_name);
+                setSelectedPreset(index);
 
                 preset_combo->setCurrentText(preset_name);
 
@@ -3827,6 +3835,8 @@ void WobblyWindow::presetDelete() {
 
     updatePresets();
 
+    setSelectedPreset(selected_preset);
+
     if (preset_combo->count()) {
         index = std::min(index, preset_combo->count() - 1);
         preset_combo->setCurrentIndex(index);
@@ -3834,22 +3844,9 @@ void WobblyWindow::presetDelete() {
     presetChanged(preset_combo->currentText());
 
     if (preset_in_use) {
-        auto selection = sections_table->selectedRanges();
-
         updateSectionsEditor();
 
-        sections_table->clearSelection();
-        for (int i = 0; i < selection.size(); i++)
-            sections_table->setRangeSelected(selection[i], true);
-
-
-        selection = cl_table->selectedRanges();
-
         updateCustomListsEditor();
-
-        cl_table->clearSelection();
-        for (int i = 0; i < selection.size(); i++)
-            cl_table->setRangeSelected(selection[i], true);
     }
 }
 
@@ -4200,27 +4197,46 @@ void WobblyWindow::cancelRange() {
 }
 
 
+int WobblyWindow::getSelectedPreset() const {
+    return selected_preset;
+}
+
+
+void WobblyWindow::setSelectedPreset(int index) {
+    QStringList presets = presets_model->stringList();
+
+    if (index >= presets.size())
+        index = presets.size() - 1;
+
+    selected_preset = index;
+
+    selected_preset_label->setText("Selected preset: " + (selected_preset > -1 ? presets[selected_preset] : ""));
+}
+
+
 void WobblyWindow::selectPreviousPreset() {
     if (!project)
         return;
 
     QStringList presets = presets_model->stringList();
 
+    int index = getSelectedPreset();
+
     if (presets.size() == 0) {
-        selected_preset = -1;
+        index = -1;
     } else if (presets.size() == 1) {
-        selected_preset = 0;
+        index = 0;
     } else {
-        if (selected_preset == -1) {
-            selected_preset = presets.size() - 1;
+        if (index == -1) {
+            index = presets.size() - 1;
         } else {
-            if (selected_preset == 0)
-                selected_preset = presets.size();
-            selected_preset--;
+            if (index == 0)
+                index = presets.size();
+            index--;
         }
     }
 
-    selected_preset_label->setText("Selected preset: " + (selected_preset > -1 ? presets[selected_preset] : ""));
+    setSelectedPreset(index);
 }
 
 
@@ -4230,19 +4246,21 @@ void WobblyWindow::selectNextPreset() {
 
     QStringList presets = presets_model->stringList();
 
+    int index = getSelectedPreset();
+
     if (presets.size() == 0) {
-        selected_preset = -1;
+        index = -1;
     } else if (presets.size() == 1) {
-        selected_preset = 0;
+        index = 0;
     } else {
-        if (selected_preset == -1) {
-            selected_preset = 0;
+        if (index == -1) {
+            index = 0;
         } else {
-            selected_preset = (selected_preset + 1) % presets.size();
+            index = (index + 1) % presets.size();
         }
     }
 
-    selected_preset_label->setText("Selected preset: " + (selected_preset > -1 ? presets[selected_preset] : ""));
+    setSelectedPreset(index);
 }
 
 

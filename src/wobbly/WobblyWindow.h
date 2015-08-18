@@ -264,6 +264,8 @@ private:
     void finishRange();
     void cancelRange();
 
+    int getSelectedPreset() const;
+    void setSelectedPreset(int index);
     void selectPreviousPreset();
     void selectNextPreset();
     void selectPreviousCustomList();
