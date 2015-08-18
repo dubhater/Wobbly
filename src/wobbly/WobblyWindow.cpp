@@ -1166,6 +1166,9 @@ void WobblyWindow::createCustomListsEditor() {
                 try {
                     project->renameCustomList(old_name.toStdString(), new_name.toStdString());
 
+                    if (cl_index == getSelectedCustomList())
+                        setSelectedCustomList(cl_index);
+
                     updateCustomListsEditor();
 
                     updateFrameDetails();
@@ -1189,9 +1192,14 @@ void WobblyWindow::createCustomListsEditor() {
             for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
                 project->deleteCustomList(j);
 
-                updateCustomListsEditor();
+                if (j == selected_custom_list)
+                    setSelectedCustomList(selected_custom_list);
+                else if (j < selected_custom_list)
+                    selected_custom_list--;
             }
         }
+
+        updateCustomListsEditor();
 
         if (cl_table->rowCount())
             cl_table->selectRow(cl_table->currentRow());
@@ -1213,9 +1221,14 @@ void WobblyWindow::createCustomListsEditor() {
         if (selection.first().topRow() == 0)
             return;
 
-        for (int i = 0; i < selection.size(); i++)
-            for (int j = selection[i].topRow(); j <= selection[i].bottomRow(); j++)
+        for (int i = 0; i < selection.size(); i++) {
+            for (int j = selection[i].topRow(); j <= selection[i].bottomRow(); j++) {
                 project->moveCustomListUp(j);
+
+                if (j == selected_custom_list + 1)
+                    selected_custom_list++;
+            }
+        }
 
         updateCustomListsEditor();
 
@@ -1238,9 +1251,14 @@ void WobblyWindow::createCustomListsEditor() {
         if (selection.last().bottomRow() == cl_table->rowCount() - 1)
             return;
 
-        for (int i = selection.size() - 1; i >= 0; i--)
-            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--)
+        for (int i = selection.size() - 1; i >= 0; i--) {
+            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
                 project->moveCustomListDown(j);
+
+                if (j == selected_custom_list - 1)
+                    selected_custom_list--;
+            }
+        }
 
         updateCustomListsEditor();
 
@@ -4264,27 +4282,49 @@ void WobblyWindow::selectNextPreset() {
 }
 
 
+int WobblyWindow::getSelectedCustomList() const {
+    return selected_custom_list;
+}
+
+
+void WobblyWindow::setSelectedCustomList(int index) {
+    if (!project)
+        return;
+
+    auto cl = project->getCustomLists();
+
+    if (index >= (int)cl.size())
+        index = cl.size() - 1;
+
+    selected_custom_list = index;
+
+    selected_custom_list_label->setText(QStringLiteral("Selected custom list: ") + (selected_custom_list > -1 ? cl[selected_custom_list].name.c_str() : ""));
+}
+
+
 void WobblyWindow::selectPreviousCustomList() {
     if (!project)
         return;
 
     const auto &cl = project->getCustomLists();
 
+    int index = getSelectedCustomList();
+
     if (cl.size() == 0) {
-        selected_custom_list = -1;
+        index = -1;
     } else if (cl.size() == 1) {
-        selected_custom_list = 0;
+        index = 0;
     } else {
-        if (selected_custom_list == -1) {
-            selected_custom_list = cl.size() - 1;
+        if (index == -1) {
+            index = cl.size() - 1;
         } else {
-            if (selected_custom_list == 0)
-                selected_custom_list = cl.size();
-            selected_custom_list--;
+            if (index == 0)
+                index = cl.size();
+            index--;
         }
     }
 
-    selected_custom_list_label->setText(QStringLiteral("Selected custom list: ") + (selected_custom_list > -1 ? cl[selected_custom_list].name.c_str() : ""));
+    setSelectedCustomList(index);
 }
 
 
@@ -4295,19 +4335,21 @@ void WobblyWindow::selectNextCustomList() {
 
     const auto &cl = project->getCustomLists();
 
+    int index = getSelectedCustomList();
+
     if (cl.size() == 0) {
-        selected_custom_list = -1;
+        index = -1;
     } else if (cl.size() == 1) {
-        selected_custom_list = 0;
+        index = 0;
     } else {
-        if (selected_custom_list == -1) {
-            selected_custom_list = 0;
+        if (index == -1) {
+            index = 0;
         } else {
-            selected_custom_list = (selected_custom_list + 1) % cl.size();
+            index = (index + 1) % cl.size();
         }
     }
 
-    selected_custom_list_label->setText(QStringLiteral("Selected custom list: ") + (selected_custom_list > -1 ? cl[selected_custom_list].name.c_str() : ""));
+    setSelectedCustomList(index);
 }
 
 

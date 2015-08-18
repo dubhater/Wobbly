@@ -268,9 +268,12 @@ private:
     void setSelectedPreset(int index);
     void selectPreviousPreset();
     void selectNextPreset();
+    void assignSelectedPresetToCurrentSection();
+
+    int getSelectedCustomList() const;
+    void setSelectedCustomList(int index);
     void selectPreviousCustomList();
     void selectNextCustomList();
-    void assignSelectedPresetToCurrentSection();
     void addRangeToSelectedCustomList();
 
 public slots:
