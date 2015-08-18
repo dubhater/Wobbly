@@ -2138,6 +2138,11 @@ void WobblyProject::addInterlacedFade(int frame, double field_difference) {
 }
 
 
+const std::map<int, InterlacedFade> &WobblyProject::getInterlacedFades() const {
+    return interlaced_fades;
+}
+
+
 void WobblyProject::sectionsToScript(std::string &script) const {
     auto samePresets = [] (const std::vector<std::string> &a, const std::vector<std::string> &b) -> bool {
         if (a.size() != b.size())

@@ -439,6 +439,7 @@ class WobblyProject {
 
 
         void addInterlacedFade(int frame, double field_difference);
+        const std::map<int, InterlacedFade> &getInterlacedFades() const;
 
 
         void sectionsToScript(std::string &script) const;

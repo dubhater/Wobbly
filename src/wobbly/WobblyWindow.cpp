@@ -310,6 +310,7 @@ void WobblyWindow::createShortcuts() {
         { "", "",                   "Show or hide pattern guessing", &WobblyWindow::showHidePatternGuessing },
         { "", "",                   "Show or hide mic search", &WobblyWindow::showHideMicSearchWindow },
         { "", "",                   "Show or hide C match sequences window", &WobblyWindow::showHideCMatchSequencesWindow },
+        { "", "",                   "Show or hide interlaced fades window", &WobblyWindow::showHideFadesWindow },
 
         { "", "Left",               "Jump 1 frame back", &WobblyWindow::jump1Backward },
         { "", "Right",              "Jump 1 frame forward", &WobblyWindow::jump1Forward },
@@ -1853,6 +1854,57 @@ void WobblyWindow::createCMatchSequencesWindow() {
 }
 
 
+void WobblyWindow::createFadesWindow() {
+    fades_gaps_spin = new QSpinBox;
+    fades_gaps_spin->setRange(0, 100);
+    fades_gaps_spin->setValue(1);
+    fades_gaps_spin->setPrefix(QStringLiteral("Ignore gaps of "));
+    fades_gaps_spin->setSuffix(QStringLiteral(" frames or fewer"));
+
+    fades_table = new TableWidget(0, 2, this);
+    fades_table->setHorizontalHeaderLabels({ "Start", "End" });
+
+
+    connect(fades_gaps_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] () {
+        if (!project)
+            return;
+
+        updateFadesWindow();
+    });
+
+    connect(fades_table, &TableWidget::cellDoubleClicked, [this] (int row, int column) {
+        QTableWidgetItem *item = c_match_sequences_table->item(row, column);
+        bool ok;
+        int frame = item->text().toInt(&ok);
+        if (ok)
+            displayFrame(frame);
+    });
+
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(fades_gaps_spin);
+    hbox->addStretch(1);
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addLayout(hbox);
+    vbox->addWidget(fades_table);
+
+
+    QWidget *fades_widget = new QWidget;
+    fades_widget->setLayout(vbox);
+
+
+    fades_dock = new DockWidget("Interlaced fades", this);
+    fades_dock->setObjectName("interlaced fades window");
+    fades_dock->setVisible(false);
+    fades_dock->setFloating(true);
+    fades_dock->setWidget(fades_widget);
+    addDockWidget(Qt::RightDockWidgetArea, fades_dock);
+    tools_menu->addAction(fades_dock->toggleViewAction());
+    connect(fades_dock, &DockWidget::visibilityChanged, fades_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::createSettingsWindow() {
     settings_font_spin = new QSpinBox;
     settings_font_spin->setRange(4, 99);
@@ -2170,6 +2222,7 @@ void WobblyWindow::createUI() {
     createPatternGuessingWindow();
     createMicSearchWindow();
     createCMatchSequencesWindow();
+    createFadesWindow();
     createSettingsWindow();
 }
 
@@ -2647,6 +2700,51 @@ void WobblyWindow::initialiseCMatchSequencesWindow() {
 }
 
 
+void WobblyWindow::updateFadesWindow() {
+    auto fades = project->getInterlacedFades();
+
+    int ignore_gaps = fades_gaps_spin->value();
+
+    std::vector<FrameRange> fades_ranges;
+
+    auto it = fades.cbegin();
+    if (it == fades.cend()) {
+        fades_table->setRowCount(0);
+        return;
+    }
+
+    int start = it->first;
+    int end = start;
+
+    it++;
+    for ( ; it != fades.cend(); it++) {
+        if (it->first - end > ignore_gaps) {
+            fades_ranges.push_back({ start, end });
+            start = it->first;
+            end = start;
+        } else {
+            end = it->first;
+        }
+        if (it == (fades.cend()--))
+            fades_ranges.push_back({ start, end });
+    }
+
+    fades_table->setRowCount(fades_ranges.size());
+
+    for (auto range = fades_ranges.cbegin(); range != fades_ranges.cend(); range++) {
+        int row = std::distance(fades_ranges.cbegin(), range);
+
+        QTableWidgetItem *item = new QTableWidgetItem(QString::number(range->first));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        fades_table->setItem(row, 0, item);
+
+        item = new QTableWidgetItem(QString::number(range->last));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        fades_table->setItem(row, 1, item);
+    }
+}
+
+
 void WobblyWindow::initialiseUIFromProject() {
     updateWindowTitle();
 
@@ -2668,6 +2766,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialisePatternGuessingWindow();
     initialiseMicSearchWindow();
     initialiseCMatchSequencesWindow();
+    updateFadesWindow();
 }
 
 
@@ -3023,6 +3122,11 @@ void WobblyWindow::showHideMicSearchWindow() {
 
 void WobblyWindow::showHideCMatchSequencesWindow() {
     c_match_sequences_dock->setVisible(!c_match_sequences_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideFadesWindow() {
+    fades_dock->setVisible(!fades_dock->isVisible());
 }
 
 

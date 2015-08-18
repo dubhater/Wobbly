@@ -130,6 +130,10 @@ private:
     QSpinBox *c_match_minimum_spin;
     TableWidget *c_match_sequences_table;
 
+    DockWidget *fades_dock;
+    QSpinBox *fades_gaps_spin;
+    TableWidget *fades_table;
+
     DockWidget *settings_dock;
     QSpinBox *settings_font_spin;
     QCheckBox *settings_compact_projects_check;
@@ -203,6 +207,7 @@ private:
     void createPatternGuessingWindow();
     void createMicSearchWindow();
     void createCMatchSequencesWindow();
+    void createFadesWindow();
     void createSettingsWindow();
     void drawColorBars();
     void createUI();
@@ -229,6 +234,7 @@ private:
     void initialiseMicSearchWindow();
     void updateCMatchSequencesWindow();
     void initialiseCMatchSequencesWindow();
+    void updateFadesWindow();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);
@@ -322,6 +328,7 @@ public slots:
     void showHidePatternGuessing();
     void showHideMicSearchWindow();
     void showHideCMatchSequencesWindow();
+    void showHideFadesWindow();
 
     void presetChanged(const QString &text);
     void presetEdited();
