@@ -1,6 +1,11 @@
 Wibbly
 ######
 
+Wibbly consists of one main window and several tool windows. The tool windows can either float on their own, or they can be docked inside the main window. To dock a tool window, you can double click on its title bar, or you can drag it over the main window near an edge. The main window will react when the tool window is hovering approximately in the right place.
+
+Wibbly will remember which windows were shown, their sizes and locations, and whether they were docked or not. You should only have to arrange the windows once.
+
+
 When to use Wibbly
 ==================
 
