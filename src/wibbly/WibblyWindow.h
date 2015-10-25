@@ -186,6 +186,7 @@ public:
     WibblyWindow();
 
 public slots:
+    void vsLogPopup(int msgType, void *msgv);
     void frameDone(void *frame_v, int n, void *error_msg_v);
 };
 

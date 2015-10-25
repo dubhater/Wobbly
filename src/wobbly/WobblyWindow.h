@@ -361,6 +361,8 @@ public slots:
 
     void zoomIn();
     void zoomOut();
+
+    void vsLogPopup(int msgType, void *msgv);
 };
 
 #endif // WOBBLYWINDOW_H

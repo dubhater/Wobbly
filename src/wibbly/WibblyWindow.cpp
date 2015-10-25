@@ -80,6 +80,44 @@ WibblyWindow::WibblyWindow()
 }
 
 
+void VS_CC messageHandler(int msgType, const char *msg, void *userData) {
+    WibblyWindow *window = (WibblyWindow *)userData;
+
+    QMetaObject::invokeMethod(window, "vsLogPopup", Qt::DirectConnection, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
+}
+
+
+void WibblyWindow::vsLogPopup(int msgType, void *msgv) {
+    std::string message;
+
+    if (msgType == mtFatal) {
+        writeJobs();
+        writeSettings();
+
+        message += "Your work has been saved. Wibbly will now close.\n\n";
+    }
+
+    message += "Message type: ";
+
+    if (msgType == mtFatal) {
+        message += "fatal";
+    } else if (msgType == mtCritical) {
+        message += "critical";
+    } else if (msgType == mtWarning) {
+        message += "warning";
+    } else if (msgType == mtDebug) {
+        message += "debug";
+    } else {
+        message += "unknown";
+    }
+
+    message += ". Message: ";
+    message += (const char *)msgv;
+
+    QMessageBox::information(this, QStringLiteral("vsLog"), message.c_str());
+}
+
+
 void WibblyWindow::initialiseVapourSynth() {
     if (!vsscript_init())
         throw WobblyException("Fatal error: failed to initialise VSScript. Your VapourSynth installation is probably broken.");
@@ -88,6 +126,8 @@ void WibblyWindow::initialiseVapourSynth() {
     vsapi = vsscript_getVSApi();
     if (!vsapi)
         throw WobblyException("Fatal error: failed to acquire VapourSynth API struct. Did you update the VapourSynth library but not the Python module (or the other way around)?");
+
+    vsapi->setMessageHandler(messageHandler, (void *)this);
 
     if (vsscript_createScript(&vsscript))
         throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vsscript_getError(vsscript));
