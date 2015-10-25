@@ -63,7 +63,7 @@ Here you can add metrics collection jobs, by selecting video files. d2vsource is
 
 You may configure multiple jobs at the same time, by selecting them and changing stuff.
 
-The names of the project files can be automatically numbered. To do this, select the desired jobs, insert the string "%1" into the destination name where the numbers need to go, and click the Autonumber button. For example, to obtain project files named "asdf1.json", "asdf2.json", etc. make their names "asdf%1.json". The numbers start at 1. They are padded with only enough zeroes so they all have the same number of digits, i.e. if you select fewer than 10 jobs, no padding is done. Only the first occurrence of the string "%1" is substituted.
+The names of the project files can be automatically numbered. To do this, select the desired jobs, insert the string "%1" into the destination name where the numbers need to go, and click the Autonumber button. For example, to obtain project files named "asdf1.json", "asdf2.json", etc. make their names "asdf%1.json". The numbers start at 1. They are padded with only enough zeroes so they all have the same number of digits, i.e. if you select fewer than 10 jobs, no padding is done.
 
 
 Video output window
