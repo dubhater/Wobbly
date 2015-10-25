@@ -211,39 +211,34 @@ void WobblyWindow::createMenu() {
 
     QMenu *p = bar->addMenu("&Project");
 
-    QAction *projectOpen = new QAction("&Open project", this);
-    QAction *projectOpenVideo = new QAction("Open video", this);
-    QAction *projectSave = new QAction("&Save project", this);
-    QAction *projectSaveAs = new QAction("Save project &as", this);
-    QAction *projectSaveScript = new QAction("Save script", this);
-    QAction *projectSaveScriptAs = new QAction("Save script as", this);
-    QAction *projectSaveTimecodes = new QAction("Save timecodes", this);
-    QAction *projectSaveTimecodesAs = new QAction("Save timecodes as", this);
-    QAction *projectSaveScreenshot = new QAction("Save screenshot", this);
-    QAction *projectQuit = new QAction("&Quit", this);
+    struct Menu {
+        const char *name;
+        void (WobblyWindow::* func)();
+    };
 
-    connect(projectOpen, &QAction::triggered, this, &WobblyWindow::openProject);
-    connect(projectOpenVideo, &QAction::triggered, this, &WobblyWindow::openVideo);
-    connect(projectSave, &QAction::triggered, this, &WobblyWindow::saveProject);
-    connect(projectSaveAs, &QAction::triggered, this, &WobblyWindow::saveProjectAs);
-    connect(projectSaveScript, &QAction::triggered, this, &WobblyWindow::saveScript);
-    connect(projectSaveScriptAs, &QAction::triggered, this, &WobblyWindow::saveScriptAs);
-    connect(projectSaveTimecodes, &QAction::triggered, this, &WobblyWindow::saveTimecodes);
-    connect(projectSaveTimecodesAs, &QAction::triggered, this, &WobblyWindow::saveTimecodesAs);
-    connect(projectSaveScreenshot, &QAction::triggered, this, &WobblyWindow::saveScreenshot);
-    connect(projectQuit, &QAction::triggered, this, &QMainWindow::close);
+    std::vector<Menu> project_menu = {
+        { "&Open project",              &WobblyWindow::openProject },
+        { "Open video",                 &WobblyWindow::openVideo },
+        { "&Save project",              &WobblyWindow::saveProject },
+        { "Save project &as",           &WobblyWindow::saveProjectAs },
+        { "Save script",                &WobblyWindow::saveScript },
+        { "Save script as",             &WobblyWindow::saveScriptAs },
+        { "Save timecodes",             &WobblyWindow::saveTimecodes },
+        { "Save timecodes as",          &WobblyWindow::saveTimecodesAs },
+        { "Save screenshot",            &WobblyWindow::saveScreenshot },
+        { nullptr,                      nullptr },
+        { "&Quit",                      &WobblyWindow::quit }
+    };
 
-    p->addAction(projectOpen);
-    p->addAction(projectOpenVideo);
-    p->addAction(projectSave);
-    p->addAction(projectSaveAs);
-    p->addAction(projectSaveScript);
-    p->addAction(projectSaveScriptAs);
-    p->addAction(projectSaveTimecodes);
-    p->addAction(projectSaveTimecodesAs);
-    p->addAction(projectSaveScreenshot);
-    p->addSeparator();
-    p->addAction(projectQuit);
+    for (size_t i = 0; i < project_menu.size(); i++) {
+        if (project_menu[i].name) {
+            QAction *action = new QAction(project_menu[i].name, this);
+            connect(action, &QAction::triggered, this, project_menu[i].func);
+            p->addAction(action);
+        } else {
+            p->addSeparator();
+        }
+    }
 
 
     tools_menu = bar->addMenu("&Tools");
