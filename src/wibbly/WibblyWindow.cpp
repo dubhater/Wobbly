@@ -138,7 +138,7 @@ void WibblyWindow::checkRequiredFilters() {
         },
         {
             "the.weather.channel",
-            { "Colorspace", "Depth", "Resize" },
+            { "Format" },
             "zimg plugin not found.",
             "Arwen broke it."
         }
@@ -1169,12 +1169,10 @@ void WibblyWindow::evaluateDisplayScript() {
     // BT 601
     script +=
             "src = vs.get_output(index=0)\n"
-            "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n"
-            "src = c.z.Resize(clip=src, width=src.width, height=src.height, filter_uv='bicubic', subsample_w=0, subsample_h=0)\n"
-            "src = c.z.Colorspace(clip=src, matrix_in=5, transfer_in=6, primaries_in=6, matrix_out=0)\n"
-            "src = c.z.Depth(clip=src, depth=8, sample=vs.INTEGER, dither='random')\n"
+
+            "src = c.z.Format(clip=src, format=vs.COMPATBGR32, dither_type='random', resample_filter_uv='bicubic', matrix_in=5, transfer_in=6, primaries_in=6)\n"
             "src = c.std.FlipVertical(clip=src)\n"
-            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
+
             "src.set_output()\n";
 
     script +=

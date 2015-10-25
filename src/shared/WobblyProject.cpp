@@ -2454,20 +2454,19 @@ void WobblyProject::showCropToScript(std::string &script) const {
     script += std::to_string(crop.bottom) + ", color=[128, 230, 180])\n\n";
 }
 
-void WobblyProject::resizeToScript(std::string &script) const {
-    script += "src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n";
-    script += "src = c.z.Resize(clip=src";
-    script += ", width=" + std::to_string(resize.width);
-    script += ", height=" + std::to_string(resize.height);
-    script += ", filter='" + resize.filter + "'";
-    script += ")\n\n";
-}
+void WobblyProject::resizeAndBitDepthToScript(std::string &script, bool resize_enabled, bool depth_enabled) const {
+    script += "src = c.z.Format(clip=src";
 
-void WobblyProject::bitDepthToScript(std::string &script) const {
-    script += "src = c.z.Depth(clip=src";
-    script += ", depth=" + std::to_string(depth.bits);
-    script += ", sample=" + std::string(depth.float_samples ? "vs.FLOAT" : "vs.INTEGER");
-    script += ", dither='" + depth.dither + "'";
+    if (resize_enabled) {
+        script += ", width=" + std::to_string(resize.width);
+        script += ", height=" + std::to_string(resize.height);
+        script += ", resample_filter='" + resize.filter + "'";
+        script += ", resample_filter_uv='" + resize.filter + "'";
+    }
+
+    if (depth_enabled)
+        script += ", format=c.register_format(src.format.color_family, " + std::string(depth.float_samples ? "vs.FLOAT" : "vs.INTEGER") + ", " + std::to_string(depth.bits) + ", src.format.subsampling_w, src.format.subsampling_h).id";
+
     script += ")\n\n";
 }
 
@@ -2515,11 +2514,8 @@ std::string WobblyProject::generateFinalScript() const {
     if (!crop.early && crop.enabled)
         cropToScript(script);
 
-    if (resize.enabled)
-        resizeToScript(script);
-
-    if (depth.enabled)
-        bitDepthToScript(script);
+    if (resize.enabled || depth.enabled)
+        resizeAndBitDepthToScript(script, resize.enabled, depth.enabled);
 
     setOutputToScript(script);
 

@@ -453,8 +453,7 @@ class WobblyProject {
         void decimatedFramesToScript(std::string &script) const;
         void cropToScript(std::string &script) const;
         void showCropToScript(std::string &script) const;
-        void resizeToScript(std::string &script) const;
-        void bitDepthToScript(std::string &script) const;
+        void resizeAndBitDepthToScript(std::string &script, bool resize_enabled, bool depth_enabled) const;
         void setOutputToScript(std::string &script) const;
 
         std::string generateFinalScript() const;

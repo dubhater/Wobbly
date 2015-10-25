@@ -527,9 +527,6 @@ void WobblyWindow::createCropAssistant() {
             return;
 
         project->setResizeEnabled(checked);
-
-        if (checked && !depth_box->isChecked())
-            depth_box->setChecked(true);
     });
 
     auto resizeChanged = [this] () {
@@ -556,9 +553,6 @@ void WobblyWindow::createCropAssistant() {
     connect(depth_box, &QGroupBox::toggled, [this, index_to_bits, index_to_float_samples, index_to_dither] (bool checked) {
         if (!project)
             return;
-
-        if (!checked && resize_box->isChecked())
-            resize_box->setChecked(false);
 
         int bits_index = depth_bits_combo->currentIndex();
         int dither_index = depth_dither_combo->currentIndex();
@@ -2312,7 +2306,7 @@ void WobblyWindow::checkRequiredFilters() {
         },
         {
             "the.weather.channel",
-            { "Colorspace", "Depth", "Resize" },
+            { "Format" },
             "zimg plugin not found.",
             "Arwen broke it."
         }
@@ -3182,16 +3176,14 @@ void WobblyWindow::evaluateScript(bool final_script) {
 
     script +=
             "src = vs.get_output(index=0)\n"
+
             "if src.format is None:\n"
             "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n"
-            "if src.format.color_family != vs.RGB:\n"
-            "    src = c.z.Depth(clip=src, depth=32, sample=vs.FLOAT)\n"
-            "    src = c.z.Resize(clip=src, width=src.width, height=src.height, filter_uv='bicubic', subsample_w=0, subsample_h=0)\n"
-            "    src = c.z.Colorspace(clip=src, matrix_in=" + std::to_string(matrix) + ", transfer_in=" + std::to_string(transfer) + ", primaries_in=" + std::to_string(primaries) + ", matrix_out=0)\n"
-            "    src = c.z.Depth(clip=src, depth=8, sample=vs.INTEGER, dither='random')\n"
-            "    src = c.std.FlipVertical(clip=src)\n"
-            "    src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n"
-            "    src.set_output()\n";
+
+            "src = c.z.Format(clip=src, format=vs.COMPATBGR32, dither_type='random', resample_filter_uv='bicubic', matrix_in=" + std::to_string(matrix) + ", transfer_in=" + std::to_string(transfer) + ", primaries_in=" + std::to_string(primaries) + ")\n"
+            "src = c.std.FlipVertical(clip=src)\n"
+
+            "src.set_output()\n";
 
     script +=
             "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
