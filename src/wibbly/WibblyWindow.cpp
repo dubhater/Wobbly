@@ -462,12 +462,16 @@ void WibblyWindow::createMainWindow() {
     connect(main_remove_jobs_button, &QPushButton::clicked, [this] () {
         auto selection = main_jobs_list->selectedItems();
 
+        main_jobs_list->blockSignals(true);
+
         for (int i = selection.size() - 1; i >= 0; i--) {
             int row = main_jobs_list->row(selection[i]);
 
             jobs.erase(jobs.cbegin() + row);
             delete main_jobs_list->takeItem(row);
         }
+
+        main_jobs_list->blockSignals(false);
     });
 
     connect(main_copy_jobs_button, &QPushButton::clicked, [this] () {
