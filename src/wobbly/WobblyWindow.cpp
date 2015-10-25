@@ -3762,11 +3762,18 @@ void WobblyWindow::presetNew() {
                 project->addPreset(preset_name.toStdString());
 
                 QStringList presets = presets_model->stringList();
-                QString selected = presets[getSelectedPreset()];
+
+                // The "selected" preset has nothing to do with what preset is currently displayed in preset_combo.
+                int selected_index = getSelectedPreset();
+
+                QString selected;
+                if (selected_index > -1)
+                    selected = presets[selected_index];
 
                 updatePresets();
 
-                setSelectedPreset(presets.indexOf(selected));
+                if (selected_index > -1)
+                    setSelectedPreset(presets.indexOf(selected));
 
                 preset_combo->setCurrentText(preset_name);
 
