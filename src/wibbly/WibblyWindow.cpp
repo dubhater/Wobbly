@@ -18,6 +18,9 @@ SOFTWARE.
 */
 
 
+#include <condition_variable>
+#include <mutex>
+
 #include <QApplication>
 #include <QButtonGroup>
 #include <QFile>
@@ -38,6 +41,10 @@ SOFTWARE.
 #include "WobblyException.h"
 
 
+std::mutex requests_mutex;
+std::condition_variable requests_condition;
+
+
 WibblyWindow::WibblyWindow()
     : QMainWindow()
     , vsapi(nullptr)
@@ -54,6 +61,7 @@ WibblyWindow::WibblyWindow()
     , next_frame(0)
     , frames_left(0)
     , aborted(false)
+    , request_count(0)
 {
     createUI();
 
@@ -1199,6 +1207,11 @@ void WibblyWindow::evaluateDisplayScript() {
         throw WobblyException("Failed to evaluate display script. Error message:\n" + error);
     }
 
+    // Wait until all requests are done before freeing the node.
+    std::unique_lock<std::mutex> lock(requests_mutex);
+    while (request_count)
+        requests_condition.wait(lock);
+
     vsapi->freeNode(vsnode);
 
     vsnode = vsscript_getOutput(vsscript, 0);
@@ -1386,6 +1399,7 @@ void WibblyWindow::startNextJob() {
 
     next_frame = 0;
     for (int i = 0; i < requests; i++) {
+        ++request_count;
         vsapi->getFrameAsync(next_frame, vsnode, frameDoneCallback, (void *)this);
         next_frame++;
     }
@@ -1398,77 +1412,84 @@ void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
 
     if (aborted) {
         vsapi->freeFrame(frame);
-        return;
+    } else {
+        if (frame) {
+            const VSMap *props = vsapi->getFramePropsRO(frame);
+
+            int err;
+
+            const char match_chars[] = { 'p', 'c', 'n', 'b', 'u' };
+            int64_t match = vsapi->propGetInt(props, "VFMMatch", 0, &err);
+            if (!err)
+                current_project->setOriginalMatch(n, match_chars[match]);
+
+            if (vsapi->propGetInt(props, "_Combed", 0, &err))
+                current_project->addCombedFrame(n);
+
+            if (vsapi->propNumElements(props, "VFMMics") == 5) {
+                const int64_t *mics = vsapi->propGetIntArray(props, "VFMMics", &err);
+                current_project->setMics(n, mics[0], mics[1], mics[2], mics[3], mics[4]);
+            }
+
+            if (vsapi->propGetInt(props, "_SceneChangePrev", 0, &err))
+                current_project->addSection(n);
+
+            int64_t decimate_metric = vsapi->propGetInt(props, "VDecimateMaxBlockDiff", 0, &err);
+            if (!err)
+                current_project->setDecimateMetric(n, decimate_metric);
+
+            if (vsapi->propGetInt(props, "VDecimateDrop", 0, &err))
+                current_project->addDecimatedFrame(n);
+
+            double field_difference = vsapi->propGetFloat(props, "WibblyFieldDifference", 0, &err);
+            if (field_difference > jobs[current_job].getFadesThreshold())
+                current_project->addInterlacedFade(n, field_difference);
+
+            vsapi->freeFrame(frame);
+
+            if (next_frame < vsvi->numFrames) {
+                ++request_count;
+                vsapi->getFrameAsync(next_frame, vsnode, frameDoneCallback, (void *)this);
+                next_frame++;
+            }
+
+            frames_left--;
+
+            main_progress_dialog->setValue(vsvi->numFrames - frames_left);
+
+            if (frames_left == 0) {
+                try {
+                    current_project->resetRangeMatches(0, vsvi->numFrames - 1);
+
+                    // If the project was successfully saved earlier, this will probably work.
+                    current_project->writeProject(jobs[current_job].getOutputFile(), false);
+
+                    delete current_project;
+                    current_project = nullptr;
+
+                    startNextJob();
+                } catch (WobblyException &e) {
+                    errorPopup(e.what());
+
+                    delete current_project;
+                    current_project = nullptr;
+                }
+            }
+        } else {
+            aborted = true;
+
+            delete current_project;
+            current_project = nullptr;
+
+            errorPopup("Job number " + std::to_string(current_job) + ": failed to retrieve frame number " + std::to_string(n) + ". Error message:\n\n" + error_msg);
+        }
     }
 
-    if (frame) {
-        const VSMap *props = vsapi->getFramePropsRO(frame);
+    --request_count;
 
-        int err;
-
-        const char match_chars[] = { 'p', 'c', 'n', 'b', 'u' };
-        int64_t match = vsapi->propGetInt(props, "VFMMatch", 0, &err);
-        if (!err)
-            current_project->setOriginalMatch(n, match_chars[match]);
-
-        if (vsapi->propGetInt(props, "_Combed", 0, &err))
-            current_project->addCombedFrame(n);
-
-        if (vsapi->propNumElements(props, "VFMMics") == 5) {
-            const int64_t *mics = vsapi->propGetIntArray(props, "VFMMics", &err);
-            current_project->setMics(n, mics[0], mics[1], mics[2], mics[3], mics[4]);
-        }
-
-        if (vsapi->propGetInt(props, "_SceneChangePrev", 0, &err))
-            current_project->addSection(n);
-
-        int64_t decimate_metric = vsapi->propGetInt(props, "VDecimateMaxBlockDiff", 0, &err);
-        if (!err)
-            current_project->setDecimateMetric(n, decimate_metric);
-
-        if (vsapi->propGetInt(props, "VDecimateDrop", 0, &err))
-            current_project->addDecimatedFrame(n);
-
-        double field_difference = vsapi->propGetFloat(props, "WibblyFieldDifference", 0, &err);
-        if (field_difference > jobs[current_job].getFadesThreshold())
-            current_project->addInterlacedFade(n, field_difference);
-
-        vsapi->freeFrame(frame);
-
-        if (next_frame < vsvi->numFrames) {
-            vsapi->getFrameAsync(next_frame, vsnode, frameDoneCallback, (void *)this);
-            next_frame++;
-        }
-
-        frames_left--;
-
-        main_progress_dialog->setValue(vsvi->numFrames - frames_left);
-
-        if (frames_left == 0) {
-            try {
-                current_project->resetRangeMatches(0, vsvi->numFrames - 1);
-
-                // If the project was successfully saved earlier, this will probably work.
-                current_project->writeProject(jobs[current_job].getOutputFile(), false);
-
-                delete current_project;
-                current_project = nullptr;
-
-                startNextJob();
-            } catch (WobblyException &e) {
-                errorPopup(e.what());
-
-                delete current_project;
-                current_project = nullptr;
-            }
-        }
-    } else {
-        aborted = true;
-
-        delete current_project;
-        current_project = nullptr;
-
-        errorPopup("Job number " + std::to_string(current_job) + ": failed to retrieve frame number " + std::to_string(n) + ". Error message:\n\n" + error_msg);
+    if (request_count == 0) {
+        std::lock_guard<std::mutex> lock(requests_mutex);
+        requests_condition.notify_one();
     }
 }
 

@@ -21,6 +21,8 @@ SOFTWARE.
 #ifndef WIBBLYWINDOW_H
 #define WIBBLYWINDOW_H
 
+#include <atomic>
+
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QDoubleSpinBox>
@@ -120,6 +122,7 @@ class WibblyWindow : public QMainWindow
     int next_frame;
     int frames_left;
     bool aborted;
+    std::atomic<int> request_count;
 
     QSettings settings;
 
