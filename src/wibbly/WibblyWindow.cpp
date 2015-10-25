@@ -64,7 +64,6 @@ WibblyWindow::WibblyWindow()
     } catch (WobblyException &e) {
         show();
         errorPopup(e.what());
-        std::exit(1); // Seems a bit heavy-handed, but close() doesn't close the window if called here, so...
     }
 
     readSettings();
