@@ -28,3 +28,5 @@ WibblyWobbly.creator.user
 WibblyWobbly.files
 WibblyWobbly.includes
 releases/
+*.html
+*.json
