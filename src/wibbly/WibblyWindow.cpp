@@ -185,10 +185,10 @@ void WibblyWindow::checkRequiredFilters() {
             ""
         },
         {
-            "the.weather.channel",
-            { "Format" },
-            "zimg plugin not found.",
-            "Arwen broke it."
+            "com.vapoursynth.resize",
+            { "Point", "Bilinear", "Bicubic", "Spline16", "Spline36", "Lanczos" },
+            "built-in resizers not found. Did you compile VapourSynth yourself?",
+            "VapourSynth version is older than r29."
         }
     };
 
@@ -1222,7 +1222,7 @@ void WibblyWindow::evaluateDisplayScript() {
     script +=
             "src = vs.get_output(index=0)\n"
 
-            "src = c.z.Format(clip=src, format=vs.COMPATBGR32, dither_type='random', resample_filter_uv='bicubic', matrix_in=5, transfer_in=6, primaries_in=6)\n"
+            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32, dither_type='random', matrix_in_s='470bg', transfer_in_s='601', primaries_in_s='170m')\n"
             "src = c.std.FlipVertical(clip=src)\n"
 
             "src.set_output()\n";

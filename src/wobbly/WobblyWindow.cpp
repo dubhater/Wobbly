@@ -2347,10 +2347,10 @@ void WobblyWindow::checkRequiredFilters() {
             "VapourSynth version is older than r24."
         },
         {
-            "the.weather.channel",
-            { "Format" },
-            "zimg plugin not found.",
-            "Arwen broke it."
+            "com.vapoursynth.resize",
+            { "Point", "Bilinear", "Bicubic", "Spline16", "Spline36", "Lanczos" },
+            "built-in resizers not found. Did you compile VapourSynth yourself?",
+            "VapourSynth version is older than r29."
         }
     };
 
@@ -3191,29 +3191,27 @@ void WobblyWindow::evaluateScript(bool final_script) {
     else
         script = project->generateMainDisplayScript(crop_dock->isVisible());
 
-    // Magic numbers obtained from zimg.h.
     QString m = settings_colormatrix_combo->currentText();
-    // BT 709
-    int matrix = 1;
-    int transfer = 1;
-    int primaries = 1;
+    std::string matrix = "709";
+    std::string transfer = "709";
+    std::string primaries = "709";
 
     if (m == "BT 601") {
-        matrix = 5;
-        transfer = 6;
-        primaries = 6;
+        matrix = "470bg";
+        transfer = "601";
+        primaries = "170m";
     } else if (m == "BT 709") {
-        matrix = 1;
-        transfer = 1;
-        primaries = 1;
+        matrix = "709";
+        transfer = "709";
+        primaries = "709";
     } else if (m == "BT 2020 NCL") {
-        matrix = 9;
-        transfer = 1;
-        primaries = 9;
+        matrix = "2020ncl";
+        transfer = "709";
+        primaries = "2020";
     } else if (m == "BT 2020 CL") {
-        matrix = 10;
-        transfer = 1;
-        primaries = 9;
+        matrix = "2020cl";
+        transfer = "709";
+        primaries = "2020";
     }
 
     script +=
@@ -3222,7 +3220,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
             "if src.format is None:\n"
             "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n"
 
-            "src = c.z.Format(clip=src, format=vs.COMPATBGR32, dither_type='random', resample_filter_uv='bicubic', matrix_in=" + std::to_string(matrix) + ", transfer_in=" + std::to_string(transfer) + ", primaries_in=" + std::to_string(primaries) + ")\n"
+            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32, dither_type='random', matrix_in_s='" + matrix + "', transfer_in_s='" + transfer + "', primaries_in_s='" + primaries + "')\n"
             "src = c.std.FlipVertical(clip=src)\n"
 
             "src.set_output()\n";

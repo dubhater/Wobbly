@@ -2455,13 +2455,20 @@ void WobblyProject::showCropToScript(std::string &script) const {
 }
 
 void WobblyProject::resizeAndBitDepthToScript(std::string &script, bool resize_enabled, bool depth_enabled) const {
-    script += "src = c.z.Format(clip=src";
+    script += "src = c.resize.";
+
+    if (resize_enabled) {
+        script += (char)(resize.filter[0] - ('a' - 'A'));
+        script += resize.filter.c_str() + 1;
+    } else {
+        script += "Bicubic";
+    }
+
+    script += "(clip=src";
 
     if (resize_enabled) {
         script += ", width=" + std::to_string(resize.width);
         script += ", height=" + std::to_string(resize.height);
-        script += ", resample_filter='" + resize.filter + "'";
-        script += ", resample_filter_uv='" + resize.filter + "'";
     }
 
     if (depth_enabled)
