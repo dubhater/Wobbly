@@ -20,9 +20,9 @@ The usual steps work::
 Requirements:
     - A C++11 compiler.
 
-    - Qt 5 (just qtbase). It is unclear which version of Qt 5 is the earliest that works.
+    - Qt 5.4 or newer (just qtbase).
 
-    - VapourSynth.
+    - VapourSynth r29 or newer.
 
 
 License
