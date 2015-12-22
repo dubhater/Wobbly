@@ -37,6 +37,7 @@ SOFTWARE.
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 
+#include "ScrollArea.h"
 #include "WibblyWindow.h"
 #include "WobblyException.h"
 
@@ -707,7 +708,7 @@ void WibblyWindow::createVideoOutputWindow() {
     video_frame_label = new QLabel;
     video_frame_label->setAlignment(Qt::AlignCenter);
 
-    QScrollArea *video_frame_scroll = new QScrollArea;
+    ScrollArea *video_frame_scroll = new ScrollArea;
     video_frame_scroll->setFrameShape(QFrame::NoFrame);
     video_frame_scroll->setFocusPolicy(Qt::NoFocus);
     video_frame_scroll->setAlignment(Qt::AlignCenter);

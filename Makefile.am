@@ -19,7 +19,8 @@ moc_%.cpp : %.h
 bin_PROGRAMS = wibbly wobbly
 
 shared_moc_files = src/shared/moc_DockWidget.cpp \
-				   src/shared/moc_ListWidget.cpp
+				   src/shared/moc_ListWidget.cpp \
+				   src/shared/moc_ScrollArea.cpp
 
 wibbly_moc_files = src/wibbly/moc_WibblyWindow.cpp
 
@@ -37,6 +38,8 @@ shared_sources = src/shared/DockWidget.cpp \
 				 src/shared/DockWidget.h \
 				 src/shared/ListWidget.cpp \
 				 src/shared/ListWidget.h \
+				 src/shared/ScrollArea.cpp \
+				 src/shared/ScrollArea.h \
 				 src/shared/WobblyProject.cpp \
 				 src/shared/WobblyProject.h \
 				 src/shared/WobblyException.h

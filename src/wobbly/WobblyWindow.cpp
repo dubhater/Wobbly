@@ -40,6 +40,7 @@ SOFTWARE.
 
 #include <VSScript.h>
 
+#include "ScrollArea.h"
 #include "WobblyException.h"
 #include "WobblyWindow.h"
 
@@ -2186,7 +2187,7 @@ void WobblyWindow::createUI() {
     frame_label->setAlignment(Qt::AlignCenter);
     frame_label->setPixmap(QPixmap::fromImage(splash_image));
 
-    QScrollArea *frame_scroll = new QScrollArea;
+    ScrollArea *frame_scroll = new ScrollArea;
     frame_scroll->resize(720, 480);
     frame_scroll->setFrameShape(QFrame::NoFrame);
     frame_scroll->setFocusPolicy(Qt::NoFocus);
