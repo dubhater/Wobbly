@@ -23,7 +23,8 @@ shared_moc_files = src/shared/moc_DockWidget.cpp \
 
 wibbly_moc_files = src/wibbly/moc_WibblyWindow.cpp
 
-wobbly_moc_files = src/wobbly/moc_PresetTextEdit.cpp \
+wobbly_moc_files = src/wobbly/moc_ImportWindow.cpp \
+				   src/wobbly/moc_PresetTextEdit.cpp \
 				   src/wobbly/moc_TableWidget.cpp \
 				   src/wobbly/moc_WobblyWindow.cpp
 
@@ -41,6 +42,8 @@ shared_sources = src/shared/DockWidget.cpp \
 				 src/shared/WobblyException.h
 
 wobbly_SOURCES = $(shared_sources) \
+				 src/wobbly/ImportWindow.cpp \
+				 src/wobbly/ImportWindow.h \
 				 src/wobbly/PresetTextEdit.cpp \
 				 src/wobbly/PresetTextEdit.h \
 				 src/wobbly/TableWidget.cpp \

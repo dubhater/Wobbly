@@ -210,6 +210,18 @@ struct InterlacedFade {
 };
 
 
+struct ImportedThings {
+    bool geometry;
+    bool presets;
+    bool custom_lists;
+    bool crop;
+    bool resize;
+    bool bit_depth;
+    bool mic_search;
+    bool zoom;
+};
+
+
 class WobblyProject {
     private:
         int num_frames[2];
@@ -293,6 +305,7 @@ class WobblyProject {
         const std::string &getPresetContents(const std::string &preset_name) const;
         void setPresetContents(const std::string &preset_name, const std::string &preset_contents);
         bool isPresetInUse(const std::string &preset_name) const;
+        bool presetExists(const std::string &preset_name) const;
 
 
         void addTrim(int trim_start, int trim_end);
@@ -350,6 +363,7 @@ class WobblyProject {
         void addCustomListRange(int list_index, int first, int last);
         void deleteCustomListRange(int list_index, int first);
         const FrameRange *findCustomListRange(int list_index, int frame) const;
+        bool customListExists(const std::string &list_name) const;
 
 
         int getDecimateMetric(int frame) const;
@@ -460,6 +474,9 @@ class WobblyProject {
         std::string generateMainDisplayScript(bool show_crop) const;
 
         std::string generateTimecodesV1() const;
+
+
+        void importFromOtherProject(const std::string &path, const ImportedThings &imports);
 };
 
 #endif // WOBBLYPROJECT_H

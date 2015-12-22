@@ -46,6 +46,7 @@ SOFTWARE.
 
 WobblyWindow::WobblyWindow()
     : QMainWindow()
+    , import_window(nullptr)
     , splash_image(720, 480, QImage::Format_RGB32)
     , window_title(QStringLiteral("Wobbly IVTC Assistant v%1").arg(PACKAGE_VERSION))
     , project(nullptr)
@@ -226,6 +227,7 @@ void WobblyWindow::createMenu() {
         { "Save timecodes",             &WobblyWindow::saveTimecodes },
         { "Save timecodes as",          &WobblyWindow::saveTimecodesAs },
         { "Save screenshot",            &WobblyWindow::saveScreenshot },
+        { "Import from project",        &WobblyWindow::importFromProject },
         { nullptr,                      nullptr },
         { "&Quit",                      &WobblyWindow::quit }
     };
@@ -291,6 +293,7 @@ void WobblyWindow::createShortcuts() {
         { "", "",                   "Save timecodes", &WobblyWindow::saveTimecodes },
         { "", "",                   "Save timecodes as", &WobblyWindow::saveTimecodesAs },
         { "", "",                   "Save screenshot", &WobblyWindow::saveScreenshot },
+        { "", "",                   "Import from project", &WobblyWindow::importFromProject },
         { "", "",                   "Quit", &WobblyWindow::quit },
 
         { "", "",                   "Show or hide frame details", &WobblyWindow::showHideFrameDetails },
@@ -2398,6 +2401,16 @@ void WobblyWindow::updatePresets() {
 }
 
 
+void WobblyWindow::updateGeometry() {
+    const std::string &state = project->getUIState();
+    if (state.size())
+        restoreState(QByteArray::fromBase64(QByteArray(state.c_str(), state.size())));
+
+    const std::string &geometry = project->getUIGeometry();
+    if (geometry.size())
+        restoreGeometry(QByteArray::fromBase64(QByteArray(geometry.c_str(), geometry.size())));
+}
+
 void WobblyWindow::updateWindowTitle() {
     setWindowTitle(QStringLiteral("%1 - %2").arg(window_title).arg(project_path.isEmpty() ? video_path : project_path));
 }
@@ -2807,6 +2820,7 @@ void WobblyWindow::initialiseUIFromProject() {
     // Zoom.
     zoom_label->setText(QStringLiteral("Zoom: %1x").arg(project->getZoom()));
 
+    updateGeometry();
 
     updatePresets();
 
@@ -2837,13 +2851,6 @@ void WobblyWindow::realOpenProject(const QString &path) {
         project = tmp;
 
         current_frame = project->getLastVisitedFrame();
-
-        const std::string &state = project->getUIState();
-        if (state.size())
-            restoreState(QByteArray::fromBase64(QByteArray(state.c_str(), state.size())));
-        const std::string &geometry = project->getUIGeometry();
-        if (geometry.size())
-            restoreGeometry(QByteArray::fromBase64(QByteArray(geometry.c_str(), geometry.size())));
 
         initialiseUIFromProject();
 
@@ -3115,6 +3122,103 @@ void WobblyWindow::saveScreenshot() {
 
     if (!path.isNull())
         frame_label->pixmap()->save(path, "png");
+}
+
+
+QString getPreviousInSeries(const QString &path) {
+    QFileInfo info(path);
+    QDir dir = info.dir();
+    QStringList files = dir.entryList(QDir::Files, QDir::Name);
+
+    QString this_project = info.fileName();
+
+    for (int i = 0; i < files.size(); ) {
+        if (files[i].size() != this_project.size())
+            files.removeAt(i);
+        else
+            i++;
+    }
+
+    for (int i = 0; i < files.size(); ) {
+        if (files[i] == this_project) {
+            i++;
+            continue;
+        }
+
+        bool belongs = true;
+
+        for (int j = 0; j < this_project.size(); j++) {
+            if (!((this_project[j].isDigit() && files[i][j].isDigit()) || (this_project[j] == files[i][j]))) {
+                belongs = false;
+                break;
+            }
+        }
+
+        if (!belongs)
+            files.removeAt(i);
+        else
+            i++;
+    }
+
+    QString previous_name;
+
+    int index = files.indexOf(this_project);
+    if (index > 0)
+        previous_name = dir.absoluteFilePath(files[index - 1]);
+
+    return previous_name;
+}
+
+
+void WobblyWindow::importFromProject() {
+    if (!import_window) {
+        QString previous_name;
+
+        if (!project_path.isEmpty())
+            previous_name = getPreviousInSeries(project_path);
+
+        ImportedThings import_things;
+        import_things.geometry = true;
+        import_things.zoom = true;
+        import_things.presets = true;
+        import_things.custom_lists = true;
+        import_things.crop = true;
+        import_things.resize = true;
+        import_things.bit_depth = true;
+        import_things.mic_search = true;
+
+        import_window = new ImportWindow(previous_name, import_things, this);
+
+        connect(import_window, &ImportWindow::import, [this] (const QString &file_name, const ImportedThings &imports) {
+            if (!project)
+                return;
+
+            try {
+                project->importFromOtherProject(file_name.toStdString(), imports);
+
+                initialiseUIFromProject();
+
+                displayFrame(current_frame);
+
+                import_window->hide();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+            }
+        });
+
+        connect(import_window, &ImportWindow::previousWanted, [this] () {
+            QString prev;
+
+            if (!project_path.isEmpty())
+                prev = getPreviousInSeries(project_path);
+
+            import_window->setFileName(prev);
+        });
+    }
+
+    import_window->show();
+    import_window->raise();
+    import_window->activateWindow();
 }
 
 

@@ -39,6 +39,7 @@ SOFTWARE.
 #include <VSScript.h>
 
 #include "DockWidget.h"
+#include "ImportWindow.h"
 #include "ListWidget.h"
 #include "PresetTextEdit.h"
 #include "TableWidget.h"
@@ -141,6 +142,8 @@ private:
     QSpinBox *settings_cache_spin;
     TableWidget *settings_shortcuts_table;
 
+    ImportWindow *import_window;
+
 
     // Widget-related
 
@@ -221,6 +224,7 @@ private:
 
     void updatePresets();
 
+    void updateGeometry();
     void updateWindowTitle();
     void initialiseCropAssistant();
     void initialisePresetEditor();
@@ -321,6 +325,7 @@ public slots:
     void saveTimecodes();
     void saveTimecodesAs();
     void saveScreenshot();
+    void importFromProject();
     void quit();
     void showHideFrameDetails();
     void showHideCropping();

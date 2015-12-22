@@ -861,6 +861,11 @@ bool WobblyProject::isPresetInUse(const std::string &preset_name) const {
 }
 
 
+bool WobblyProject::presetExists(const std::string &preset_name) const {
+    return (bool)presets.count(preset_name);
+}
+
+
 void WobblyProject::addTrim(int trim_start, int trim_end) {
     if (trim_start > trim_end)
         std::swap(trim_start, trim_end);
@@ -1387,6 +1392,15 @@ const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) 
         return &it->second;
 
     return nullptr;
+}
+
+
+bool WobblyProject::customListExists(const std::string &list_name) const {
+    for (size_t i = 0; i < custom_lists.size(); i++)
+        if (custom_lists[i].name == list_name)
+            return true;
+
+    return false;
 }
 
 
@@ -2587,4 +2601,82 @@ std::string WobblyProject::generateTimecodesV1() const {
     }
 
     return tc;
+}
+
+
+void WobblyProject::importFromOtherProject(const std::string &path, const ImportedThings &imports) {
+    WobblyProject *other = new WobblyProject(true);
+
+    try {
+        other->readProject(path);
+
+        if (imports.geometry) {
+            setUIState(other->getUIState());
+            setUIGeometry(other->getUIGeometry());
+        }
+
+        if (imports.presets || imports.custom_lists) {
+            const auto &p = other->getPresets();
+            for (size_t i = 0; i < p.size(); i++) {
+                std::string preset_name = p[i];
+
+                bool rename_needed = presetExists(preset_name);
+                while (presetExists(preset_name))
+                    preset_name += "_imported";
+
+                if (rename_needed) {
+                    while (presetExists(preset_name) || other->presetExists(preset_name))
+                        preset_name += "_imported";
+                }
+
+                other->renamePreset(p[i], preset_name); // changes to other aren't saved, so it's okay.
+                if (imports.presets)
+                    addPreset(preset_name, other->getPresetContents(preset_name));
+            }
+        }
+
+        if (imports.custom_lists) {
+            const auto &lists = other->getCustomLists();
+            for (size_t i = 0; i < lists.size(); i++) {
+                if (lists[i].preset.size() && !presetExists(lists[i].preset))
+                    addPreset(lists[i].preset, other->getPresetContents(lists[i].preset));
+
+                CustomList list = lists[i];
+                while (customListExists(list.name))
+                    list.name += "_imported";
+                addCustomList(list);
+            }
+        }
+
+        if (imports.crop) {
+            setCropEnabled(other->isCropEnabled());
+            setCropEarly(other->isCropEarly());
+            const Crop &c = other->getCrop();
+            setCrop(c.left, c.top, c.right, c.bottom);
+        }
+
+        if (imports.resize) {
+           setResizeEnabled(other->isResizeEnabled());
+           const Resize &r = other->getResize();
+           setResize(r.width, r.height, r.filter);
+        }
+
+        if (imports.bit_depth) {
+            setBitDepthEnabled(other->isBitDepthEnabled());
+            const Depth &d = other->getBitDepth();
+            setBitDepth(d.bits, d.float_samples, d.dither);
+        }
+
+        if (imports.mic_search)
+            setMicSearchMinimum(other->getMicSearchMinimum());
+
+        if (imports.zoom)
+            setZoom(other->getZoom());
+
+        delete other;
+    } catch (WobblyException &e) {
+        delete other;
+
+        throw e;
+    }
 }
