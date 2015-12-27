@@ -28,6 +28,7 @@ SOFTWARE.
 #include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMetaType>
 #include <QMimeData>
 #include <QPushButton>
 #include <QScrollArea>
@@ -44,6 +45,10 @@ SOFTWARE.
 
 std::mutex requests_mutex;
 std::condition_variable requests_condition;
+
+
+// For QMetaObject::invokeMethod.
+Q_DECLARE_METATYPE(const char *)
 
 
 WibblyWindow::WibblyWindow()
@@ -64,6 +69,9 @@ WibblyWindow::WibblyWindow()
     , aborted(false)
     , request_count(0)
 {
+    // For QMetaObject::invokeMethod.
+    qRegisterMetaType<const char *>();
+
     createUI();
 
     try {
@@ -84,7 +92,7 @@ WibblyWindow::WibblyWindow()
 void VS_CC messageHandler(int msgType, const char *msg, void *userData) {
     WibblyWindow *window = (WibblyWindow *)userData;
 
-    QMetaObject::invokeMethod(window, "vsLogPopup", Qt::DirectConnection, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
+    QMetaObject::invokeMethod(window, "vsLogPopup", Qt::QueuedConnection, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
 }
 
 
@@ -400,6 +408,7 @@ void WibblyWindow::createMainWindow() {
     main_progress_dialog = new QProgressDialog;
     main_progress_dialog->setModal(true);
     main_progress_dialog->setWindowTitle(QStringLiteral("Gathering metrics..."));
+    main_progress_dialog->setLabel(new QLabel);
     main_progress_dialog->reset();
 
     QPushButton *main_engage_button = new QPushButton("Engage");
@@ -1337,10 +1346,13 @@ void WibblyWindow::displayFrame(int n) {
 void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
     WibblyWindow *window = (WibblyWindow *)userData;
 
+    // Qt::DirectConnection = frameDone runs in the worker threads
+    // Qt::QueuedConnection = frameDone runs in the GUI thread
     QMetaObject::invokeMethod(window, "frameDone", Qt::DirectConnection, Q_ARG(void *, (void *)f), Q_ARG(int, n), Q_ARG(void *, (void *)errorMsg));
 }
 
 
+// Always runs in the GUI thread.
 void WibblyWindow::startNextJob() {
     current_job++;
 
@@ -1426,7 +1438,7 @@ void WibblyWindow::startNextJob() {
         return;
     }
 
-    main_progress_dialog->setLabel(new QLabel(QStringLiteral("Job %1/%2:\n%3").arg(current_job + 1).arg(jobs.size()).arg(QString::fromStdString(job.getOutputFile()))));
+    main_progress_dialog->setLabelText(QStringLiteral("Job %1/%2:\n%3").arg(current_job + 1).arg(jobs.size()).arg(QString::fromStdString(job.getOutputFile())));
     main_progress_dialog->setMinimum(0);
     main_progress_dialog->setMaximum(vsvi->numFrames);
     main_progress_dialog->setValue(0);
@@ -1447,6 +1459,8 @@ void WibblyWindow::startNextJob() {
 }
 
 
+// Runs in the worker threads, so don't touch the GUI directly.
+// The worker threads are queued up inside VapourSynth, so they run one at a time.
 void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
     const VSFrameRef *frame = (const VSFrameRef *)frame_v;
     const char *error_msg = (const char *)error_msg_v;
@@ -1496,7 +1510,7 @@ void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
 
             frames_left--;
 
-            main_progress_dialog->setValue(vsvi->numFrames - frames_left);
+            QMetaObject::invokeMethod(main_progress_dialog, "setValue", Qt::QueuedConnection, Q_ARG(int, vsvi->numFrames - frames_left));
 
             if (frames_left == 0) {
                 try {
@@ -1508,9 +1522,13 @@ void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
                     delete current_project;
                     current_project = nullptr;
 
-                    startNextJob();
+                    QMetaObject::invokeMethod(this, "startNextJob", Qt::QueuedConnection);
                 } catch (WobblyException &e) {
-                    errorPopup(e.what());
+                    QMetaObject::invokeMethod(this, "errorPopup", Qt::QueuedConnection, Q_ARG(const char *, e.what()));
+
+                    aborted = true;
+                    current_job = -1;
+                    QMetaObject::invokeMethod(this, "setEnabled", Qt::QueuedConnection, Q_ARG(bool, true));
 
                     delete current_project;
                     current_project = nullptr;
@@ -1522,7 +1540,7 @@ void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
             delete current_project;
             current_project = nullptr;
 
-            errorPopup("Job number " + std::to_string(current_job) + ": failed to retrieve frame number " + std::to_string(n) + ". Error message:\n\n" + error_msg);
+            QMetaObject::invokeMethod(this, "errorPopup", Qt::QueuedConnection, Q_ARG(const char *, ("Job number " + std::to_string(current_job) + ": failed to retrieve frame number " + std::to_string(n) + ". Error message:\n\n" + error_msg).c_str()));
         }
     }
 

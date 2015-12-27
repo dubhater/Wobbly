@@ -2240,7 +2240,7 @@ void WobblyWindow::createUI() {
 void VS_CC messageHandler(int msgType, const char *msg, void *userData) {
     WobblyWindow *window = (WobblyWindow *)userData;
 
-    QMetaObject::invokeMethod(window, "vsLogPopup", Qt::DirectConnection, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
+    QMetaObject::invokeMethod(window, "vsLogPopup", Qt::QueuedConnection, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
 }
 
 
