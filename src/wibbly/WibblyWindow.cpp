@@ -1233,7 +1233,6 @@ void WibblyWindow::evaluateDisplayScript() {
             "src = vs.get_output(index=0)\n"
 
             "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32, dither_type='random', matrix_in_s='470bg', transfer_in_s='601', primaries_in_s='170m')\n"
-            "src = c.std.FlipVertical(clip=src)\n"
 
             "src.set_output()\n";
 
@@ -1313,7 +1312,7 @@ void WibblyWindow::displayFrame(int n) {
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32));
+    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32).mirrored(false, true));
 
     video_frame_label->setPixmap(pixmap);
     // Must free the frame only after replacing the pixmap.

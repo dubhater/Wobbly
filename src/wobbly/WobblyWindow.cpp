@@ -3348,8 +3348,6 @@ void WobblyWindow::evaluateScript(bool final_script) {
     }
 
     script +=
-            "src = c.std.FlipVertical(clip=src)\n"
-
             "src.set_output()\n";
 
     script +=
@@ -3411,7 +3409,7 @@ void WobblyWindow::displayFrame(int n) {
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32));
+    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32).mirrored(false, true));
 
     int zoom = project->getZoom();
     if (zoom > 1)
