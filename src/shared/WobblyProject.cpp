@@ -1901,7 +1901,7 @@ bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_
         throw WobblyException("Can't guess patterns from mics for section starting at " + std::to_string(section_start) + ": frame number out of range.");
 
     if (!sections.count(section_start))
-        throw WobblyException("Can't reset patterns from mics for section starting at " + std::to_string(section_start) + ": no such section.");
+        throw WobblyException("Can't guess patterns from mics for section starting at " + std::to_string(section_start) + ": no such section.");
 
 
     int section_end = getSectionEnd(section_start);
@@ -1994,10 +1994,12 @@ bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_
         for (int i = section_start; i < section_end; i++)
             deleteDecimatedFrame(i);
     } else {
-        int first_duplicate = (4 + patterns[best_pattern].pattern_offset) % 5;
+        int first_duplicate = 4 - patterns[best_pattern].pattern_offset;
 
         applyPatternGuessingDecimation(section_start, section_end, first_duplicate, drop_duplicate);
     }
+
+    pattern_guessing.failures.erase(section_start);
 
     return true;
 }
