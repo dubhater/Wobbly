@@ -2460,14 +2460,6 @@ void WobblyProject::cropToScript(std::string &script) const {
     script += std::to_string(crop.bottom) + ")\n\n";
 }
 
-void WobblyProject::showCropToScript(std::string &script) const {
-    script += "src = c.std.AddBorders(clip=src, left=";
-    script += std::to_string(crop.left) + ", top=";
-    script += std::to_string(crop.top) + ", right=";
-    script += std::to_string(crop.right) + ", bottom=";
-    script += std::to_string(crop.bottom) + ", color=[128, 230, 180])\n\n";
-}
-
 void WobblyProject::resizeAndBitDepthToScript(std::string &script, bool resize_enabled, bool depth_enabled) const {
     script += "src = c.resize.";
 
@@ -2543,7 +2535,7 @@ std::string WobblyProject::generateFinalScript() const {
     return script;
 }
 
-std::string WobblyProject::generateMainDisplayScript(bool show_crop) const {
+std::string WobblyProject::generateMainDisplayScript() const {
     std::string script;
 
     headerToScript(script);
@@ -2556,11 +2548,6 @@ std::string WobblyProject::generateMainDisplayScript(bool show_crop) const {
 
     if (frozen_frames.size())
         freezeFramesToScript(script);
-
-    if (show_crop && crop.enabled) {
-        cropToScript(script);
-        showCropToScript(script);
-    }
 
     setOutputToScript(script);
 

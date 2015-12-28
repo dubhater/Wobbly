@@ -3294,7 +3294,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
     if (final_script)
         script = project->generateFinalScript();
     else
-        script = project->generateMainDisplayScript(crop_dock->isVisible());
+        script = project->generateMainDisplayScript();
 
     QString m = settings_colormatrix_combo->currentText();
     std::string matrix = "709";
@@ -3323,9 +3323,31 @@ void WobblyWindow::evaluateScript(bool final_script) {
             "src = vs.get_output(index=0)\n"
 
             "if src.format is None:\n"
-            "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n"
+            "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n";
 
-            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32, dither_type='random', matrix_in_s='" + matrix + "', transfer_in_s='" + transfer + "', primaries_in_s='" + primaries + "')\n"
+    if (crop_dock->isVisible() && project->isCropEnabled()) {
+        script += "src = c.std.CropRel(clip=src, left=";
+        script += std::to_string(crop_spin[0]->value()) + ", top=";
+        script += std::to_string(crop_spin[1]->value()) + ", right=";
+        script += std::to_string(crop_spin[2]->value()) + ", bottom=";
+        script += std::to_string(crop_spin[3]->value()) + ")\n";
+
+        script +=
+                "src = c.resize.Bicubic(clip=src, format=vs.RGB24, dither_type='random', matrix_in_s='" + matrix + "', transfer_in_s='" + transfer + "', primaries_in_s='" + primaries + "')\n";
+
+        script += "src = c.std.AddBorders(clip=src, left=";
+        script += std::to_string(crop_spin[0]->value()) + ", top=";
+        script += std::to_string(crop_spin[1]->value()) + ", right=";
+        script += std::to_string(crop_spin[2]->value()) + ", bottom=";
+        script += std::to_string(crop_spin[3]->value()) + ", color=[224, 81, 255])\n";
+
+        script += "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n";
+    } else {
+        script +=
+            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32, dither_type='random', matrix_in_s='" + matrix + "', transfer_in_s='" + transfer + "', primaries_in_s='" + primaries + "')\n";
+    }
+
+    script +=
             "src = c.std.FlipVertical(clip=src)\n"
 
             "src.set_output()\n";

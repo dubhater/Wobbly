@@ -466,12 +466,11 @@ class WobblyProject {
         void freezeFramesToScript(std::string &script) const;
         void decimatedFramesToScript(std::string &script) const;
         void cropToScript(std::string &script) const;
-        void showCropToScript(std::string &script) const;
         void resizeAndBitDepthToScript(std::string &script, bool resize_enabled, bool depth_enabled) const;
         void setOutputToScript(std::string &script) const;
 
         std::string generateFinalScript() const;
-        std::string generateMainDisplayScript(bool show_crop) const;
+        std::string generateMainDisplayScript() const;
 
         std::string generateTimecodesV1() const;
 
