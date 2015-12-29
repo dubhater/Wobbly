@@ -824,6 +824,9 @@ void WobblyWindow::createPatternEditor() {
     match_pattern_edit->setValidator(match_validator);
     decimation_pattern_edit->setValidator(decimation_validator);
 
+    QPushButton *fill_24fps_button = new QPushButton(QStringLiteral("&24 fps"));
+    QPushButton *fill_30fps_button = new QPushButton(QStringLiteral("&30 fps"));
+
 
     connect(match_pattern_edit, &QLineEdit::textEdited, [this] (const QString &text) {
         match_pattern = text;
@@ -833,12 +836,35 @@ void WobblyWindow::createPatternEditor() {
         decimation_pattern = text;
     });
 
+    connect(fill_24fps_button, &QPushButton::clicked, [this] () {
+        match_pattern = "ccnnc";
+        match_pattern_edit->setText(match_pattern);
+
+        decimation_pattern = "kkkkd";
+        decimation_pattern_edit->setText(decimation_pattern);
+    });
+
+    connect(fill_30fps_button, &QPushButton::clicked, [this] () {
+        match_pattern = "ccccc";
+        match_pattern_edit->setText(match_pattern);
+
+        decimation_pattern = "kkkkk";
+        decimation_pattern_edit->setText(decimation_pattern);
+    });
+
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(new QLabel(QStringLiteral("Match pattern:")));
     vbox->addWidget(match_pattern_edit);
     vbox->addWidget(new QLabel(QStringLiteral("Decimation pattern:")));
     vbox->addWidget(decimation_pattern_edit);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(fill_24fps_button);
+    hbox->addWidget(fill_30fps_button);
+    hbox->addStretch(1);
+
+    vbox->addLayout(hbox);
     vbox->addStretch(1);
 
     QWidget *pattern_widget = new QWidget;
