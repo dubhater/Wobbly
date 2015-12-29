@@ -342,9 +342,6 @@ public slots:
 
     void presetChanged(const QString &text);
     void presetEdited();
-    void presetNew();
-    void presetRename();
-    void presetDelete();
 
     void resetMatch();
     void resetSection();
@@ -358,9 +355,6 @@ public slots:
     void guessProjectPatternsFromMics();
     void guessCurrentSectionPatternsFromMatches();
     void guessProjectPatternsFromMatches();
-
-    void matchPatternEdited(const QString &text);
-    void decimationPatternEdited(const QString &text);
 
     void togglePreview();
 

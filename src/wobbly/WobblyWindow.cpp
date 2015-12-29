@@ -651,7 +651,6 @@ void WobblyWindow::createCropAssistant() {
 void WobblyWindow::createPresetEditor() {
     preset_combo = new QComboBox;
     preset_combo->setModel(presets_model);
-    connect(preset_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), this, &WobblyWindow::presetChanged);
 
     preset_edit = new PresetTextEdit;
     preset_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
@@ -662,15 +661,131 @@ void WobblyWindow::createPresetEditor() {
                 "The return statement will be added automatically.\n"
                 "The VapourSynth core object is called 'c'."
     ));
-    connect(preset_edit, &PresetTextEdit::focusLost, this, &WobblyWindow::presetEdited);
 
     QPushButton *new_button = new QPushButton(QStringLiteral("New"));
     QPushButton *rename_button = new QPushButton(QStringLiteral("Rename"));
     QPushButton *delete_button = new QPushButton(QStringLiteral("Delete"));
 
-    connect(new_button, &QPushButton::clicked, this, &WobblyWindow::presetNew);
-    connect(rename_button, &QPushButton::clicked, this, &WobblyWindow::presetRename);
-    connect(delete_button, &QPushButton::clicked, this, &WobblyWindow::presetDelete);
+    connect(preset_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), this, &WobblyWindow::presetChanged);
+
+    connect(preset_edit, &PresetTextEdit::focusLost, this, &WobblyWindow::presetEdited);
+
+    connect(new_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        bool ok = false;
+        QString preset_name;
+
+        while (!ok) {
+            preset_name = QInputDialog::getText(this, QStringLiteral("New preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."), QLineEdit::Normal, preset_name);
+
+            if (!preset_name.isEmpty()) {
+                try {
+                    project->addPreset(preset_name.toStdString());
+
+                    QStringList presets = presets_model->stringList();
+
+                    // The "selected" preset has nothing to do with what preset is currently displayed in preset_combo.
+                    int selected_index = getSelectedPreset();
+
+                    QString selected;
+                    if (selected_index > -1)
+                        selected = presets[selected_index];
+
+                    updatePresets();
+
+                    if (selected_index > -1)
+                        setSelectedPreset(presets.indexOf(selected));
+
+                    preset_combo->setCurrentText(preset_name);
+
+                    presetChanged(preset_name);
+
+                    ok = true;
+                } catch (WobblyException &e) {
+                    errorPopup(e.what());
+                }
+            } else
+                ok = true;
+        }
+    });
+
+    connect(rename_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        if (preset_combo->currentIndex() == -1)
+            return;
+
+        bool ok = false;
+        QString preset_name = preset_combo->currentText();
+
+        while (!ok) {
+            preset_name = QInputDialog::getText(this, QStringLiteral("Rename preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."), QLineEdit::Normal, preset_name);
+
+            if (!preset_name.isEmpty() && preset_name != preset_combo->currentText()) {
+                try {
+                    project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
+
+                    updatePresets();
+
+                    int index = presets_model->stringList().indexOf(preset_name);
+                    setSelectedPreset(index);
+
+                    preset_combo->setCurrentText(preset_name);
+
+                    updateCustomListsEditor();
+
+                    updateSectionsEditor();
+
+                    updateFrameDetails();
+
+                    ok = true;
+                } catch (WobblyException &e) {
+                    errorPopup(e.what());
+                }
+            } else
+                ok = true;
+        }
+    });
+
+    connect(delete_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        int index = preset_combo->currentIndex();
+        if (index == -1)
+            return;
+
+        const std::string &preset = preset_combo->currentText().toStdString();
+
+        bool preset_in_use = project->isPresetInUse(preset);
+
+        if (preset_in_use) {
+            QMessageBox::StandardButton answer = QMessageBox::question(this, QStringLiteral("Delete preset?"), QStringLiteral("Preset '%1' is in use. Delete anyway?").arg(preset.c_str()), QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+            if (answer == QMessageBox::No)
+                return;
+        }
+
+        project->deletePreset(preset);
+
+        updatePresets();
+
+        setSelectedPreset(selected_preset);
+
+        if (preset_combo->count()) {
+            index = std::min(index, preset_combo->count() - 1);
+            preset_combo->setCurrentIndex(index);
+        }
+        presetChanged(preset_combo->currentText());
+
+        if (preset_in_use) {
+            updateSectionsEditor();
+
+            updateCustomListsEditor();
+        }
+    });
 
 
     QHBoxLayout *hbox = new QHBoxLayout;
@@ -709,8 +824,15 @@ void WobblyWindow::createPatternEditor() {
     match_pattern_edit->setValidator(match_validator);
     decimation_pattern_edit->setValidator(decimation_validator);
 
-    connect(match_pattern_edit, &QLineEdit::textEdited, this, &WobblyWindow::matchPatternEdited);
-    connect(decimation_pattern_edit, &QLineEdit::textEdited, this, &WobblyWindow::decimationPatternEdited);
+
+    connect(match_pattern_edit, &QLineEdit::textEdited, [this] (const QString &text) {
+        match_pattern = text;
+    });
+
+    connect(decimation_pattern_edit, &QLineEdit::textEdited, [this] (const QString &text) {
+        decimation_pattern = text;
+    });
+
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(new QLabel(QStringLiteral("Match pattern:")));
@@ -3912,126 +4034,6 @@ void WobblyWindow::presetEdited() {
 }
 
 
-void WobblyWindow::presetNew() {
-    if (!project)
-        return;
-
-    bool ok = false;
-    QString preset_name;
-
-    while (!ok) {
-        preset_name = QInputDialog::getText(this, QStringLiteral("New preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."), QLineEdit::Normal, preset_name);
-
-        if (!preset_name.isEmpty()) {
-            try {
-                project->addPreset(preset_name.toStdString());
-
-                QStringList presets = presets_model->stringList();
-
-                // The "selected" preset has nothing to do with what preset is currently displayed in preset_combo.
-                int selected_index = getSelectedPreset();
-
-                QString selected;
-                if (selected_index > -1)
-                    selected = presets[selected_index];
-
-                updatePresets();
-
-                if (selected_index > -1)
-                    setSelectedPreset(presets.indexOf(selected));
-
-                preset_combo->setCurrentText(preset_name);
-
-                presetChanged(preset_name);
-
-                ok = true;
-            } catch (WobblyException &e) {
-                errorPopup(e.what());
-            }
-        } else
-            ok = true;
-    }
-}
-
-
-void WobblyWindow::presetRename() {
-    if (!project)
-        return;
-
-    if (preset_combo->currentIndex() == -1)
-        return;
-
-    bool ok = false;
-    QString preset_name = preset_combo->currentText();
-
-    while (!ok) {
-        preset_name = QInputDialog::getText(this, QStringLiteral("Rename preset"), QStringLiteral("Use only letters, numbers, and the underscore character.\nThe first character cannot be a number."), QLineEdit::Normal, preset_name);
-
-        if (!preset_name.isEmpty() && preset_name != preset_combo->currentText()) {
-            try {
-                project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
-
-                updatePresets();
-
-                int index = presets_model->stringList().indexOf(preset_name);
-                setSelectedPreset(index);
-
-                preset_combo->setCurrentText(preset_name);
-
-                updateCustomListsEditor();
-
-                updateSectionsEditor();
-
-                updateFrameDetails();
-
-                ok = true;
-            } catch (WobblyException &e) {
-                errorPopup(e.what());
-            }
-        } else
-            ok = true;
-    }
-}
-
-
-void WobblyWindow::presetDelete() {
-    if (!project)
-        return;
-
-    int index = preset_combo->currentIndex();
-    if (index == -1)
-        return;
-
-    const std::string &preset = preset_combo->currentText().toStdString();
-
-    bool preset_in_use = project->isPresetInUse(preset);
-
-    if (preset_in_use) {
-        QMessageBox::StandardButton answer = QMessageBox::question(this, QStringLiteral("Delete preset?"), QStringLiteral("Preset '%1' is in use. Delete anyway?").arg(preset.c_str()), QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
-        if (answer == QMessageBox::No)
-            return;
-    }
-
-    project->deletePreset(preset);
-
-    updatePresets();
-
-    setSelectedPreset(selected_preset);
-
-    if (preset_combo->count()) {
-        index = std::min(index, preset_combo->count() - 1);
-        preset_combo->setCurrentIndex(index);
-    }
-    presetChanged(preset_combo->currentText());
-
-    if (preset_in_use) {
-        updateSectionsEditor();
-
-        updateCustomListsEditor();
-    }
-}
-
-
 void WobblyWindow::resetMatch() {
     if (!project)
         return;
@@ -4287,16 +4289,6 @@ void WobblyWindow::guessProjectPatternsFromMatches() {
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
-}
-
-
-void WobblyWindow::matchPatternEdited(const QString &text) {
-    match_pattern = text;
-}
-
-
-void WobblyWindow::decimationPatternEdited(const QString &text) {
-    decimation_pattern = text;
 }
 
 
