@@ -242,8 +242,8 @@ class WobblyProject {
 
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
-        std::unordered_map<std::string, double> vfm_parameters;
-        std::unordered_map<std::string, double> vdecimate_parameters;
+        std::map<std::string, double> vfm_parameters;
+        std::map<std::string, double> vdecimate_parameters;
 
         std::vector<std::array<int16_t, 5> > mics;
         std::vector<char> matches;

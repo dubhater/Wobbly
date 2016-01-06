@@ -1,5 +1,5 @@
 warningflags = -Wall -Wextra -Wshadow
-includeflags = -I$(srcdir)/src/shared
+includeflags = -I$(srcdir) -I$(srcdir)/src/shared
 commoncflags = $(FPIC) -O2 $(warningflags) $(includeflags)
 AM_CXXFLAGS = -std=c++11 $(commoncflags)
 AM_CFLAGS = -std=c99 $(commoncflags)
@@ -34,7 +34,38 @@ MOSTLYCLEANFILES = $(shared_moc_files) \
 				   $(wibbly_moc_files) \
 				   $(wobbly_moc_files)
 
-shared_sources = src/shared/DockWidget.cpp \
+rapidjson_sources = rapidjson/allocators.h \
+					rapidjson/document.h \
+					rapidjson/encodedstream.h \
+					rapidjson/encodings.h \
+					rapidjson/filereadstream.h \
+					rapidjson/filewritestream.h \
+					rapidjson/memorybuffer.h \
+					rapidjson/memorystream.h \
+					rapidjson/pointer.h \
+					rapidjson/prettywriter.h \
+					rapidjson/rapidjson.h \
+					rapidjson/reader.h \
+					rapidjson/stringbuffer.h \
+					rapidjson/writer.h \
+					rapidjson/error/en.h \
+					rapidjson/error/error.h \
+					rapidjson/internal/biginteger.h \
+					rapidjson/internal/diyfp.h \
+					rapidjson/internal/dtoa.h \
+					rapidjson/internal/ieee754.h \
+					rapidjson/internal/itoa.h \
+					rapidjson/internal/meta.h \
+					rapidjson/internal/pow10.h \
+					rapidjson/internal/stack.h \
+					rapidjson/internal/strfunc.h \
+					rapidjson/internal/strtod.h \
+					rapidjson/internal/swap.h \
+					rapidjson/msinttypes/inttypes.h \
+					rapidjson/msinttypes/stdint.h
+
+shared_sources = $(rapidjson_sources) \
+				 src/shared/DockWidget.cpp \
 				 src/shared/DockWidget.h \
 				 src/shared/ListWidget.cpp \
 				 src/shared/ListWidget.h \

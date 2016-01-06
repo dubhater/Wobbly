@@ -24,13 +24,16 @@ SOFTWARE.
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <QFile>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QStringList>
+
+#define RAPIDJSON_NAMESPACE rj
+#define RAPIDJSON_HAS_STDSTRING 1
+#include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/error/en.h"
 
 #include "WobblyException.h"
 #include "WobblyProject.h"
@@ -104,60 +107,62 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
     if (!file.open(QIODevice::WriteOnly))
         throw WobblyException("Couldn't open project file '" + path + "'. Error message: " + file.errorString().toStdString());
 
-    QJsonObject json_project;
+    rj::Document json_project(rj::kObjectType);
 
-    json_project.insert("wobbly version", PACKAGE_VERSION);
+    rj::Document::AllocatorType &a = json_project.GetAllocator();
 
-
-    json_project.insert("input file", QString::fromStdString(input_file));
-
-
-    QJsonArray json_fps;
-    json_fps.append((qint64)fps_num);
-    json_fps.append((qint64)fps_den);
-    json_project.insert("input frame rate", json_fps);
+    json_project.AddMember("wobbly version", PACKAGE_VERSION, a);
 
 
-    QJsonArray json_resolution;
-    json_resolution.append(width);
-    json_resolution.append(height);
-    json_project.insert("input resolution", json_resolution);
+    json_project.AddMember("input file", input_file, a);
+
+
+    rj::Value json_fps(rj::kArrayType);
+    json_fps.PushBack(fps_num, a);
+    json_fps.PushBack(fps_den, a);
+    json_project.AddMember("input frame rate", json_fps, a);
+
+
+    rj::Value json_resolution(rj::kArrayType);
+    json_resolution.PushBack(width, a);
+    json_resolution.PushBack(height, a);
+    json_project.AddMember("input resolution", json_resolution, a);
 
 
     if (is_wobbly) {
-        QJsonObject json_ui;
-        json_ui.insert("zoom", zoom);
-        json_ui.insert("last visited frame", last_visited_frame);
-        json_ui.insert("geometry", QString::fromStdString(ui_geometry));
-        json_ui.insert("state", QString::fromStdString(ui_state));
+        rj::Value json_ui(rj::kObjectType);
+        json_ui.AddMember("zoom", zoom, a);
+        json_ui.AddMember("last visited frame", last_visited_frame, a);
+        json_ui.AddMember("geometry", ui_geometry, a);
+        json_ui.AddMember("state", ui_state, a);
 
-        QJsonArray json_rates;
+        rj::Value json_rates(rj::kArrayType);
         int rates[] = { 30, 24, 18, 12, 6 };
         for (int i = 0; i < 5; i++)
             if (shown_frame_rates[i])
-                json_rates.append(rates[i]);
-        json_ui.insert("show frame rates", json_rates);
+                json_rates.PushBack(rates[i], a);
+        json_ui.AddMember("show frame rates", json_rates, a);
 
-        json_ui.insert("mic search minimum", mic_search_minimum);
-        json_ui.insert("c match sequences minimum", c_match_sequences_minimum);
+        json_ui.AddMember("mic search minimum", mic_search_minimum, a);
+        json_ui.AddMember("c match sequences minimum", c_match_sequences_minimum, a);
 
         if (pattern_guessing.failures.size()) {
-            QJsonObject json_pattern_guessing;
+            rj::Value json_pattern_guessing(rj::kObjectType);
 
             const char *guessing_methods[] = {
                 "from matches",
                 "from mics"
             };
-            json_pattern_guessing.insert("method", guessing_methods[pattern_guessing.method]);
+            json_pattern_guessing.AddMember("method", rj::Value(guessing_methods[pattern_guessing.method], a), a);
 
-            json_pattern_guessing.insert("minimum length", pattern_guessing.minimum_length);
+            json_pattern_guessing.AddMember("minimum length", pattern_guessing.minimum_length, a);
 
             const char *third_n_match[] = {
                 "always",
                 "never",
                 "if it has lower mic"
             };
-            json_pattern_guessing.insert("use third n match", third_n_match[pattern_guessing.third_n_match]);
+            json_pattern_guessing.AddMember("use third n match", rj::Value(third_n_match[pattern_guessing.third_n_match], a), a);
 
             const char *decimate[] = {
                 "first duplicate",
@@ -165,9 +170,9 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
                 "duplicate with higher mic per cycle",
                 "duplicate with higher mic per section"
             };
-            json_pattern_guessing.insert("decimate", decimate[pattern_guessing.decimation]);
+            json_pattern_guessing.AddMember("decimate", rj::Value(decimate[pattern_guessing.decimation], a), a);
 
-            QJsonArray json_use_patterns;
+            rj::Value json_use_patterns(rj::kArrayType);
 
             std::map<int, std::string> use_patterns = {
                 { PatternCCCNN, "cccnn" },
@@ -177,202 +182,211 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
             for (auto it = use_patterns.cbegin(); it != use_patterns.cend(); it++)
                 if (pattern_guessing.use_patterns & it->first)
-                    json_use_patterns.append(QString::fromStdString(it->second));
-            json_pattern_guessing.insert("use patterns", json_use_patterns);
+                    json_use_patterns.PushBack(rj::Value(it->second, a), a);
+            json_pattern_guessing.AddMember("use patterns", json_use_patterns, a);
 
-            QJsonArray json_failures;
+            rj::Value json_failures(rj::kArrayType);
 
             const char *reasons[] = {
                 "section too short",
                 "ambiguous pattern"
             };
             for (auto it = pattern_guessing.failures.cbegin(); it != pattern_guessing.failures.cend(); it++) {
-                QJsonObject json_failure;
-                json_failure.insert("start", it->second.start);
-                json_failure.insert("reason", reasons[it->second.reason]);
-                json_failures.append(json_failure);
+                rj::Value json_failure(rj::kObjectType);
+                json_failure.AddMember("start", it->second.start, a);
+                json_failure.AddMember("reason", rj::Value(reasons[it->second.reason], a), a);
+                json_failures.PushBack(json_failure, a);
             }
-            json_pattern_guessing.insert("failures", json_failures);
+            json_pattern_guessing.AddMember("failures", json_failures, a);
 
-            json_ui.insert("pattern guessing", json_pattern_guessing);
+            json_ui.AddMember("pattern guessing", json_pattern_guessing, a);
         }
 
-        json_project.insert("user interface", json_ui);
+        json_project.AddMember("user interface", json_ui, a);
     }
 
 
-    QJsonArray json_trims;
+    rj::Value json_trims(rj::kArrayType);
 
     for (auto it = trims.cbegin(); it != trims.cend(); it++) {
-        QJsonArray json_trim;
-        json_trim.append(it->second.first);
-        json_trim.append(it->second.last);
-        json_trims.append(json_trim);
+        rj::Value json_trim(rj::kArrayType);
+        json_trim.PushBack(it->second.first, a);
+        json_trim.PushBack(it->second.last, a);
+        json_trims.PushBack(json_trim, a);
     }
-    json_project.insert("trim", json_trims);
+    json_project.AddMember("trim", json_trims, a);
 
 
-    QJsonObject json_vfm_parameters;
+    rj::Value json_vfm_parameters(rj::kObjectType);
 
     for (auto it = vfm_parameters.cbegin(); it != vfm_parameters.cend(); it++)
-        json_vfm_parameters.insert(QString::fromStdString(it->first), it->second);
+        json_vfm_parameters.AddMember(rj::Value(it->first, a), rj::Value(it->second), a);
 
-    json_project.insert("vfm parameters", json_vfm_parameters);
+    json_project.AddMember("vfm parameters", json_vfm_parameters, a);
 
 
-    QJsonObject json_vdecimate_parameters;
+    rj::Value json_vdecimate_parameters(rj::kObjectType);
 
     for (auto it = vdecimate_parameters.cbegin(); it != vdecimate_parameters.cend(); it++)
-        json_vdecimate_parameters.insert(QString::fromStdString(it->first), it->second);
+        json_vdecimate_parameters.AddMember(rj::Value(it->first, a), rj::Value(it->second), a);
 
-    json_project.insert("vdecimate parameters", json_vdecimate_parameters);
+    json_project.AddMember("vdecimate parameters", json_vdecimate_parameters, a);
 
-
-    QJsonArray json_mics, json_matches, json_original_matches, json_combed_frames, json_decimated_frames, json_decimate_metrics;
+    rj::Value json_mics(rj::kArrayType);
+    rj::Value json_matches(rj::kArrayType);
+    rj::Value json_original_matches(rj::kArrayType);
+    rj::Value json_combed_frames(rj::kArrayType);
+    rj::Value json_decimated_frames(rj::kArrayType);
+    rj::Value json_decimate_metrics(rj::kArrayType);
 
     for (size_t i = 0; i < mics.size(); i++) {
-        QJsonArray json_mic;
+        rj::Value json_mic(rj::kArrayType);
         for (int j = 0; j < 5; j++)
-            json_mic.append(mics[i][j]);
-        json_mics.append(json_mic);
+            json_mic.PushBack(mics[i][j], a);
+        json_mics.PushBack(json_mic, a);
     }
 
     for (size_t i = 0; i < matches.size(); i++)
-        json_matches.append(QString(matches[i]));
+        json_matches.PushBack(rj::Value(&matches[i], 1), a);
 
     for (size_t i = 0; i < original_matches.size(); i++)
-        json_original_matches.append(QString(original_matches[i]));
+        json_original_matches.PushBack(rj::Value(&original_matches[i], 1), a);
 
     for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
-        json_combed_frames.append(*it);
+        json_combed_frames.PushBack(*it, a);
 
     for (size_t i = 0; i < decimated_frames.size(); i++)
         for (auto it = decimated_frames[i].cbegin(); it != decimated_frames[i].cend(); it++)
-            json_decimated_frames.append((int)i * 5 + *it);
+            json_decimated_frames.PushBack((int)i * 5 + *it, a);
 
     for (size_t i = 0; i < decimate_metrics.size(); i++)
-        json_decimate_metrics.append(getDecimateMetric(i));
+        json_decimate_metrics.PushBack(getDecimateMetric(i), a);
 
-    json_project.insert("mics", json_mics);
-    json_project.insert("matches", json_matches);
-    json_project.insert("original matches", json_original_matches);
-    json_project.insert("combed frames", json_combed_frames);
-    json_project.insert("decimated frames", json_decimated_frames);
-    json_project.insert("decimate metrics", json_decimate_metrics);
+    json_project.AddMember("mics", json_mics, a);
+    json_project.AddMember("matches", json_matches, a);
+    json_project.AddMember("original matches", json_original_matches, a);
+    json_project.AddMember("combed frames", json_combed_frames, a);
+    json_project.AddMember("decimated frames", json_decimated_frames, a);
+    json_project.AddMember("decimate metrics", json_decimate_metrics, a);
 
 
-    QJsonArray json_sections;
+    rj::Value json_sections(rj::kArrayType);
 
     for (auto it = sections.cbegin(); it != sections.cend(); it++) {
-        QJsonObject json_section;
-        json_section.insert("start", it->second.start);
-        QJsonArray json_presets;
+        rj::Value json_section(rj::kObjectType);
+        json_section.AddMember("start", it->second.start, a);
+        rj::Value json_presets(rj::kArrayType);
         for (size_t i = 0; i < it->second.presets.size(); i++)
-            json_presets.append(QString::fromStdString(it->second.presets[i]));
-        json_section.insert("presets", json_presets);
+            json_presets.PushBack(rj::Value(it->second.presets[i], a), a);
+        json_section.AddMember("presets", json_presets, a);
 
-        json_sections.append(json_section);
+        json_sections.PushBack(json_section, a);
     }
 
-    json_project.insert("sections", json_sections);
+    json_project.AddMember("sections", json_sections, a);
 
 
-    json_project.insert("source filter", QString::fromStdString(source_filter));
+    json_project.AddMember("source filter", source_filter, a);
 
 
-    QJsonArray json_interlaced_fades;
+    rj::Value json_interlaced_fades(rj::kArrayType);
 
     for (auto it = interlaced_fades.cbegin(); it != interlaced_fades.cend(); it++) {
-        QJsonObject json_interlaced_fade;
-        json_interlaced_fade.insert("frame", it->second.frame);
-        json_interlaced_fade.insert("field difference", it->second.field_difference);
+        rj::Value json_interlaced_fade(rj::kObjectType);
+        json_interlaced_fade.AddMember("frame", it->second.frame, a);
+        json_interlaced_fade.AddMember("field difference", it->second.field_difference, a);
 
-        json_interlaced_fades.append(json_interlaced_fade);
+        json_interlaced_fades.PushBack(json_interlaced_fade, a);
     }
 
-    json_project.insert("interlaced fades", json_interlaced_fades);
+    json_project.AddMember("interlaced fades", json_interlaced_fades, a);
 
 
     if (is_wobbly) {
-        QJsonArray json_presets, json_frozen_frames;
+        rj::Value json_presets(rj::kArrayType);
+        rj::Value json_frozen_frames(rj::kArrayType);
 
         for (auto it = presets.cbegin(); it != presets.cend(); it++) {
-            QJsonObject json_preset;
-            json_preset.insert("name", QString::fromStdString(it->second.name));
-            json_preset.insert("contents", QString::fromStdString(it->second.contents));
+            rj::Value json_preset(rj::kObjectType);
+            json_preset.AddMember("name", it->second.name, a);
+            json_preset.AddMember("contents", it->second.contents, a);
 
-            json_presets.append(json_preset);
+            json_presets.PushBack(json_preset, a);
         }
 
         for (auto it = frozen_frames.cbegin(); it != frozen_frames.cend(); it++) {
-            QJsonArray json_ff;
-            json_ff.append(it->second.first);
-            json_ff.append(it->second.last);
-            json_ff.append(it->second.replacement);
+            rj::Value json_ff(rj::kArrayType);
+            json_ff.PushBack(it->second.first, a);
+            json_ff.PushBack(it->second.last, a);
+            json_ff.PushBack(it->second.replacement, a);
 
-            json_frozen_frames.append(json_ff);
+            json_frozen_frames.PushBack(json_ff, a);
         }
 
-        json_project.insert("presets", json_presets);
-        json_project.insert("frozen frames", json_frozen_frames);
+        json_project.AddMember("presets", json_presets, a);
+        json_project.AddMember("frozen frames", json_frozen_frames, a);
 
 
-        QJsonArray json_custom_lists;
+        rj::Value json_custom_lists(rj::kArrayType);
 
         for (size_t i = 0; i < custom_lists.size(); i++) {
-            QJsonObject json_custom_list;
-            json_custom_list.insert("name", QString::fromStdString(custom_lists[i].name));
-            json_custom_list.insert("preset", QString::fromStdString(custom_lists[i].preset));
-            json_custom_list.insert("position", custom_lists[i].position);
-            QJsonArray json_frames;
+            rj::Value json_custom_list(rj::kObjectType);
+            json_custom_list.AddMember("name", custom_lists[i].name, a);
+            json_custom_list.AddMember("preset", custom_lists[i].preset, a);
+            json_custom_list.AddMember("position", custom_lists[i].position, a);
+            rj::Value json_frames(rj::kArrayType);
             for (auto it = custom_lists[i].ranges.cbegin(); it != custom_lists[i].ranges.cend(); it++) {
-                QJsonArray json_pair;
-                json_pair.append(it->second.first);
-                json_pair.append(it->second.last);
-                json_frames.append(json_pair);
+                rj::Value json_pair(rj::kArrayType);
+                json_pair.PushBack(it->second.first, a);
+                json_pair.PushBack(it->second.last, a);
+                json_frames.PushBack(json_pair, a);
             }
-            json_custom_list.insert("frames", json_frames);
+            json_custom_list.AddMember("frames", json_frames, a);
 
-            json_custom_lists.append(json_custom_list);
+            json_custom_lists.PushBack(json_custom_list, a);
         }
 
-        json_project.insert("custom lists", json_custom_lists);
+        json_project.AddMember("custom lists", json_custom_lists, a);
 
 
         if (resize.enabled) {
-            QJsonObject json_resize;
-            json_resize.insert("width", resize.width);
-            json_resize.insert("height", resize.height);
-            json_resize.insert("filter", QString::fromStdString(resize.filter));
-            json_project.insert("resize", json_resize);
+            rj::Value json_resize(rj::kObjectType);
+            json_resize.AddMember("width", resize.width, a);
+            json_resize.AddMember("height", resize.height, a);
+            json_resize.AddMember("filter", resize.filter, a);
+            json_project.AddMember("resize", json_resize, a);
         }
 
         if (crop.enabled) {
-            QJsonObject json_crop;
-            json_crop.insert("early", crop.early);
-            json_crop.insert("left", crop.left);
-            json_crop.insert("top", crop.top);
-            json_crop.insert("right", crop.right);
-            json_crop.insert("bottom", crop.bottom);
-            json_project.insert("crop", json_crop);
+            rj::Value json_crop(rj::kObjectType);
+            json_crop.AddMember("early", crop.early, a);
+            json_crop.AddMember("left", crop.left, a);
+            json_crop.AddMember("top", crop.top, a);
+            json_crop.AddMember("right", crop.right, a);
+            json_crop.AddMember("bottom", crop.bottom, a);
+            json_project.AddMember("crop", json_crop, a);
         }
 
         if (depth.enabled) {
-            QJsonObject json_depth;
-            json_depth.insert("bits", depth.bits);
-            json_depth.insert("float samples", depth.float_samples);
-            json_depth.insert("dither", QString::fromStdString(depth.dither));
-            json_project.insert("depth", json_depth);
+            rj::Value json_depth(rj::kObjectType);
+            json_depth.AddMember("bits", depth.bits, a);
+            json_depth.AddMember("float samples", depth.float_samples, a);
+            json_depth.AddMember("dither", depth.dither, a);
+            json_project.AddMember("depth", json_depth, a);
         }
     }
 
-    QJsonDocument json_doc(json_project);
+    rj::StringBuffer buffer;
 
-    QJsonDocument::JsonFormat json_format = QJsonDocument::Indented;
-    if (compact_project)
-        json_format = QJsonDocument::Compact;
+    if (compact_project) {
+        rj::Writer<rj::StringBuffer> writer(buffer);
+        json_project.Accept(writer);
+    } else {
+        rj::PrettyWriter<rj::StringBuffer> writer(buffer);
+        json_project.Accept(writer);
+    }
 
-    if (file.write(json_doc.toJson(json_format)) < 0)
+    if (file.write(buffer.GetString(), buffer.GetSize()) < 0)
         throw WobblyException("Couldn't write the project to file '" + path + "'. Error message: " + file.errorString().toStdString());
 }
 
@@ -382,307 +396,731 @@ void WobblyProject::readProject(const std::string &path) {
     if (!file.open(QIODevice::ReadOnly))
         throw WobblyException("Couldn't open project file '" + path + "'. Error message: " + file.errorString().toStdString());
 
-    QByteArray data = file.readAll();
+    QByteArray file_contents = file.readAll();
 
-    QJsonDocument json_doc(QJsonDocument::fromJson(data));
-    if (json_doc.isNull())
-        throw WobblyException("Couldn't open project file '" + path + "': file is not a valid JSON document.");
-    if (!json_doc.isObject())
-        throw WobblyException("Couldn't open project file '" + path + "': file is not a valid Wobbly project.");
+    rj::Document json_project;
 
-    QJsonObject json_project = json_doc.object();
+    rj::ParseResult result = json_project.ParseInsitu(file_contents.data());
+    if (result.IsError())
+        throw WobblyException("Failed to parse project file '" + path + "' at byte " + std::to_string(result.Offset()) + ": " + rj::GetParseError_En(result.Code()));
 
+    if (!json_project.IsObject())
+        throw WobblyException("File '" + path + "' is not a valid Wobbly project: JSON document root is not an object.");
 
-    const char *required_keys[] = {
-        "input file",
-        "input frame rate",
-        "input resolution",
-        "trim",
-        "source filter",
-        nullptr
-    };
+#define CHECK_INT \
+    if (!it->value.IsInt()) \
+        throw WobblyException(path + ": JSON key '" + it->name.GetString() + "' must be an integer.");
 
-    for (int i = 0; required_keys[i]; i++)
-        if (!json_project.contains(required_keys[i]))
-            throw WobblyException("Couldn't open project file '" + path + "': project is missing JSON key '" + required_keys[i] + "'.");
+#define CHECK_STRING \
+    if (!it->value.IsString()) \
+        throw WobblyException(path + ": JSON key '" + it->name.GetString() + "' must be a string.");
 
+#define CHECK_OBJECT \
+    if (!it->value.IsObject()) \
+        throw WobblyException(path + ": JSON key '" + it->name.GetString() + "' must be an object.");
 
-    //int version = (int)json_project["wobbly version"].toDouble();
+#define CHECK_ARRAY \
+    if (!it->value.IsArray()) \
+        throw WobblyException(path + ": JSON key '" + it->name.GetString() + "' must be an array.");
 
-
-    input_file = json_project["input file"].toString().toStdString();
-
-
-    fps_num = (int64_t)json_project["input frame rate"].toArray()[0].toDouble();
-    fps_den = (int64_t)json_project["input frame rate"].toArray()[1].toDouble();
+    //int version = json_project["wobbly version"].GetInt();
 
 
-    width = json_project["input resolution"].toArray()[0].toInt();
-    height = json_project["input resolution"].toArray()[1].toInt();
+    rj::Value::ConstMemberIterator it = json_project.FindMember("input file");
+    if (it == json_project.MemberEnd())
+        throw WobblyException(path + ": JSON key '" + "input file" + "' is missing.");
+    CHECK_STRING;
+    input_file = it->value.GetString();
 
 
-    QJsonObject json_ui = json_project["user interface"].toObject();
-    zoom = json_ui["zoom"].toInt(1);
-    last_visited_frame = json_ui["last visited frame"].toInt(0);
-    ui_state = json_ui["state"].toString().toStdString();
-    ui_geometry = json_ui["geometry"].toString().toStdString();
+    it = json_project.FindMember("input frame rate");
+    if (it == json_project.MemberEnd())
+        throw WobblyException(path + ": JSON key '" + "input frame rate" + "' is missing.");
+    if (!it->value.IsArray() || it->value.Size() != 2 || !it->value[0].IsInt64() || !it->value[1].IsInt64())
+        throw WobblyException(path + ": JSON key '" + "input frame rate" + "' must be an array of two integers.");
+    fps_num = it->value[0].GetInt64();
+    fps_den = it->value[1].GetInt64();
 
-    if (json_ui.contains("show frame rates")) {
-        QJsonArray json_rates = json_ui["show frame rates"].toArray();
-        int rates[] = { 30, 24, 18, 12, 6 };
-        for (int i = 0; i < 5; i++)
-            shown_frame_rates[i] = json_rates.contains(rates[i]);
-    } else {
-        shown_frame_rates = { true, false, true, true, true };
-    }
 
-    mic_search_minimum = json_ui["mic search minimum"].toInt(mic_search_minimum);
-    c_match_sequences_minimum = json_ui["c match sequences minimum"].toInt(c_match_sequences_minimum);
-
-    QJsonObject json_pattern_guessing = json_ui["pattern guessing"].toObject();
-
-    if (!json_pattern_guessing.isEmpty()) {
-        std::unordered_map<std::string, int> guessing_methods = {
-            { "from matches", PatternGuessingFromMatches },
-            { "from mics", PatternGuessingFromMics }
-        };
-        try {
-            pattern_guessing.method = guessing_methods.at(json_pattern_guessing["method"].toString("from mics").toStdString());
-        } catch (std::out_of_range &) {
-
-        }
-
-        pattern_guessing.minimum_length = json_pattern_guessing["minimum length"].toInt();
-
-        std::unordered_map<std::string, int> third_n_match = {
-            { "always", UseThirdNMatchAlways },
-            { "never", UseThirdNMatchNever },
-            { "if it has lower mic", UseThirdNMatchIfPrettier }
-        };
-        try {
-            pattern_guessing.third_n_match = third_n_match.at(json_pattern_guessing["use third n match"].toString("never").toStdString());
-        } catch (std::out_of_range &) {
-
-        }
-
-        std::unordered_map<std::string, int> decimate = {
-            { "first duplicate", DropFirstDuplicate },
-            { "second duplicate", DropSecondDuplicate },
-            { "duplicate with higher mic per cycle", DropUglierDuplicatePerCycle },
-            { "duplicate with higher mic per section", DropUglierDuplicatePerSection }
-        };
-        try {
-            pattern_guessing.decimation = decimate.at(json_pattern_guessing["decimate"].toString("first duplicate").toStdString());
-        } catch (std::out_of_range &) {
-
-        }
-
-        std::unordered_map<std::string, int> use_patterns = {
-            { "cccnn", PatternCCCNN },
-            { "ccnnn", PatternCCNNN },
-            { "ccccc", PatternCCCCC }
-        };
-        QJsonArray json_use_patterns = json_pattern_guessing["use patterns"].toArray();
-        for (int i = 0; i < json_use_patterns.size(); i++) {
-            try {
-                pattern_guessing.use_patterns |= use_patterns.at(json_use_patterns[i].toString().toStdString());
-            } catch (std::out_of_range &) {
-
-            }
-        }
-
-        QJsonArray json_failures = json_pattern_guessing["failures"].toArray();
-
-        std::unordered_map<std::string, int> reasons = {
-            { "section too short", SectionTooShort },
-            { "ambiguous pattern", AmbiguousMatchPattern }
-        };
-        for (int i = 0; i < json_failures.size(); i++) {
-            QJsonObject json_failure = json_failures[i].toObject();
-            FailedPatternGuessing fail;
-            fail.start = json_failure["start"].toInt();
-            try {
-                fail.reason = reasons.at(json_failure["reason"].toString("ambiguous pattern").toStdString());
-            } catch (std::out_of_range &) {
-                fail.reason = AmbiguousMatchPattern;
-            }
-
-            pattern_guessing.failures.insert({ fail.start, fail });
-        }
-    }
+    it = json_project.FindMember("input resolution");
+    if (it == json_project.MemberEnd())
+        throw WobblyException(path + ": JSON key '" + "input resolution" + "' is missing.");
+    if (!it->value.IsArray() || it->value.Size() != 2 || !it->value[0].IsInt() || !it->value[1].IsInt())
+        throw WobblyException(path + ": JSON key '" + "input resolution" + "' must be an array of two integers.");
+    width = it->value[0].GetInt();
+    height = it->value[1].GetInt();
 
 
     setNumFrames(PostSource, 0);
 
-    QJsonArray json_trims = json_project["trim"].toArray();
-    for (int i = 0; i < json_trims.size(); i++) {
-        QJsonArray json_trim = json_trims[i].toArray();
+    it = json_project.FindMember("trim");
+    if (it == json_project.MemberEnd())
+        throw WobblyException(path + ": JSON key '" + "trim" + "' is missing.");
+    if (!it->value.IsArray() || it->value.Size() < 1)
+        throw WobblyException(path + ": JSON key '" + "trim" + "' must be an array with at least one element.");
+
+    const rj::Value &json_trims = it->value;
+
+    for (rj::SizeType i = 0; i < json_trims.Size(); i++) {
+        const rj::Value &json_trim = json_trims[i];
+
+        if (!json_trim.IsArray() || json_trim.Size() != 2 || !json_trim[0].IsInt() || !json_trim[1].IsInt())
+            throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "trim" + "' must be an array of two integers.");
+
         FrameRange range;
-        range.first = json_trim[0].toInt();
-        range.last = json_trim[1].toInt();
-        trims.insert(std::make_pair(range.first, range));
+        range.first = json_trim[0].GetInt();
+        range.last = json_trim[1].GetInt();
+        trims.insert({ range.first, range });
         setNumFrames(PostSource, getNumFrames(PostSource) + (range.last - range.first + 1));
     }
 
     setNumFrames(PostDecimate, getNumFrames(PostSource));
 
-    QJsonObject json_vfm_parameters = json_project["vfm parameters"].toObject();
 
-    QStringList keys = json_vfm_parameters.keys();
-    for (int i = 0; i < keys.size(); i++)
-        vfm_parameters.insert(std::make_pair(keys.at(i).toStdString(), json_vfm_parameters[keys.at(i)].toDouble()));
-
-
-    QJsonObject json_vdecimate_parameters = json_project["vdecimate parameters"].toObject();
-
-    keys = json_vdecimate_parameters.keys();
-    for (int i = 0; i < keys.size(); i++)
-        vdecimate_parameters.insert(std::make_pair(keys.at(i).toStdString(), json_vdecimate_parameters[keys.at(i)].toDouble()));
+    it = json_project.FindMember("source filter");
+    if (it == json_project.MemberEnd())
+        throw WobblyException(path + ": JSON key '" + "source filter" + "' is missing.");
+    CHECK_STRING;
+    source_filter = it->value.GetString();
 
 
-    QJsonArray json_mics, json_matches, json_original_matches, json_combed_frames, json_decimated_frames, json_decimate_metrics;
+    it = json_project.FindMember("user interface");
+    if (it != json_project.MemberEnd()) {
+        CHECK_OBJECT;
 
+        const rj::Value &json_ui = it->value;
 
-    json_mics = json_project["mics"].toArray();
-    if (json_mics.size()) {
-        mics.resize(getNumFrames(PostSource), { 0 });
-        for (int i = 0; i < json_mics.size(); i++) {
-            QJsonArray json_mic = json_mics[i].toArray();
-            for (int j = 0; j < 5; j++)
-                mics[i][j] = (int16_t)json_mic[j].toDouble();
+        zoom = 1;
+        it = json_ui.FindMember("zoom");
+        if (it != json_ui.MemberEnd()) {
+            CHECK_INT;
+            zoom = it->value.GetInt();
+        }
+
+        last_visited_frame = 0;
+        it = json_ui.FindMember("last visited frame");
+        if (it != json_ui.MemberEnd()) {
+            CHECK_INT;
+            last_visited_frame = it->value.GetInt();
+        }
+
+        it = json_ui.FindMember("state");
+        if (it != json_ui.MemberEnd()) {
+            CHECK_STRING;
+            ui_state = it->value.GetString();
+        }
+
+        it = json_ui.FindMember("geometry");
+        if (it != json_ui.MemberEnd()) {
+            CHECK_STRING;
+            ui_geometry = it->value.GetString();
+        }
+
+        shown_frame_rates = { true, false, true, true, true };
+        it = json_ui.FindMember("show frame rates");
+        if (it != json_ui.MemberEnd()) {
+            CHECK_ARRAY;
+
+            const rj::Value &json_rates = it->value;
+
+            int rates[] = { 30, 24, 18, 12, 6 };
+
+            std::unordered_set<int> project_rates;
+            for (rj::SizeType i = 0; i < json_rates.Size(); i++) {
+                if (!json_rates[i].IsInt())
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "show frame rates" + "' must be an integer.");
+
+                project_rates.insert(json_rates[i].GetInt());
+            }
+
+            for (int i = 0; i < 5; i++)
+                shown_frame_rates[i] = (bool)project_rates.count(rates[i]);
+        }
+
+        it = json_ui.FindMember("mic search minimum");
+        if (it != json_ui.MemberEnd()) {
+            CHECK_INT;
+            mic_search_minimum = it->value.GetInt();
+        }
+
+        it = json_ui.FindMember("c match sequences minimum");
+        if (it != json_ui.MemberEnd()) {
+            CHECK_INT;
+            c_match_sequences_minimum = it->value.GetInt();
+        }
+
+        it = json_ui.FindMember("pattern guessing");
+        if (it != json_ui.MemberEnd()) {
+            CHECK_OBJECT;
+
+            const rj::Value &json_pattern_guessing = it->value;
+
+            pattern_guessing.method = PatternGuessingFromMics;
+            it = json_pattern_guessing.FindMember("method");
+            if (it != json_pattern_guessing.MemberEnd()) {
+                CHECK_STRING;
+
+                std::unordered_map<std::string, int> guessing_methods = {
+                    { "from matches", PatternGuessingFromMatches },
+                    { "from mics", PatternGuessingFromMics }
+                };
+
+                try {
+                    pattern_guessing.method = guessing_methods.at(it->value.GetString());
+                } catch (std::out_of_range &) {
+
+                }
+            }
+
+            it = json_pattern_guessing.FindMember("minimum length");
+            if (it != json_pattern_guessing.MemberEnd()) {
+                CHECK_INT;
+                pattern_guessing.minimum_length = it->value.GetInt();
+            }
+
+            pattern_guessing.third_n_match = UseThirdNMatchNever;
+            it = json_pattern_guessing.FindMember("use third n match");
+            if (it != json_pattern_guessing.MemberEnd()) {
+                CHECK_STRING;
+
+                std::unordered_map<std::string, int> third_n_match = {
+                    { "always", UseThirdNMatchAlways },
+                    { "never", UseThirdNMatchNever },
+                    { "if it has lower mic", UseThirdNMatchIfPrettier }
+                };
+
+                try {
+                    pattern_guessing.third_n_match = third_n_match.at(it->value.GetString());
+                } catch (std::out_of_range &) {
+
+                }
+            }
+
+            pattern_guessing.decimation = DropFirstDuplicate;
+            it = json_pattern_guessing.FindMember("decimate");
+            if (it != json_pattern_guessing.MemberEnd()) {
+                CHECK_STRING;
+
+                std::unordered_map<std::string, int> decimate = {
+                    { "first duplicate", DropFirstDuplicate },
+                    { "second duplicate", DropSecondDuplicate },
+                    { "duplicate with higher mic per cycle", DropUglierDuplicatePerCycle },
+                    { "duplicate with higher mic per section", DropUglierDuplicatePerSection }
+                };
+
+                try {
+                    pattern_guessing.decimation = decimate.at(it->value.GetString());
+                } catch (std::out_of_range &) {
+
+                }
+            }
+
+            it = json_pattern_guessing.FindMember("use patterns");
+            if (it != json_pattern_guessing.MemberEnd()) {
+                CHECK_ARRAY;
+
+                std::unordered_map<std::string, int> use_patterns = {
+                    { "cccnn", PatternCCCNN },
+                    { "ccnnn", PatternCCNNN },
+                    { "ccccc", PatternCCCCC }
+                };
+
+                pattern_guessing.use_patterns = 0;
+
+                const rj::Value &json_use_patterns = it->value;
+                for (rj::SizeType i = 0; i < json_use_patterns.Size(); i++) {
+                    if (!json_use_patterns[i].IsString())
+                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "use patterns" + "' must be a string.");
+
+                    pattern_guessing.use_patterns |= use_patterns[json_use_patterns[i].GetString()];
+                }
+            }
+
+            it = json_pattern_guessing.FindMember("failures");
+            if (it != json_pattern_guessing.MemberEnd()) {
+                CHECK_ARRAY;
+
+                std::unordered_map<std::string, int> reasons = {
+                    { "section too short", SectionTooShort },
+                    { "ambiguous pattern", AmbiguousMatchPattern }
+                };
+
+                const rj::Value &json_failures = it->value;
+
+                for (rj::SizeType i = 0; i < json_failures.Size(); i++) {
+                    const rj::Value &json_failure = json_failures[i];
+
+                    if (!json_failure.IsObject())
+                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "failures" + "' must be an object.");
+
+                    it = json_failure.FindMember("start");
+                    if (it == json_failure.MemberEnd() || !it->value.IsInt())
+                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "failures" + "' must contain the key '" + "start" + "', which must be an integer.");
+
+                    FailedPatternGuessing fail;
+                    fail.start = it->value.GetInt();
+
+                    it = json_failure.FindMember("reason");
+                    if (it == json_failure.MemberEnd() || !it->value.IsString())
+                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "failures" + "' must contain the key '" + "reason" + "', which must be a string.");
+
+                    try {
+                        fail.reason = reasons.at(it->value.GetString());
+                    } catch (std::out_of_range &) {
+                        fail.reason = AmbiguousMatchPattern;
+                    }
+
+                    pattern_guessing.failures.insert({ fail.start, fail });
+                }
+            }
         }
     }
 
 
-    json_matches = json_project["matches"].toArray();
-    if (json_matches.size()) {
+    it = json_project.FindMember("vfm parameters");
+    if (it != json_project.MemberEnd()) {
+        CHECK_OBJECT;
+
+        std::vector<std::string> valid_parameters = {
+            "blockx",
+            "blocky",
+            "chroma",
+            "cthresh",
+            "mchroma",
+            "mi",
+            "micmatch",
+            "order",
+            "scthresh",
+            "y0",
+            "y1"
+        };
+
+        const rj::Value &json_vfm_parameters = it->value;
+
+        for (size_t i = 0; i < valid_parameters.size(); i++) {
+            it = json_vfm_parameters.FindMember(valid_parameters[i]);
+
+            if (!it->value.IsNumber())
+                throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + "vfm parameters" + "', must be a number.");
+
+            vfm_parameters.insert({ valid_parameters[i], it->value.GetDouble() });
+        }
+    }
+
+    it = json_project.FindMember("vdecimate parameters");
+    if (it != json_project.MemberEnd()) {
+        CHECK_OBJECT;
+
+        std::vector<std::string> valid_parameters = {
+            "blockx",
+            "blocky",
+            "chroma",
+            "dupthresh",
+            "scthresh"
+        };
+
+        const rj::Value &json_vdecimate_parameters = it->value;
+
+        for (size_t i = 0; i < valid_parameters.size(); i++) {
+            it = json_vdecimate_parameters.FindMember(valid_parameters[i]);
+
+            if (!it->value.IsNumber())
+                throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + "vdecimate parameters" + "', must be a number.");
+
+            vdecimate_parameters.insert({ valid_parameters[i], it->value.GetDouble() });
+        }
+    }
+
+
+    it = json_project.FindMember("mics");
+    if (it != json_project.MemberEnd()) {
+        const rj::Value &json_mics = it->value;
+
+        if (!json_mics.IsArray() || json_mics.Size() != (rj::SizeType)getNumFrames(PostSource))
+            throw WobblyException(path + ": JSON key '" + "mics" + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+
+        mics.resize(getNumFrames(PostSource), { 0 });
+        for (size_t i = 0; i < mics.size(); i++) {
+            const rj::Value &json_mic = json_mics[i];
+
+            if (!json_mic.IsArray() ||
+                    json_mic.Size() != 5 ||
+                    !json_mic[0].IsInt() ||
+                    !json_mic[1].IsInt() ||
+                    !json_mic[2].IsInt() ||
+                    !json_mic[3].IsInt() ||
+                    !json_mic[4].IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "mics" + "' must be an array of exactly 5 integers.");
+
+            for (rj::SizeType j = 0; j < json_mic.Size(); j++)
+                mics[i][j] = json_mic[j].GetInt();
+        }
+    }
+
+
+    it = json_project.FindMember("matches");
+    if (it != json_project.MemberEnd()) {
+        const rj::Value &json_matches = it->value;
+
+        if (!json_matches.IsArray() || json_matches.Size() != (rj::SizeType)getNumFrames(PostSource))
+            throw WobblyException(path + ": JSON key '" + "matches" + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+
         matches.resize(getNumFrames(PostSource), 'c');
-        for (int i = 0; i < std::min(json_matches.size(), (int)matches.size()); i++)
-            matches[i] = json_matches[i].toString().toStdString()[0];
+        for (size_t i = 0; i < matches.size(); i++) {
+            if (!json_matches[i].IsString() || json_matches[i].GetStringLength() != 1)
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "matches" + "' must be a string with the length of 1.");
+
+            matches[i] = json_matches[i].GetString()[0];
+
+            if (matches[i] != 'p' &&
+                matches[i] != 'c' &&
+                matches[i] != 'n' &&
+                matches[i] != 'b' &&
+                matches[i] != 'u')
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "matches" + "' must be one of 'p', 'c', 'n', 'b', or 'u'.");
+        }
     }
 
 
-    json_original_matches = json_project["original matches"].toArray();
-    if (json_original_matches.size()) {
+    it = json_project.FindMember("original matches");
+    if (it != json_project.MemberEnd()) {
+        const rj::Value &json_original_matches = it->value;
+
+        if (!json_original_matches.IsArray() || json_original_matches.Size() != (rj::SizeType)getNumFrames(PostSource))
+            throw WobblyException(path + ": JSON key '" + "original matches" + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+
         original_matches.resize(getNumFrames(PostSource), 'c');
-        for (int i = 0; i < std::min(json_original_matches.size(), (int)original_matches.size()); i++)
-            original_matches[i] = json_original_matches[i].toString().toStdString()[0];
+        for (size_t i = 0; i < original_matches.size(); i++) {
+            if (!json_original_matches[i].IsString() || json_original_matches[i].GetStringLength() != 1)
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "original matches" + "' must be a string with the length of 1.");
+
+            original_matches[i] = json_original_matches[i].GetString()[0];
+
+            if (original_matches[i] != 'p' &&
+                original_matches[i] != 'c' &&
+                original_matches[i] != 'n' &&
+                original_matches[i] != 'b' &&
+                original_matches[i] != 'u')
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "original matches" + "' must be one of 'p', 'c', 'n', 'b', or 'u'.");
+        }
     }
 
 
-    json_combed_frames = json_project["combed frames"].toArray();
-    for (int i = 0; i < json_combed_frames.size(); i++)
-        addCombedFrame(json_combed_frames[i].toInt());
+    it = json_project.FindMember("combed frames");
+    if (it != json_project.MemberEnd()) {
+        const rj::Value &json_combed_frames = it->value;
+
+        if (!json_combed_frames.IsArray() || json_combed_frames.Size() > (rj::SizeType)getNumFrames(PostSource))
+            throw WobblyException(path + ": JSON key '" + "combed frames" + "' must be an array with at most " + std::to_string(getNumFrames(PostSource)) + " elements.");
+
+        for (rj::SizeType i = 0; i < json_combed_frames.Size(); i++) {
+            if (!json_combed_frames[i].IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "combed frames" + "' must be an integer.");
+            addCombedFrame(json_combed_frames[i].GetInt());
+        }
+    }
 
 
     decimated_frames.resize((getNumFrames(PostSource) - 1) / 5 + 1);
-    json_decimated_frames = json_project["decimated frames"].toArray();
-    for (int i = 0; i < json_decimated_frames.size(); i++)
-        addDecimatedFrame(json_decimated_frames[i].toInt());
+    it = json_project.FindMember("decimated frames");
+    if (it != json_project.MemberEnd()) {
+        const rj::Value &json_decimated_frames = it->value;
 
-    // num_frames[PostDecimate] is correct at this point.
+        if (!json_decimated_frames.IsArray() || json_decimated_frames.Size() > (rj::SizeType)getNumFrames(PostSource))
+            throw WobblyException(path + ": JSON key '" + "decimated frames" + "' must be an array with at most " + std::to_string(getNumFrames(PostSource)) + " elements.");
 
-    json_decimate_metrics = json_project["decimate metrics"].toArray();
-    if (json_decimate_metrics.size()) {
+        for (rj::SizeType i = 0; i < json_decimated_frames.Size(); i++) {
+            if (!json_decimated_frames[i].IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "decimated frames" + "' must be an integer.");
+            addDecimatedFrame(json_decimated_frames[i].GetInt());
+        }
+    }
+
+    // getNumFrames(PostDecimate) is correct at this point.
+
+    it = json_project.FindMember("decimate metrics");
+    if (it != json_project.MemberEnd()) {
+        const rj::Value &json_decimate_metrics = it->value;
+
+        if (!json_decimate_metrics.IsArray() || json_decimate_metrics.Size() != (rj::SizeType)getNumFrames(PostSource))
+            throw WobblyException(path + ": JSON key '" + "decimate metrics" + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+
         decimate_metrics.resize(getNumFrames(PostSource), 0);
-        for (int i = 0; i < std::min(json_decimate_metrics.size(), (int)decimate_metrics.size()); i++)
-            decimate_metrics[i] = json_decimate_metrics[i].toInt();
-    }
-
-
-    QJsonArray json_presets, json_frozen_frames;
-
-    json_presets = json_project["presets"].toArray();
-    for (int i = 0; i < json_presets.size(); i++) {
-        QJsonObject json_preset = json_presets[i].toObject();
-        addPreset(json_preset["name"].toString().toStdString(), json_preset["contents"].toString().toStdString());
-    }
-
-
-    json_frozen_frames = json_project["frozen frames"].toArray();
-    for (int i = 0; i < json_frozen_frames.size(); i++) {
-        QJsonArray json_ff = json_frozen_frames[i].toArray();
-        addFreezeFrame(json_ff[0].toInt(), json_ff[1].toInt(), json_ff[2].toInt());
-    }
-
-
-    QJsonArray json_sections, json_custom_lists;
-
-    json_sections = json_project["sections"].toArray();
-
-    for (int j = 0; j < json_sections.size(); j++) {
-        QJsonObject json_section = json_sections[j].toObject();
-        int section_start = json_section["start"].toInt();
-        Section section(section_start);
-        json_presets = json_section["presets"].toArray();
-        section.presets.resize(json_presets.size());
-        for (int k = 0; k < json_presets.size(); k++)
-            section.presets[k] = json_presets[k].toString().toStdString();
-
-        addSection(section);
-    }
-
-    if (json_sections.size() == 0) {
-        addSection(0);
-    }
-
-    json_custom_lists = json_project["custom lists"].toArray();
-
-    custom_lists.reserve(json_custom_lists.size());
-
-    for (int i = 0; i < json_custom_lists.size(); i++) {
-        QJsonObject json_list = json_custom_lists[i].toObject();
-
-        CustomList list(json_list["name"].toString().toStdString(),
-                json_list["preset"].toString().toStdString(),
-                json_list["position"].toInt());
-
-        addCustomList(list);
-
-        QJsonArray json_frames = json_list["frames"].toArray();
-        for (int j = 0; j < json_frames.size(); j++) {
-            QJsonArray json_range = json_frames[j].toArray();
-            addCustomListRange(i, json_range[0].toInt(), json_range[1].toInt());
+        for (size_t i = 0; i < decimate_metrics.size(); i++) {
+            if (!json_decimate_metrics[i].IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "decimate metrics" + "' must be an integer.");
+            decimate_metrics[i] = json_decimate_metrics[i].GetInt();
         }
     }
 
 
-    QJsonObject json_resize, json_crop, json_depth;
+    it = json_project.FindMember("presets");
+    if (it != json_project.MemberEnd()) {
+        CHECK_ARRAY;
 
-    json_resize = json_project["resize"].toObject();
-    resize.enabled = !json_resize.isEmpty();
-    resize.width = json_resize["width"].toInt(width);
-    resize.height = json_resize["height"].toInt(height);
-    resize.filter = json_resize["filter"].toString().toStdString();
+        const rj::Value &json_presets = it->value;
 
-    json_crop = json_project["crop"].toObject();
-    crop.enabled = !json_crop.isEmpty();
-    crop.early = json_crop["early"].toBool();
-    crop.left = json_crop["left"].toInt();
-    crop.top = json_crop["top"].toInt();
-    crop.right = json_crop["right"].toInt();
-    crop.bottom = json_crop["bottom"].toInt();
+        for (rj::SizeType i = 0; i < json_presets.Size(); i++) {
+            const rj::Value &json_preset = json_presets[i];
 
-    json_depth = json_project["depth"].toObject();
-    depth.enabled = !json_depth.isEmpty();
-    if (depth.enabled) {
-        depth.bits = json_depth["bits"].toInt();
-        depth.float_samples = json_depth["float samples"].toBool();
-        depth.dither = json_depth["dither"].toString().toStdString();
+            if (!json_preset.IsObject())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "presets" + "' must be an object.");
+
+            it = json_preset.FindMember("name");
+            if (it == json_preset.MemberEnd() || !it->value.IsString())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "presets" + "' must contain the key '" + "name" + "', which must be a string.");
+
+            const char *preset_name = it->value.GetString();
+
+            it = json_preset.FindMember("contents");
+            if (it == json_preset.MemberEnd() || !it->value.IsString())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "presets" + "' must contain the key '" + "contents" + "', which must be a string.");
+
+            const char *preset_contents = it->value.GetString();
+
+            addPreset(preset_name, preset_contents);
+        }
     }
 
-    source_filter = json_project["source filter"].toString().toStdString();
+
+    it = json_project.FindMember("frozen frames");
+    if (it != json_project.MemberEnd()) {
+        CHECK_ARRAY;
+
+        const rj::Value &json_frozen_frames = it->value;
+
+        for (rj::SizeType i = 0; i < json_frozen_frames.Size(); i++) {
+            const rj::Value &json_ff = json_frozen_frames[i];
+
+            if (!json_ff.IsArray() || json_ff.Size() != 3 || !json_ff[0].IsInt() || !json_ff[1].IsInt() || !json_ff[2].IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "frozen frames" + "' must be an array of three integers.");
+
+            addFreezeFrame(json_ff[0].GetInt(), json_ff[1].GetInt(), json_ff[2].GetInt());
+        }
+    }
 
 
-    QJsonArray json_interlaced_fades = json_project["interlaced fades"].toArray();
+    it = json_project.FindMember("sections");
+    if (it != json_project.MemberEnd()) {
+        CHECK_ARRAY;
 
-    for (int i = 0; i < json_interlaced_fades.size(); i++) {
-        QJsonObject json_interlaced_fade = json_interlaced_fades[i].toObject();
+        const rj::Value &json_sections = it->value;
 
-        int frame = json_interlaced_fade["frame"].toInt();
-        double field_difference = json_interlaced_fade["field difference"].toDouble();
+        for (rj::SizeType i = 0; i < json_sections.Size(); i++) {
+            const rj::Value &json_section = json_sections[i];
 
-        interlaced_fades.insert({ frame, { frame, field_difference } });
+            if (!json_section.IsObject())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "sections" + "' must be an object.");
+
+            it = json_section.FindMember("start");
+            if (it == json_section.MemberEnd() || !it->value.IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "sections" + "' must contain the key '" + "start" + "', which must be an integer.");
+
+            int section_start = it->value.GetInt();
+            Section section(section_start);
+
+            it = json_section.FindMember("presets");
+            if (it == json_section.MemberEnd() || !it->value.IsArray())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "sections" + "' must contain the key '" + "presets" + "', which must be an array.");
+
+            const rj::Value &json_presets = it->value;
+            section.presets.resize(json_presets.Size());
+            for (rj::SizeType k = 0; k < json_presets.Size(); k++) {
+                if (!json_presets[k].IsString())
+                    throw WobblyException(path + ": element number " + std::to_string(k) + " of JSON key '" + "presets" + "', part of element number " + std::to_string(i) + " of key '" + "sections" + "', must be a string.");
+                section.presets[k] = json_presets[k].GetString();
+            }
+
+            addSection(section);
+        }
+
+        if (json_sections.Size() == 0)
+            addSection(0);
+    }
+
+    it = json_project.FindMember("custom lists");
+    if (it != json_project.MemberEnd()) {
+        CHECK_ARRAY;
+
+        const rj::Value &json_custom_lists = it->value;
+
+        custom_lists.reserve(json_custom_lists.Size());
+
+        for (rj::SizeType i = 0; i < json_custom_lists.Size(); i++) {
+            const rj::Value &json_list = json_custom_lists[i];
+
+            if (!json_list.IsObject())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must be an object.");
+
+            it = json_list.FindMember("name");
+            if (it == json_list.MemberEnd() || !it->value.IsString())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must contain the key '" + "name" + "', which must be a string.");
+
+            const char *list_name = it->value.GetString();
+
+            std::string list_preset;
+
+            it = json_list.FindMember("preset");
+            if (it != json_list.MemberEnd()) {
+                if (!it->value.IsString())
+                    throw WobblyException(path + ": JSON key '" + "preset" + "', member of element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "', must be a string.");
+
+                list_preset = it->value.GetString();
+            }
+
+            it = json_list.FindMember("position");
+            if (it == json_list.MemberEnd() || !it->value.IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must contain the key '" + "position" + "', which must be an integer.");
+
+            int list_position = it->value.GetInt();
+
+            addCustomList(CustomList(list_name, list_preset, list_position));
+
+            it = json_list.FindMember("frames");
+            if (it != json_list.MemberEnd()) {
+                const rj::Value &json_frames = it->value;
+                if (!json_frames.IsArray())
+                    throw WobblyException(path + ": JSON key '" + "frames" + "', member of element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "', must be an array.");
+
+                for (rj::SizeType j = 0; j < json_frames.Size(); j++) {
+                    const rj::Value &json_range = json_frames[j];
+
+                    if (!json_range.IsArray() || json_range.Size() != 2 || !json_range[0].IsInt() || !json_range[1].IsInt())
+                        throw WobblyException(path + ": element number " + std::to_string(j) + " of JSON key '" + "frames" + "', member of element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "', must be an array of two integers.");
+
+                    addCustomListRange(i, json_range[0].GetInt(), json_range[1].GetInt());
+                }
+            }
+        }
+    }
+
+
+    it = json_project.FindMember("resize");
+    if (it != json_project.MemberEnd()) {
+        CHECK_OBJECT;
+
+        const rj::Value &json_resize = it->value;
+
+        resize.enabled = true;
+
+        it = json_resize.FindMember("width");
+        if (it == json_resize.MemberEnd() || !it->value.IsInt())
+            throw WobblyException(path + ": JSON key '" + "resize" + "' must contain the key '" + "width" + "', which must be an integer.");
+
+        resize.width = it->value.GetInt();
+
+        it = json_resize.FindMember("height");
+        if (it == json_resize.MemberEnd() || !it->value.IsInt())
+            throw WobblyException(path + ": JSON key '" + "resize" + "' must contain the key '" + "height" + "', which must be an integer.");
+
+        resize.height = it->value.GetInt();
+
+        it = json_resize.FindMember("filter");
+        if (it == json_resize.MemberEnd() || !it->value.IsString())
+            throw WobblyException(path + ": JSON key '" + "resize" + "' must contain the key '" + "filter" + "', which must be a string.");
+
+        resize.filter = it->value.GetString();
+    } else {
+        resize.enabled = false;
+    }
+
+    it = json_project.FindMember("crop");
+    if (it != json_project.MemberEnd()) {
+        CHECK_OBJECT;
+
+        const rj::Value &json_crop = it->value;
+
+        crop.enabled = true;
+
+        it = json_crop.FindMember("early");
+        if (it == json_crop.MemberEnd() || !it->value.IsBool())
+            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "early" + "', which must be a boolean.");
+
+        crop.early = it->value.GetBool();
+
+        it = json_crop.FindMember("left");
+        if (it == json_crop.MemberEnd() || !it->value.IsInt())
+            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "left" + "', which must be an integer.");
+
+        crop.left = it->value.GetInt();
+
+        it = json_crop.FindMember("top");
+        if (it == json_crop.MemberEnd() || !it->value.IsInt())
+            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "top" + "', which must be an integer.");
+
+        crop.top = it->value.GetInt();
+
+        it = json_crop.FindMember("right");
+        if (it == json_crop.MemberEnd() || !it->value.IsInt())
+            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "right" + "', which must be an integer.");
+
+        crop.right = it->value.GetInt();
+
+        it = json_crop.FindMember("bottom");
+        if (it == json_crop.MemberEnd() || !it->value.IsInt())
+            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "bottom" + "', which must be an integer.");
+
+        crop.bottom = it->value.GetInt();
+    } else {
+        crop.enabled = false;
+    }
+
+    it = json_project.FindMember("depth");
+    if (it != json_project.MemberEnd()) {
+        CHECK_OBJECT;
+
+        const rj::Value &json_depth = it->value;
+
+        depth.enabled = true;
+
+        it = json_depth.FindMember("bits");
+        if (it == json_depth.MemberEnd() || !it->value.IsInt())
+            throw WobblyException(path + ": JSON key '" + "depth" + "' must contain the key '" + "bits" + "', which must be an integer.");
+
+        depth.bits = it->value.GetInt();
+
+        it = json_depth.FindMember("float samples");
+        if (it == json_depth.MemberEnd() || !it->value.IsBool())
+            throw WobblyException(path + ": JSON key '" + "depth" + "' must contain the key '" + "float samples" + "', which must be a boolean.");
+
+        depth.float_samples = it->value.GetBool();
+
+        it = json_depth.FindMember("dither");
+        if (it == json_depth.MemberEnd() || !it->value.IsString())
+            throw WobblyException(path + ": JSON key '" + "depth" + "' must contain the key '" + "dither" + "', which must be a string.");
+
+        depth.dither = it->value.GetString();
+    } else {
+        depth.enabled = false;
+    }
+
+
+    it = json_project.FindMember("interlaced fades");
+    if (it != json_project.MemberEnd()) {
+        CHECK_ARRAY;
+
+        const rj::Value &json_interlaced_fades = it->value;
+
+        for (rj::SizeType i = 0; i < json_interlaced_fades.Size(); i++) {
+            const rj::Value &json_interlaced_fade = json_interlaced_fades[i];
+
+            if (!json_interlaced_fade.IsObject())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "interlaced fades" + "' must be an object.");
+
+            it = json_interlaced_fade.FindMember("frame");
+            if (it == json_interlaced_fade.MemberEnd() || !it->value.IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "interlaced fades" + "' must contain the key '" + "frame" + "', which must be an integer.");
+
+            int frame = it->value.GetInt();
+
+            it = json_interlaced_fade.FindMember("field difference");
+            if (it == json_interlaced_fade.MemberEnd() || !it->value.IsNumber())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "interlaced fades" + "' must contain the key '" + "field difference" + "', which must be a number.");
+
+            double field_difference = it->value.GetDouble();
+
+            interlaced_fades.insert({ frame, { frame, field_difference } });
+        }
     }
 }
 
