@@ -20,6 +20,7 @@ SOFTWARE.
 
 #include <cstdio>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <string>
@@ -114,7 +115,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
     rj::Document::AllocatorType &a = json_project.GetAllocator();
 
-    json_project.AddMember("wobbly version", PACKAGE_VERSION, a);
+    json_project.AddMember("wobbly version", std::atoi(PACKAGE_VERSION), a);
 
 
     json_project.AddMember("project format version", PROJECT_FORMAT_VERSION, a);
@@ -435,9 +436,6 @@ void WobblyProject::readProject(const std::string &path) {
     if (!it->value.IsArray()) \
         throw WobblyException(path + ": JSON key '" + it->name.GetString() + "' must be an array.");
 
-    //int version = json_project["wobbly version"].GetInt();
-
-
     int project_format_version = 1; // If the key doesn't exist, assume it's version 1 (Wobbly v1).
     rj::Value::ConstMemberIterator it = json_project.FindMember("project format version");
     if (it != json_project.MemberEnd()) {
@@ -448,6 +446,16 @@ void WobblyProject::readProject(const std::string &path) {
 
     if (project_format_version > PROJECT_FORMAT_VERSION)
         throw WobblyException(path + ": the project's format version is " + std::to_string(project_format_version) + ", but this software only understands format version " + std::to_string(PROJECT_FORMAT_VERSION) + " and older. Upgrade the software and try again.");
+
+
+//    int wobbly_version = 0;
+//    it = json_project.FindMember("wobbly version");
+//    if (it != json_project.MemberEnd()) {
+//        if (project_format_version == 1)
+//            wobbly_version = std::atoi(it->value.GetString());
+//        else
+//            wobbly_version = it->value.GetInt();
+//    }
 
 
     it = json_project.FindMember("input file");
