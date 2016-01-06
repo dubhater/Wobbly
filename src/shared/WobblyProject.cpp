@@ -39,6 +39,9 @@ SOFTWARE.
 #include "WobblyProject.h"
 
 
+#define PROJECT_FORMAT_VERSION 2
+
+
 WobblyProject::WobblyProject(bool _is_wobbly)
     : num_frames{ 0, 0 }
     , fps_num(0)
@@ -112,6 +115,9 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
     rj::Document::AllocatorType &a = json_project.GetAllocator();
 
     json_project.AddMember("wobbly version", PACKAGE_VERSION, a);
+
+
+    json_project.AddMember("project format version", PROJECT_FORMAT_VERSION, a);
 
 
     json_project.AddMember("input file", input_file, a);
@@ -329,11 +335,17 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
         rj::Value json_custom_lists(rj::kArrayType);
 
+        const char *list_positions[] = {
+            "post source",
+            "post field match",
+            "post decimate"
+        };
+
         for (size_t i = 0; i < custom_lists.size(); i++) {
             rj::Value json_custom_list(rj::kObjectType);
             json_custom_list.AddMember("name", custom_lists[i].name, a);
             json_custom_list.AddMember("preset", custom_lists[i].preset, a);
-            json_custom_list.AddMember("position", custom_lists[i].position, a);
+            json_custom_list.AddMember("position", rj::Value(list_positions[custom_lists[i].position], a), a);
             rj::Value json_frames(rj::kArrayType);
             for (auto it = custom_lists[i].ranges.cbegin(); it != custom_lists[i].ranges.cend(); it++) {
                 rj::Value json_pair(rj::kArrayType);
@@ -426,7 +438,19 @@ void WobblyProject::readProject(const std::string &path) {
     //int version = json_project["wobbly version"].GetInt();
 
 
-    rj::Value::ConstMemberIterator it = json_project.FindMember("input file");
+    int project_format_version = 1; // If the key doesn't exist, assume it's version 1 (Wobbly v1).
+    rj::Value::ConstMemberIterator it = json_project.FindMember("project format version");
+    if (it != json_project.MemberEnd()) {
+        CHECK_INT;
+
+        project_format_version = it->value.GetInt();
+    }
+
+    if (project_format_version > PROJECT_FORMAT_VERSION)
+        throw WobblyException(path + ": the project's format version is " + std::to_string(project_format_version) + ", but this software only understands format version " + std::to_string(PROJECT_FORMAT_VERSION) + " and older. Upgrade the software and try again.");
+
+
+    it = json_project.FindMember("input file");
     if (it == json_project.MemberEnd())
         throw WobblyException(path + ": JSON key '" + "input file" + "' is missing.");
     CHECK_STRING;
@@ -946,6 +970,12 @@ void WobblyProject::readProject(const std::string &path) {
 
         custom_lists.reserve(json_custom_lists.Size());
 
+        std::unordered_map<std::string, int> list_positions = {
+            { "post source", PostSource },
+            { "post field match", PostFieldMatch },
+            { "post decimate", PostDecimate }
+        };
+
         for (rj::SizeType i = 0; i < json_custom_lists.Size(); i++) {
             const rj::Value &json_list = json_custom_lists[i];
 
@@ -969,10 +999,24 @@ void WobblyProject::readProject(const std::string &path) {
             }
 
             it = json_list.FindMember("position");
-            if (it == json_list.MemberEnd() || !it->value.IsInt())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must contain the key '" + "position" + "', which must be an integer.");
 
-            int list_position = it->value.GetInt();
+            int list_position = PostSource;
+
+            if (project_format_version == 1) {
+                if (it == json_list.MemberEnd() || !it->value.IsInt())
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must contain the key '" + "position" + "', which must be an integer.");
+
+                list_position = it->value.GetInt();
+            } else {
+                if (it == json_list.MemberEnd() || !it->value.IsString())
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must contain the key '" + "position" + "', which must be a string.");
+
+                try {
+                    list_position = list_positions.at(it->value.GetString());
+                } catch (std::out_of_range &) {
+
+                }
+            }
 
             addCustomList(CustomList(list_name, list_preset, list_position));
 
