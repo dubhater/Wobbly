@@ -43,6 +43,126 @@ SOFTWARE.
 #define PROJECT_FORMAT_VERSION 2
 
 
+// Isn't it wonderful?
+#define K(...) KEY(__VA_ARGS__, 4, 3, 2, 1)
+#define KEY(a, b, c, d, count, ...) KEY##count(a, b, c, d)
+
+#define KEY1(a, b, c, d) const char a[] = #a;
+#define KEY2(a, b, c, d) const char a##_##b[] = #a " " #b;
+#define KEY3(a, b, c, d) const char a##_##b##_##c[] = #a " " #b " " #c;
+#define KEY4(a, b, c, d) const char a##_##b##_##c##_##d[] = #a " " #b " " #c "" #d;
+
+namespace Keys {
+    K(wobbly, version);
+    K(project, format, version);
+    K(input, file);
+    K(input, frame, rate);
+    K(input, resolution);
+    K(trim);
+    K(source, filter);
+    K(user, interface);
+    namespace UserInterface {
+        K(zoom);
+        K(last, visited, frame);
+        K(geometry);
+        K(state);
+        K(show, frame, rates);
+        K(mic, search, minimum);
+        K(c, match, sequences, minimum);
+        K(pattern, guessing);
+        namespace PatternGuessing {
+            K(method);
+            K(minimum, length);
+            K(use, third, n, match);
+            K(decimate);
+            K(use, patterns);
+            K(failures);
+            namespace Failures {
+                K(start);
+                K(reason);
+            }
+        }
+    }
+    K(vfm, parameters);
+    namespace VFMParameters {
+        K(blockx);
+        K(blocky);
+        K(chroma);
+        K(cthresh);
+        K(mchroma);
+        K(mi);
+        K(micmatch);
+        K(order);
+        K(scthresh);
+        K(y0);
+        K(y1);
+    }
+    K(vdecimate, parameters);
+    namespace VDecimateParameters {
+        K(blockx);
+        K(blocky);
+        K(chroma);
+        K(dupthresh);
+        K(scthresh);
+    }
+    K(mics);
+    K(matches);
+    K(original, matches);
+    K(combed, frames);
+    K(decimated, frames);
+    K(decimate, metrics);
+    K(sections);
+    namespace Sections {
+        K(start);
+        K(presets);
+    }
+    K(interlaced, fades);
+    namespace InterlacedFades {
+        K(frame);
+        K(field, difference);
+    }
+    K(presets);
+    namespace Presets {
+        K(name);
+        K(contents);
+    }
+    K(frozen, frames);
+    K(custom, lists);
+    namespace CustomLists {
+        K(name);
+        K(preset);
+        K(position);
+        K(frames);
+    }
+    K(resize);
+    namespace Resize {
+        K(width);
+        K(height);
+        K(filter);
+    }
+    K(crop);
+    namespace Crop {
+        K(early);
+        K(left);
+        K(top);
+        K(right);
+        K(bottom);
+    }
+    K(depth);
+    namespace Depth {
+        K(bits);
+        K(float, samples);
+        K(dither);
+    }
+}
+#undef K
+#undef KEY
+#undef KEY1
+#undef KEY2
+#undef KEY3
+#undef KEY4
+
+
 WobblyProject::WobblyProject(bool _is_wobbly)
     : num_frames{ 0, 0 }
     , fps_num(0)
@@ -115,43 +235,43 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
     rj::Document::AllocatorType &a = json_project.GetAllocator();
 
-    json_project.AddMember("wobbly version", std::atoi(PACKAGE_VERSION), a);
+    json_project.AddMember(Keys::wobbly_version, std::atoi(PACKAGE_VERSION), a);
 
 
-    json_project.AddMember("project format version", PROJECT_FORMAT_VERSION, a);
+    json_project.AddMember(Keys::project_format_version, PROJECT_FORMAT_VERSION, a);
 
 
-    json_project.AddMember("input file", input_file, a);
+    json_project.AddMember(Keys::input_file, input_file, a);
 
 
     rj::Value json_fps(rj::kArrayType);
     json_fps.PushBack(fps_num, a);
     json_fps.PushBack(fps_den, a);
-    json_project.AddMember("input frame rate", json_fps, a);
+    json_project.AddMember(Keys::input_frame_rate, json_fps, a);
 
 
     rj::Value json_resolution(rj::kArrayType);
     json_resolution.PushBack(width, a);
     json_resolution.PushBack(height, a);
-    json_project.AddMember("input resolution", json_resolution, a);
+    json_project.AddMember(Keys::input_resolution, json_resolution, a);
 
 
     if (is_wobbly) {
         rj::Value json_ui(rj::kObjectType);
-        json_ui.AddMember("zoom", zoom, a);
-        json_ui.AddMember("last visited frame", last_visited_frame, a);
-        json_ui.AddMember("geometry", ui_geometry, a);
-        json_ui.AddMember("state", ui_state, a);
+        json_ui.AddMember(Keys::UserInterface::zoom, zoom, a);
+        json_ui.AddMember(Keys::UserInterface::last_visited_frame, last_visited_frame, a);
+        json_ui.AddMember(Keys::UserInterface::geometry, ui_geometry, a);
+        json_ui.AddMember(Keys::UserInterface::state, ui_state, a);
 
         rj::Value json_rates(rj::kArrayType);
         int rates[] = { 30, 24, 18, 12, 6 };
         for (int i = 0; i < 5; i++)
             if (shown_frame_rates[i])
                 json_rates.PushBack(rates[i], a);
-        json_ui.AddMember("show frame rates", json_rates, a);
+        json_ui.AddMember(Keys::UserInterface::show_frame_rates, json_rates, a);
 
-        json_ui.AddMember("mic search minimum", mic_search_minimum, a);
-        json_ui.AddMember("c match sequences minimum", c_match_sequences_minimum, a);
+        json_ui.AddMember(Keys::UserInterface::mic_search_minimum, mic_search_minimum, a);
+        json_ui.AddMember(Keys::UserInterface::c_match_sequences_minimum, c_match_sequences_minimum, a);
 
         if (pattern_guessing.failures.size()) {
             rj::Value json_pattern_guessing(rj::kObjectType);
@@ -160,16 +280,16 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
                 "from matches",
                 "from mics"
             };
-            json_pattern_guessing.AddMember("method", rj::Value(guessing_methods[pattern_guessing.method], a), a);
+            json_pattern_guessing.AddMember(Keys::UserInterface::PatternGuessing::method, rj::Value(guessing_methods[pattern_guessing.method], a), a);
 
-            json_pattern_guessing.AddMember("minimum length", pattern_guessing.minimum_length, a);
+            json_pattern_guessing.AddMember(Keys::UserInterface::PatternGuessing::minimum_length, pattern_guessing.minimum_length, a);
 
             const char *third_n_match[] = {
                 "always",
                 "never",
                 "if it has lower mic"
             };
-            json_pattern_guessing.AddMember("use third n match", rj::Value(third_n_match[pattern_guessing.third_n_match], a), a);
+            json_pattern_guessing.AddMember(Keys::UserInterface::PatternGuessing::use_third_n_match, rj::Value(third_n_match[pattern_guessing.third_n_match], a), a);
 
             const char *decimate[] = {
                 "first duplicate",
@@ -177,7 +297,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
                 "duplicate with higher mic per cycle",
                 "duplicate with higher mic per section"
             };
-            json_pattern_guessing.AddMember("decimate", rj::Value(decimate[pattern_guessing.decimation], a), a);
+            json_pattern_guessing.AddMember(Keys::UserInterface::PatternGuessing::decimate, rj::Value(decimate[pattern_guessing.decimation], a), a);
 
             rj::Value json_use_patterns(rj::kArrayType);
 
@@ -190,7 +310,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
             for (auto it = use_patterns.cbegin(); it != use_patterns.cend(); it++)
                 if (pattern_guessing.use_patterns & it->first)
                     json_use_patterns.PushBack(rj::Value(it->second, a), a);
-            json_pattern_guessing.AddMember("use patterns", json_use_patterns, a);
+            json_pattern_guessing.AddMember(Keys::UserInterface::PatternGuessing::use_patterns, json_use_patterns, a);
 
             rj::Value json_failures(rj::kArrayType);
 
@@ -200,16 +320,16 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
             };
             for (auto it = pattern_guessing.failures.cbegin(); it != pattern_guessing.failures.cend(); it++) {
                 rj::Value json_failure(rj::kObjectType);
-                json_failure.AddMember("start", it->second.start, a);
-                json_failure.AddMember("reason", rj::Value(reasons[it->second.reason], a), a);
+                json_failure.AddMember(Keys::UserInterface::PatternGuessing::Failures::start, it->second.start, a);
+                json_failure.AddMember(Keys::UserInterface::PatternGuessing::Failures::reason, rj::Value(reasons[it->second.reason], a), a);
                 json_failures.PushBack(json_failure, a);
             }
-            json_pattern_guessing.AddMember("failures", json_failures, a);
+            json_pattern_guessing.AddMember(Keys::UserInterface::PatternGuessing::failures, json_failures, a);
 
-            json_ui.AddMember("pattern guessing", json_pattern_guessing, a);
+            json_ui.AddMember(Keys::UserInterface::pattern_guessing, json_pattern_guessing, a);
         }
 
-        json_project.AddMember("user interface", json_ui, a);
+        json_project.AddMember(Keys::user_interface, json_ui, a);
     }
 
 
@@ -221,7 +341,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
         json_trim.PushBack(it->second.last, a);
         json_trims.PushBack(json_trim, a);
     }
-    json_project.AddMember("trim", json_trims, a);
+    json_project.AddMember(Keys::trim, json_trims, a);
 
 
     rj::Value json_vfm_parameters(rj::kObjectType);
@@ -229,7 +349,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
     for (auto it = vfm_parameters.cbegin(); it != vfm_parameters.cend(); it++)
         json_vfm_parameters.AddMember(rj::Value(it->first, a), rj::Value(it->second), a);
 
-    json_project.AddMember("vfm parameters", json_vfm_parameters, a);
+    json_project.AddMember(Keys::vfm_parameters, json_vfm_parameters, a);
 
 
     rj::Value json_vdecimate_parameters(rj::kObjectType);
@@ -237,7 +357,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
     for (auto it = vdecimate_parameters.cbegin(); it != vdecimate_parameters.cend(); it++)
         json_vdecimate_parameters.AddMember(rj::Value(it->first, a), rj::Value(it->second), a);
 
-    json_project.AddMember("vdecimate parameters", json_vdecimate_parameters, a);
+    json_project.AddMember(Keys::vdecimate_parameters, json_vdecimate_parameters, a);
 
     rj::Value json_mics(rj::kArrayType);
     rj::Value json_matches(rj::kArrayType);
@@ -269,44 +389,44 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
     for (size_t i = 0; i < decimate_metrics.size(); i++)
         json_decimate_metrics.PushBack(getDecimateMetric(i), a);
 
-    json_project.AddMember("mics", json_mics, a);
-    json_project.AddMember("matches", json_matches, a);
-    json_project.AddMember("original matches", json_original_matches, a);
-    json_project.AddMember("combed frames", json_combed_frames, a);
-    json_project.AddMember("decimated frames", json_decimated_frames, a);
-    json_project.AddMember("decimate metrics", json_decimate_metrics, a);
+    json_project.AddMember(Keys::mics, json_mics, a);
+    json_project.AddMember(Keys::matches, json_matches, a);
+    json_project.AddMember(Keys::original_matches, json_original_matches, a);
+    json_project.AddMember(Keys::combed_frames, json_combed_frames, a);
+    json_project.AddMember(Keys::decimated_frames, json_decimated_frames, a);
+    json_project.AddMember(Keys::decimate_metrics, json_decimate_metrics, a);
 
 
     rj::Value json_sections(rj::kArrayType);
 
     for (auto it = sections.cbegin(); it != sections.cend(); it++) {
         rj::Value json_section(rj::kObjectType);
-        json_section.AddMember("start", it->second.start, a);
+        json_section.AddMember(Keys::Sections::start, it->second.start, a);
         rj::Value json_presets(rj::kArrayType);
         for (size_t i = 0; i < it->second.presets.size(); i++)
             json_presets.PushBack(rj::Value(it->second.presets[i], a), a);
-        json_section.AddMember("presets", json_presets, a);
+        json_section.AddMember(Keys::Sections::presets, json_presets, a);
 
         json_sections.PushBack(json_section, a);
     }
 
-    json_project.AddMember("sections", json_sections, a);
+    json_project.AddMember(Keys::sections, json_sections, a);
 
 
-    json_project.AddMember("source filter", source_filter, a);
+    json_project.AddMember(Keys::source_filter, source_filter, a);
 
 
     rj::Value json_interlaced_fades(rj::kArrayType);
 
     for (auto it = interlaced_fades.cbegin(); it != interlaced_fades.cend(); it++) {
         rj::Value json_interlaced_fade(rj::kObjectType);
-        json_interlaced_fade.AddMember("frame", it->second.frame, a);
-        json_interlaced_fade.AddMember("field difference", it->second.field_difference, a);
+        json_interlaced_fade.AddMember(Keys::InterlacedFades::frame, it->second.frame, a);
+        json_interlaced_fade.AddMember(Keys::InterlacedFades::field_difference, it->second.field_difference, a);
 
         json_interlaced_fades.PushBack(json_interlaced_fade, a);
     }
 
-    json_project.AddMember("interlaced fades", json_interlaced_fades, a);
+    json_project.AddMember(Keys::interlaced_fades, json_interlaced_fades, a);
 
 
     if (is_wobbly) {
@@ -315,8 +435,8 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
         for (auto it = presets.cbegin(); it != presets.cend(); it++) {
             rj::Value json_preset(rj::kObjectType);
-            json_preset.AddMember("name", it->second.name, a);
-            json_preset.AddMember("contents", it->second.contents, a);
+            json_preset.AddMember(Keys::Presets::name, it->second.name, a);
+            json_preset.AddMember(Keys::Presets::contents, it->second.contents, a);
 
             json_presets.PushBack(json_preset, a);
         }
@@ -330,8 +450,8 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
             json_frozen_frames.PushBack(json_ff, a);
         }
 
-        json_project.AddMember("presets", json_presets, a);
-        json_project.AddMember("frozen frames", json_frozen_frames, a);
+        json_project.AddMember(Keys::presets, json_presets, a);
+        json_project.AddMember(Keys::frozen_frames, json_frozen_frames, a);
 
 
         rj::Value json_custom_lists(rj::kArrayType);
@@ -344,9 +464,9 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
         for (size_t i = 0; i < custom_lists.size(); i++) {
             rj::Value json_custom_list(rj::kObjectType);
-            json_custom_list.AddMember("name", custom_lists[i].name, a);
-            json_custom_list.AddMember("preset", custom_lists[i].preset, a);
-            json_custom_list.AddMember("position", rj::Value(list_positions[custom_lists[i].position], a), a);
+            json_custom_list.AddMember(Keys::CustomLists::name, custom_lists[i].name, a);
+            json_custom_list.AddMember(Keys::CustomLists::preset, custom_lists[i].preset, a);
+            json_custom_list.AddMember(Keys::CustomLists::position, rj::Value(list_positions[custom_lists[i].position], a), a);
             rj::Value json_frames(rj::kArrayType);
             for (auto it = custom_lists[i].ranges.cbegin(); it != custom_lists[i].ranges.cend(); it++) {
                 rj::Value json_pair(rj::kArrayType);
@@ -354,38 +474,38 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
                 json_pair.PushBack(it->second.last, a);
                 json_frames.PushBack(json_pair, a);
             }
-            json_custom_list.AddMember("frames", json_frames, a);
+            json_custom_list.AddMember(Keys::CustomLists::frames, json_frames, a);
 
             json_custom_lists.PushBack(json_custom_list, a);
         }
 
-        json_project.AddMember("custom lists", json_custom_lists, a);
+        json_project.AddMember(Keys::custom_lists, json_custom_lists, a);
 
 
         if (resize.enabled) {
             rj::Value json_resize(rj::kObjectType);
-            json_resize.AddMember("width", resize.width, a);
-            json_resize.AddMember("height", resize.height, a);
-            json_resize.AddMember("filter", resize.filter, a);
-            json_project.AddMember("resize", json_resize, a);
+            json_resize.AddMember(Keys::Resize::width, resize.width, a);
+            json_resize.AddMember(Keys::Resize::height, resize.height, a);
+            json_resize.AddMember(Keys::Resize::filter, resize.filter, a);
+            json_project.AddMember(Keys::resize, json_resize, a);
         }
 
         if (crop.enabled) {
             rj::Value json_crop(rj::kObjectType);
-            json_crop.AddMember("early", crop.early, a);
-            json_crop.AddMember("left", crop.left, a);
-            json_crop.AddMember("top", crop.top, a);
-            json_crop.AddMember("right", crop.right, a);
-            json_crop.AddMember("bottom", crop.bottom, a);
-            json_project.AddMember("crop", json_crop, a);
+            json_crop.AddMember(Keys::Crop::early, crop.early, a);
+            json_crop.AddMember(Keys::Crop::left, crop.left, a);
+            json_crop.AddMember(Keys::Crop::top, crop.top, a);
+            json_crop.AddMember(Keys::Crop::right, crop.right, a);
+            json_crop.AddMember(Keys::Crop::bottom, crop.bottom, a);
+            json_project.AddMember(Keys::crop, json_crop, a);
         }
 
         if (depth.enabled) {
             rj::Value json_depth(rj::kObjectType);
-            json_depth.AddMember("bits", depth.bits, a);
-            json_depth.AddMember("float samples", depth.float_samples, a);
-            json_depth.AddMember("dither", depth.dither, a);
-            json_project.AddMember("depth", json_depth, a);
+            json_depth.AddMember(Keys::Depth::bits, depth.bits, a);
+            json_depth.AddMember(Keys::Depth::float_samples, depth.float_samples, a);
+            json_depth.AddMember(Keys::Depth::dither, depth.dither, a);
+            json_project.AddMember(Keys::depth, json_depth, a);
         }
     }
 
@@ -437,7 +557,7 @@ void WobblyProject::readProject(const std::string &path) {
         throw WobblyException(path + ": JSON key '" + it->name.GetString() + "' must be an array.");
 
     int project_format_version = 1; // If the key doesn't exist, assume it's version 1 (Wobbly v1).
-    rj::Value::ConstMemberIterator it = json_project.FindMember("project format version");
+    rj::Value::ConstMemberIterator it = json_project.FindMember(Keys::project_format_version);
     if (it != json_project.MemberEnd()) {
         CHECK_INT;
 
@@ -449,7 +569,7 @@ void WobblyProject::readProject(const std::string &path) {
 
 
 //    int wobbly_version = 0;
-//    it = json_project.FindMember("wobbly version");
+//    it = json_project.FindMember(Keys::wobbly_version);
 //    if (it != json_project.MemberEnd()) {
 //        if (project_format_version == 1)
 //            wobbly_version = std::atoi(it->value.GetString());
@@ -458,38 +578,38 @@ void WobblyProject::readProject(const std::string &path) {
 //    }
 
 
-    it = json_project.FindMember("input file");
+    it = json_project.FindMember(Keys::input_file);
     if (it == json_project.MemberEnd())
-        throw WobblyException(path + ": JSON key '" + "input file" + "' is missing.");
+        throw WobblyException(path + ": JSON key '" + Keys::input_file + "' is missing.");
     CHECK_STRING;
     input_file = it->value.GetString();
 
 
-    it = json_project.FindMember("input frame rate");
+    it = json_project.FindMember(Keys::input_frame_rate);
     if (it == json_project.MemberEnd())
-        throw WobblyException(path + ": JSON key '" + "input frame rate" + "' is missing.");
+        throw WobblyException(path + ": JSON key '" + Keys::input_frame_rate + "' is missing.");
     if (!it->value.IsArray() || it->value.Size() != 2 || !it->value[0].IsInt64() || !it->value[1].IsInt64())
-        throw WobblyException(path + ": JSON key '" + "input frame rate" + "' must be an array of two integers.");
+        throw WobblyException(path + ": JSON key '" + Keys::input_frame_rate + "' must be an array of two integers.");
     fps_num = it->value[0].GetInt64();
     fps_den = it->value[1].GetInt64();
 
 
-    it = json_project.FindMember("input resolution");
+    it = json_project.FindMember(Keys::input_resolution);
     if (it == json_project.MemberEnd())
-        throw WobblyException(path + ": JSON key '" + "input resolution" + "' is missing.");
+        throw WobblyException(path + ": JSON key '" + Keys::input_resolution + "' is missing.");
     if (!it->value.IsArray() || it->value.Size() != 2 || !it->value[0].IsInt() || !it->value[1].IsInt())
-        throw WobblyException(path + ": JSON key '" + "input resolution" + "' must be an array of two integers.");
+        throw WobblyException(path + ": JSON key '" + Keys::input_resolution + "' must be an array of two integers.");
     width = it->value[0].GetInt();
     height = it->value[1].GetInt();
 
 
     setNumFrames(PostSource, 0);
 
-    it = json_project.FindMember("trim");
+    it = json_project.FindMember(Keys::trim);
     if (it == json_project.MemberEnd())
-        throw WobblyException(path + ": JSON key '" + "trim" + "' is missing.");
+        throw WobblyException(path + ": JSON key '" + Keys::trim + "' is missing.");
     if (!it->value.IsArray() || it->value.Size() < 1)
-        throw WobblyException(path + ": JSON key '" + "trim" + "' must be an array with at least one element.");
+        throw WobblyException(path + ": JSON key '" + Keys::trim + "' must be an array with at least one element.");
 
     const rj::Value &json_trims = it->value;
 
@@ -497,7 +617,7 @@ void WobblyProject::readProject(const std::string &path) {
         const rj::Value &json_trim = json_trims[i];
 
         if (!json_trim.IsArray() || json_trim.Size() != 2 || !json_trim[0].IsInt() || !json_trim[1].IsInt())
-            throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "trim" + "' must be an array of two integers.");
+            throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::trim + "' must be an array of two integers.");
 
         FrameRange range;
         range.first = json_trim[0].GetInt();
@@ -509,47 +629,47 @@ void WobblyProject::readProject(const std::string &path) {
     setNumFrames(PostDecimate, getNumFrames(PostSource));
 
 
-    it = json_project.FindMember("source filter");
+    it = json_project.FindMember(Keys::source_filter);
     if (it == json_project.MemberEnd())
-        throw WobblyException(path + ": JSON key '" + "source filter" + "' is missing.");
+        throw WobblyException(path + ": JSON key '" + Keys::source_filter + "' is missing.");
     CHECK_STRING;
     source_filter = it->value.GetString();
 
 
-    it = json_project.FindMember("user interface");
+    it = json_project.FindMember(Keys::user_interface);
     if (it != json_project.MemberEnd()) {
         CHECK_OBJECT;
 
         const rj::Value &json_ui = it->value;
 
         zoom = 1;
-        it = json_ui.FindMember("zoom");
+        it = json_ui.FindMember(Keys::UserInterface::zoom);
         if (it != json_ui.MemberEnd()) {
             CHECK_INT;
             zoom = it->value.GetInt();
         }
 
         last_visited_frame = 0;
-        it = json_ui.FindMember("last visited frame");
+        it = json_ui.FindMember(Keys::UserInterface::last_visited_frame);
         if (it != json_ui.MemberEnd()) {
             CHECK_INT;
             last_visited_frame = it->value.GetInt();
         }
 
-        it = json_ui.FindMember("state");
+        it = json_ui.FindMember(Keys::UserInterface::state);
         if (it != json_ui.MemberEnd()) {
             CHECK_STRING;
             ui_state = it->value.GetString();
         }
 
-        it = json_ui.FindMember("geometry");
+        it = json_ui.FindMember(Keys::UserInterface::geometry);
         if (it != json_ui.MemberEnd()) {
             CHECK_STRING;
             ui_geometry = it->value.GetString();
         }
 
         shown_frame_rates = { true, false, true, true, true };
-        it = json_ui.FindMember("show frame rates");
+        it = json_ui.FindMember(Keys::UserInterface::show_frame_rates);
         if (it != json_ui.MemberEnd()) {
             CHECK_ARRAY;
 
@@ -560,7 +680,7 @@ void WobblyProject::readProject(const std::string &path) {
             std::unordered_set<int> project_rates;
             for (rj::SizeType i = 0; i < json_rates.Size(); i++) {
                 if (!json_rates[i].IsInt())
-                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "show frame rates" + "' must be an integer.");
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::UserInterface::show_frame_rates + "' must be an integer.");
 
                 project_rates.insert(json_rates[i].GetInt());
             }
@@ -569,26 +689,26 @@ void WobblyProject::readProject(const std::string &path) {
                 shown_frame_rates[i] = (bool)project_rates.count(rates[i]);
         }
 
-        it = json_ui.FindMember("mic search minimum");
+        it = json_ui.FindMember(Keys::UserInterface::mic_search_minimum);
         if (it != json_ui.MemberEnd()) {
             CHECK_INT;
             mic_search_minimum = it->value.GetInt();
         }
 
-        it = json_ui.FindMember("c match sequences minimum");
+        it = json_ui.FindMember(Keys::UserInterface::c_match_sequences_minimum);
         if (it != json_ui.MemberEnd()) {
             CHECK_INT;
             c_match_sequences_minimum = it->value.GetInt();
         }
 
-        it = json_ui.FindMember("pattern guessing");
+        it = json_ui.FindMember(Keys::UserInterface::pattern_guessing);
         if (it != json_ui.MemberEnd()) {
             CHECK_OBJECT;
 
             const rj::Value &json_pattern_guessing = it->value;
 
             pattern_guessing.method = PatternGuessingFromMics;
-            it = json_pattern_guessing.FindMember("method");
+            it = json_pattern_guessing.FindMember(Keys::UserInterface::PatternGuessing::method);
             if (it != json_pattern_guessing.MemberEnd()) {
                 CHECK_STRING;
 
@@ -604,14 +724,14 @@ void WobblyProject::readProject(const std::string &path) {
                 }
             }
 
-            it = json_pattern_guessing.FindMember("minimum length");
+            it = json_pattern_guessing.FindMember(Keys::UserInterface::PatternGuessing::minimum_length);
             if (it != json_pattern_guessing.MemberEnd()) {
                 CHECK_INT;
                 pattern_guessing.minimum_length = it->value.GetInt();
             }
 
             pattern_guessing.third_n_match = UseThirdNMatchNever;
-            it = json_pattern_guessing.FindMember("use third n match");
+            it = json_pattern_guessing.FindMember(Keys::UserInterface::PatternGuessing::use_third_n_match);
             if (it != json_pattern_guessing.MemberEnd()) {
                 CHECK_STRING;
 
@@ -629,7 +749,7 @@ void WobblyProject::readProject(const std::string &path) {
             }
 
             pattern_guessing.decimation = DropFirstDuplicate;
-            it = json_pattern_guessing.FindMember("decimate");
+            it = json_pattern_guessing.FindMember(Keys::UserInterface::PatternGuessing::decimate);
             if (it != json_pattern_guessing.MemberEnd()) {
                 CHECK_STRING;
 
@@ -647,7 +767,7 @@ void WobblyProject::readProject(const std::string &path) {
                 }
             }
 
-            it = json_pattern_guessing.FindMember("use patterns");
+            it = json_pattern_guessing.FindMember(Keys::UserInterface::PatternGuessing::use_patterns);
             if (it != json_pattern_guessing.MemberEnd()) {
                 CHECK_ARRAY;
 
@@ -662,13 +782,13 @@ void WobblyProject::readProject(const std::string &path) {
                 const rj::Value &json_use_patterns = it->value;
                 for (rj::SizeType i = 0; i < json_use_patterns.Size(); i++) {
                     if (!json_use_patterns[i].IsString())
-                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "use patterns" + "' must be a string.");
+                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::UserInterface::PatternGuessing::use_patterns + "' must be a string.");
 
                     pattern_guessing.use_patterns |= use_patterns[json_use_patterns[i].GetString()];
                 }
             }
 
-            it = json_pattern_guessing.FindMember("failures");
+            it = json_pattern_guessing.FindMember(Keys::UserInterface::PatternGuessing::failures);
             if (it != json_pattern_guessing.MemberEnd()) {
                 CHECK_ARRAY;
 
@@ -683,18 +803,18 @@ void WobblyProject::readProject(const std::string &path) {
                     const rj::Value &json_failure = json_failures[i];
 
                     if (!json_failure.IsObject())
-                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "failures" + "' must be an object.");
+                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::UserInterface::PatternGuessing::failures + "' must be an object.");
 
-                    it = json_failure.FindMember("start");
+                    it = json_failure.FindMember(Keys::UserInterface::PatternGuessing::Failures::start);
                     if (it == json_failure.MemberEnd() || !it->value.IsInt())
-                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "failures" + "' must contain the key '" + "start" + "', which must be an integer.");
+                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::UserInterface::PatternGuessing::failures + "' must contain the key '" + Keys::UserInterface::PatternGuessing::Failures::start + "', which must be an integer.");
 
                     FailedPatternGuessing fail;
                     fail.start = it->value.GetInt();
 
-                    it = json_failure.FindMember("reason");
+                    it = json_failure.FindMember(Keys::UserInterface::PatternGuessing::Failures::reason);
                     if (it == json_failure.MemberEnd() || !it->value.IsString())
-                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "failures" + "' must contain the key '" + "reason" + "', which must be a string.");
+                        throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::UserInterface::PatternGuessing::failures + "' must contain the key '" + Keys::UserInterface::PatternGuessing::Failures::reason + "', which must be a string.");
 
                     try {
                         fail.reason = reasons.at(it->value.GetString());
@@ -709,22 +829,22 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    it = json_project.FindMember("vfm parameters");
+    it = json_project.FindMember(Keys::vfm_parameters);
     if (it != json_project.MemberEnd()) {
         CHECK_OBJECT;
 
         std::vector<std::string> valid_parameters = {
-            "blockx",
-            "blocky",
-            "chroma",
-            "cthresh",
-            "mchroma",
-            "mi",
-            "micmatch",
-            "order",
-            "scthresh",
-            "y0",
-            "y1"
+            Keys::VFMParameters::blockx,
+            Keys::VFMParameters::blocky,
+            Keys::VFMParameters::chroma,
+            Keys::VFMParameters::cthresh,
+            Keys::VFMParameters::mchroma,
+            Keys::VFMParameters::mi,
+            Keys::VFMParameters::micmatch,
+            Keys::VFMParameters::order,
+            Keys::VFMParameters::scthresh,
+            Keys::VFMParameters::y0,
+            Keys::VFMParameters::y1
         };
 
         const rj::Value &json_vfm_parameters = it->value;
@@ -733,22 +853,22 @@ void WobblyProject::readProject(const std::string &path) {
             it = json_vfm_parameters.FindMember(valid_parameters[i]);
 
             if (!it->value.IsNumber())
-                throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + "vfm parameters" + "', must be a number.");
+                throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + Keys::vfm_parameters + "', must be a number.");
 
             vfm_parameters.insert({ valid_parameters[i], it->value.GetDouble() });
         }
     }
 
-    it = json_project.FindMember("vdecimate parameters");
+    it = json_project.FindMember(Keys::vdecimate_parameters);
     if (it != json_project.MemberEnd()) {
         CHECK_OBJECT;
 
         std::vector<std::string> valid_parameters = {
-            "blockx",
-            "blocky",
-            "chroma",
-            "dupthresh",
-            "scthresh"
+            Keys::VDecimateParameters::blockx,
+            Keys::VDecimateParameters::blocky,
+            Keys::VDecimateParameters::chroma,
+            Keys::VDecimateParameters::dupthresh,
+            Keys::VDecimateParameters::scthresh
         };
 
         const rj::Value &json_vdecimate_parameters = it->value;
@@ -757,19 +877,19 @@ void WobblyProject::readProject(const std::string &path) {
             it = json_vdecimate_parameters.FindMember(valid_parameters[i]);
 
             if (!it->value.IsNumber())
-                throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + "vdecimate parameters" + "', must be a number.");
+                throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + Keys::vdecimate_parameters + "', must be a number.");
 
             vdecimate_parameters.insert({ valid_parameters[i], it->value.GetDouble() });
         }
     }
 
 
-    it = json_project.FindMember("mics");
+    it = json_project.FindMember(Keys::mics);
     if (it != json_project.MemberEnd()) {
         const rj::Value &json_mics = it->value;
 
         if (!json_mics.IsArray() || json_mics.Size() != (rj::SizeType)getNumFrames(PostSource))
-            throw WobblyException(path + ": JSON key '" + "mics" + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+            throw WobblyException(path + ": JSON key '" + Keys::mics + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
 
         mics.resize(getNumFrames(PostSource), { 0 });
         for (size_t i = 0; i < mics.size(); i++) {
@@ -782,7 +902,7 @@ void WobblyProject::readProject(const std::string &path) {
                     !json_mic[2].IsInt() ||
                     !json_mic[3].IsInt() ||
                     !json_mic[4].IsInt())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "mics" + "' must be an array of exactly 5 integers.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::mics + "' must be an array of exactly 5 integers.");
 
             for (rj::SizeType j = 0; j < json_mic.Size(); j++)
                 mics[i][j] = json_mic[j].GetInt();
@@ -790,17 +910,17 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    it = json_project.FindMember("matches");
+    it = json_project.FindMember(Keys::matches);
     if (it != json_project.MemberEnd()) {
         const rj::Value &json_matches = it->value;
 
         if (!json_matches.IsArray() || json_matches.Size() != (rj::SizeType)getNumFrames(PostSource))
-            throw WobblyException(path + ": JSON key '" + "matches" + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+            throw WobblyException(path + ": JSON key '" + Keys::matches + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
 
         matches.resize(getNumFrames(PostSource), 'c');
         for (size_t i = 0; i < matches.size(); i++) {
             if (!json_matches[i].IsString() || json_matches[i].GetStringLength() != 1)
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "matches" + "' must be a string with the length of 1.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::matches + "' must be a string with the length of 1.");
 
             matches[i] = json_matches[i].GetString()[0];
 
@@ -809,22 +929,22 @@ void WobblyProject::readProject(const std::string &path) {
                 matches[i] != 'n' &&
                 matches[i] != 'b' &&
                 matches[i] != 'u')
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "matches" + "' must be one of 'p', 'c', 'n', 'b', or 'u'.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::matches + "' must be one of 'p', 'c', 'n', 'b', or 'u'.");
         }
     }
 
 
-    it = json_project.FindMember("original matches");
+    it = json_project.FindMember(Keys::original_matches);
     if (it != json_project.MemberEnd()) {
         const rj::Value &json_original_matches = it->value;
 
         if (!json_original_matches.IsArray() || json_original_matches.Size() != (rj::SizeType)getNumFrames(PostSource))
-            throw WobblyException(path + ": JSON key '" + "original matches" + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+            throw WobblyException(path + ": JSON key '" + Keys::original_matches + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
 
         original_matches.resize(getNumFrames(PostSource), 'c');
         for (size_t i = 0; i < original_matches.size(); i++) {
             if (!json_original_matches[i].IsString() || json_original_matches[i].GetStringLength() != 1)
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "original matches" + "' must be a string with the length of 1.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::original_matches + "' must be a string with the length of 1.");
 
             original_matches[i] = json_original_matches[i].GetString()[0];
 
@@ -833,60 +953,60 @@ void WobblyProject::readProject(const std::string &path) {
                 original_matches[i] != 'n' &&
                 original_matches[i] != 'b' &&
                 original_matches[i] != 'u')
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "original matches" + "' must be one of 'p', 'c', 'n', 'b', or 'u'.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::original_matches + "' must be one of 'p', 'c', 'n', 'b', or 'u'.");
         }
     }
 
 
-    it = json_project.FindMember("combed frames");
+    it = json_project.FindMember(Keys::combed_frames);
     if (it != json_project.MemberEnd()) {
         const rj::Value &json_combed_frames = it->value;
 
         if (!json_combed_frames.IsArray() || json_combed_frames.Size() > (rj::SizeType)getNumFrames(PostSource))
-            throw WobblyException(path + ": JSON key '" + "combed frames" + "' must be an array with at most " + std::to_string(getNumFrames(PostSource)) + " elements.");
+            throw WobblyException(path + ": JSON key '" + Keys::combed_frames + "' must be an array with at most " + std::to_string(getNumFrames(PostSource)) + " elements.");
 
         for (rj::SizeType i = 0; i < json_combed_frames.Size(); i++) {
             if (!json_combed_frames[i].IsInt())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "combed frames" + "' must be an integer.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::combed_frames + "' must be an integer.");
             addCombedFrame(json_combed_frames[i].GetInt());
         }
     }
 
 
     decimated_frames.resize((getNumFrames(PostSource) - 1) / 5 + 1);
-    it = json_project.FindMember("decimated frames");
+    it = json_project.FindMember(Keys::decimated_frames);
     if (it != json_project.MemberEnd()) {
         const rj::Value &json_decimated_frames = it->value;
 
         if (!json_decimated_frames.IsArray() || json_decimated_frames.Size() > (rj::SizeType)getNumFrames(PostSource))
-            throw WobblyException(path + ": JSON key '" + "decimated frames" + "' must be an array with at most " + std::to_string(getNumFrames(PostSource)) + " elements.");
+            throw WobblyException(path + ": JSON key '" + Keys::decimated_frames + "' must be an array with at most " + std::to_string(getNumFrames(PostSource)) + " elements.");
 
         for (rj::SizeType i = 0; i < json_decimated_frames.Size(); i++) {
             if (!json_decimated_frames[i].IsInt())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "decimated frames" + "' must be an integer.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::decimated_frames + "' must be an integer.");
             addDecimatedFrame(json_decimated_frames[i].GetInt());
         }
     }
 
     // getNumFrames(PostDecimate) is correct at this point.
 
-    it = json_project.FindMember("decimate metrics");
+    it = json_project.FindMember(Keys::decimate_metrics);
     if (it != json_project.MemberEnd()) {
         const rj::Value &json_decimate_metrics = it->value;
 
         if (!json_decimate_metrics.IsArray() || json_decimate_metrics.Size() != (rj::SizeType)getNumFrames(PostSource))
-            throw WobblyException(path + ": JSON key '" + "decimate metrics" + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+            throw WobblyException(path + ": JSON key '" + Keys::decimate_metrics + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
 
         decimate_metrics.resize(getNumFrames(PostSource), 0);
         for (size_t i = 0; i < decimate_metrics.size(); i++) {
             if (!json_decimate_metrics[i].IsInt())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "decimate metrics" + "' must be an integer.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::decimate_metrics + "' must be an integer.");
             decimate_metrics[i] = json_decimate_metrics[i].GetInt();
         }
     }
 
 
-    it = json_project.FindMember("presets");
+    it = json_project.FindMember(Keys::presets);
     if (it != json_project.MemberEnd()) {
         CHECK_ARRAY;
 
@@ -896,17 +1016,17 @@ void WobblyProject::readProject(const std::string &path) {
             const rj::Value &json_preset = json_presets[i];
 
             if (!json_preset.IsObject())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "presets" + "' must be an object.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::presets + "' must be an object.");
 
-            it = json_preset.FindMember("name");
+            it = json_preset.FindMember(Keys::Presets::name);
             if (it == json_preset.MemberEnd() || !it->value.IsString())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "presets" + "' must contain the key '" + "name" + "', which must be a string.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::presets + "' must contain the key '" + Keys::Presets::name + "', which must be a string.");
 
             const char *preset_name = it->value.GetString();
 
-            it = json_preset.FindMember("contents");
+            it = json_preset.FindMember(Keys::Presets::contents);
             if (it == json_preset.MemberEnd() || !it->value.IsString())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "presets" + "' must contain the key '" + "contents" + "', which must be a string.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::presets + "' must contain the key '" + Keys::Presets::contents + "', which must be a string.");
 
             const char *preset_contents = it->value.GetString();
 
@@ -915,7 +1035,7 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    it = json_project.FindMember("frozen frames");
+    it = json_project.FindMember(Keys::frozen_frames);
     if (it != json_project.MemberEnd()) {
         CHECK_ARRAY;
 
@@ -925,14 +1045,14 @@ void WobblyProject::readProject(const std::string &path) {
             const rj::Value &json_ff = json_frozen_frames[i];
 
             if (!json_ff.IsArray() || json_ff.Size() != 3 || !json_ff[0].IsInt() || !json_ff[1].IsInt() || !json_ff[2].IsInt())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "frozen frames" + "' must be an array of three integers.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::frozen_frames + "' must be an array of three integers.");
 
             addFreezeFrame(json_ff[0].GetInt(), json_ff[1].GetInt(), json_ff[2].GetInt());
         }
     }
 
 
-    it = json_project.FindMember("sections");
+    it = json_project.FindMember(Keys::sections);
     if (it != json_project.MemberEnd()) {
         CHECK_ARRAY;
 
@@ -942,24 +1062,24 @@ void WobblyProject::readProject(const std::string &path) {
             const rj::Value &json_section = json_sections[i];
 
             if (!json_section.IsObject())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "sections" + "' must be an object.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::sections + "' must be an object.");
 
-            it = json_section.FindMember("start");
+            it = json_section.FindMember(Keys::Sections::start);
             if (it == json_section.MemberEnd() || !it->value.IsInt())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "sections" + "' must contain the key '" + "start" + "', which must be an integer.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::sections + "' must contain the key '" + Keys::Sections::start + "', which must be an integer.");
 
             int section_start = it->value.GetInt();
             Section section(section_start);
 
-            it = json_section.FindMember("presets");
+            it = json_section.FindMember(Keys::Sections::presets);
             if (it == json_section.MemberEnd() || !it->value.IsArray())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "sections" + "' must contain the key '" + "presets" + "', which must be an array.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::sections + "' must contain the key '" + Keys::Sections::presets + "', which must be an array.");
 
             const rj::Value &json_presets = it->value;
             section.presets.resize(json_presets.Size());
             for (rj::SizeType k = 0; k < json_presets.Size(); k++) {
                 if (!json_presets[k].IsString())
-                    throw WobblyException(path + ": element number " + std::to_string(k) + " of JSON key '" + "presets" + "', part of element number " + std::to_string(i) + " of key '" + "sections" + "', must be a string.");
+                    throw WobblyException(path + ": element number " + std::to_string(k) + " of JSON key '" + Keys::Sections::presets + "', part of element number " + std::to_string(i) + " of key '" + Keys::sections + "', must be a string.");
                 section.presets[k] = json_presets[k].GetString();
             }
 
@@ -970,7 +1090,7 @@ void WobblyProject::readProject(const std::string &path) {
             addSection(0);
     }
 
-    it = json_project.FindMember("custom lists");
+    it = json_project.FindMember(Keys::custom_lists);
     if (it != json_project.MemberEnd()) {
         CHECK_ARRAY;
 
@@ -988,36 +1108,36 @@ void WobblyProject::readProject(const std::string &path) {
             const rj::Value &json_list = json_custom_lists[i];
 
             if (!json_list.IsObject())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must be an object.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::custom_lists + "' must be an object.");
 
-            it = json_list.FindMember("name");
+            it = json_list.FindMember(Keys::CustomLists::name);
             if (it == json_list.MemberEnd() || !it->value.IsString())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must contain the key '" + "name" + "', which must be a string.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::custom_lists + "' must contain the key '" + Keys::CustomLists::name + "', which must be a string.");
 
             const char *list_name = it->value.GetString();
 
             std::string list_preset;
 
-            it = json_list.FindMember("preset");
+            it = json_list.FindMember(Keys::CustomLists::preset);
             if (it != json_list.MemberEnd()) {
                 if (!it->value.IsString())
-                    throw WobblyException(path + ": JSON key '" + "preset" + "', member of element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "', must be a string.");
+                    throw WobblyException(path + ": JSON key '" + Keys::CustomLists::preset + "', member of element number " + std::to_string(i) + " of JSON key '" + Keys::custom_lists + "', must be a string.");
 
                 list_preset = it->value.GetString();
             }
 
-            it = json_list.FindMember("position");
+            it = json_list.FindMember(Keys::CustomLists::position);
 
             int list_position = PostSource;
 
             if (project_format_version == 1) {
                 if (it == json_list.MemberEnd() || !it->value.IsInt())
-                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must contain the key '" + "position" + "', which must be an integer.");
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::custom_lists + "' must contain the key '" + Keys::CustomLists::position + "', which must be an integer.");
 
                 list_position = it->value.GetInt();
             } else {
                 if (it == json_list.MemberEnd() || !it->value.IsString())
-                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "' must contain the key '" + "position" + "', which must be a string.");
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::custom_lists + "' must contain the key '" + Keys::CustomLists::position + "', which must be a string.");
 
                 try {
                     list_position = list_positions.at(it->value.GetString());
@@ -1028,17 +1148,17 @@ void WobblyProject::readProject(const std::string &path) {
 
             addCustomList(CustomList(list_name, list_preset, list_position));
 
-            it = json_list.FindMember("frames");
+            it = json_list.FindMember(Keys::CustomLists::frames);
             if (it != json_list.MemberEnd()) {
                 const rj::Value &json_frames = it->value;
                 if (!json_frames.IsArray())
-                    throw WobblyException(path + ": JSON key '" + "frames" + "', member of element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "', must be an array.");
+                    throw WobblyException(path + ": JSON key '" + Keys::CustomLists::frames + "', member of element number " + std::to_string(i) + " of JSON key '" + Keys::custom_lists + "', must be an array.");
 
                 for (rj::SizeType j = 0; j < json_frames.Size(); j++) {
                     const rj::Value &json_range = json_frames[j];
 
                     if (!json_range.IsArray() || json_range.Size() != 2 || !json_range[0].IsInt() || !json_range[1].IsInt())
-                        throw WobblyException(path + ": element number " + std::to_string(j) + " of JSON key '" + "frames" + "', member of element number " + std::to_string(i) + " of JSON key '" + "custom lists" + "', must be an array of two integers.");
+                        throw WobblyException(path + ": element number " + std::to_string(j) + " of JSON key '" + Keys::CustomLists::frames + "', member of element number " + std::to_string(i) + " of JSON key '" + Keys::custom_lists + "', must be an array of two integers.");
 
                     addCustomListRange(i, json_range[0].GetInt(), json_range[1].GetInt());
                 }
@@ -1047,7 +1167,7 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    it = json_project.FindMember("resize");
+    it = json_project.FindMember(Keys::resize);
     if (it != json_project.MemberEnd()) {
         CHECK_OBJECT;
 
@@ -1055,28 +1175,28 @@ void WobblyProject::readProject(const std::string &path) {
 
         resize.enabled = true;
 
-        it = json_resize.FindMember("width");
+        it = json_resize.FindMember(Keys::Resize::width);
         if (it == json_resize.MemberEnd() || !it->value.IsInt())
-            throw WobblyException(path + ": JSON key '" + "resize" + "' must contain the key '" + "width" + "', which must be an integer.");
+            throw WobblyException(path + ": JSON key '" + Keys::resize + "' must contain the key '" + Keys::Resize::width + "', which must be an integer.");
 
         resize.width = it->value.GetInt();
 
-        it = json_resize.FindMember("height");
+        it = json_resize.FindMember(Keys::Resize::height);
         if (it == json_resize.MemberEnd() || !it->value.IsInt())
-            throw WobblyException(path + ": JSON key '" + "resize" + "' must contain the key '" + "height" + "', which must be an integer.");
+            throw WobblyException(path + ": JSON key '" + Keys::resize + "' must contain the key '" + Keys::Resize::height + "', which must be an integer.");
 
         resize.height = it->value.GetInt();
 
-        it = json_resize.FindMember("filter");
+        it = json_resize.FindMember(Keys::Resize::filter);
         if (it == json_resize.MemberEnd() || !it->value.IsString())
-            throw WobblyException(path + ": JSON key '" + "resize" + "' must contain the key '" + "filter" + "', which must be a string.");
+            throw WobblyException(path + ": JSON key '" + Keys::resize + "' must contain the key '" + Keys::Resize::filter + "', which must be a string.");
 
         resize.filter = it->value.GetString();
     } else {
         resize.enabled = false;
     }
 
-    it = json_project.FindMember("crop");
+    it = json_project.FindMember(Keys::crop);
     if (it != json_project.MemberEnd()) {
         CHECK_OBJECT;
 
@@ -1084,40 +1204,40 @@ void WobblyProject::readProject(const std::string &path) {
 
         crop.enabled = true;
 
-        it = json_crop.FindMember("early");
+        it = json_crop.FindMember(Keys::Crop::early);
         if (it == json_crop.MemberEnd() || !it->value.IsBool())
-            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "early" + "', which must be a boolean.");
+            throw WobblyException(path + ": JSON key '" + Keys::crop + "' must contain the key '" + Keys::Crop::early + "', which must be a boolean.");
 
         crop.early = it->value.GetBool();
 
-        it = json_crop.FindMember("left");
+        it = json_crop.FindMember(Keys::Crop::left);
         if (it == json_crop.MemberEnd() || !it->value.IsInt())
-            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "left" + "', which must be an integer.");
+            throw WobblyException(path + ": JSON key '" + Keys::crop + "' must contain the key '" + Keys::Crop::left + "', which must be an integer.");
 
         crop.left = it->value.GetInt();
 
-        it = json_crop.FindMember("top");
+        it = json_crop.FindMember(Keys::Crop::top);
         if (it == json_crop.MemberEnd() || !it->value.IsInt())
-            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "top" + "', which must be an integer.");
+            throw WobblyException(path + ": JSON key '" + Keys::crop + "' must contain the key '" + Keys::Crop::top + "', which must be an integer.");
 
         crop.top = it->value.GetInt();
 
-        it = json_crop.FindMember("right");
+        it = json_crop.FindMember(Keys::Crop::right);
         if (it == json_crop.MemberEnd() || !it->value.IsInt())
-            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "right" + "', which must be an integer.");
+            throw WobblyException(path + ": JSON key '" + Keys::crop + "' must contain the key '" + Keys::Crop::right + "', which must be an integer.");
 
         crop.right = it->value.GetInt();
 
-        it = json_crop.FindMember("bottom");
+        it = json_crop.FindMember(Keys::Crop::bottom);
         if (it == json_crop.MemberEnd() || !it->value.IsInt())
-            throw WobblyException(path + ": JSON key '" + "crop" + "' must contain the key '" + "bottom" + "', which must be an integer.");
+            throw WobblyException(path + ": JSON key '" + Keys::crop + "' must contain the key '" + Keys::Crop::bottom + "', which must be an integer.");
 
         crop.bottom = it->value.GetInt();
     } else {
         crop.enabled = false;
     }
 
-    it = json_project.FindMember("depth");
+    it = json_project.FindMember(Keys::depth);
     if (it != json_project.MemberEnd()) {
         CHECK_OBJECT;
 
@@ -1125,21 +1245,21 @@ void WobblyProject::readProject(const std::string &path) {
 
         depth.enabled = true;
 
-        it = json_depth.FindMember("bits");
+        it = json_depth.FindMember(Keys::Depth::bits);
         if (it == json_depth.MemberEnd() || !it->value.IsInt())
-            throw WobblyException(path + ": JSON key '" + "depth" + "' must contain the key '" + "bits" + "', which must be an integer.");
+            throw WobblyException(path + ": JSON key '" + Keys::depth + "' must contain the key '" + Keys::Depth::bits + "', which must be an integer.");
 
         depth.bits = it->value.GetInt();
 
-        it = json_depth.FindMember("float samples");
+        it = json_depth.FindMember(Keys::Depth::float_samples);
         if (it == json_depth.MemberEnd() || !it->value.IsBool())
-            throw WobblyException(path + ": JSON key '" + "depth" + "' must contain the key '" + "float samples" + "', which must be a boolean.");
+            throw WobblyException(path + ": JSON key '" + Keys::depth + "' must contain the key '" + Keys::Depth::float_samples + "', which must be a boolean.");
 
         depth.float_samples = it->value.GetBool();
 
-        it = json_depth.FindMember("dither");
+        it = json_depth.FindMember(Keys::Depth::dither);
         if (it == json_depth.MemberEnd() || !it->value.IsString())
-            throw WobblyException(path + ": JSON key '" + "depth" + "' must contain the key '" + "dither" + "', which must be a string.");
+            throw WobblyException(path + ": JSON key '" + Keys::depth + "' must contain the key '" + Keys::Depth::dither + "', which must be a string.");
 
         depth.dither = it->value.GetString();
     } else {
@@ -1147,7 +1267,7 @@ void WobblyProject::readProject(const std::string &path) {
     }
 
 
-    it = json_project.FindMember("interlaced fades");
+    it = json_project.FindMember(Keys::interlaced_fades);
     if (it != json_project.MemberEnd()) {
         CHECK_ARRAY;
 
@@ -1157,17 +1277,17 @@ void WobblyProject::readProject(const std::string &path) {
             const rj::Value &json_interlaced_fade = json_interlaced_fades[i];
 
             if (!json_interlaced_fade.IsObject())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "interlaced fades" + "' must be an object.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::interlaced_fades + "' must be an object.");
 
-            it = json_interlaced_fade.FindMember("frame");
+            it = json_interlaced_fade.FindMember(Keys::InterlacedFades::frame);
             if (it == json_interlaced_fade.MemberEnd() || !it->value.IsInt())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "interlaced fades" + "' must contain the key '" + "frame" + "', which must be an integer.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::interlaced_fades + "' must contain the key '" + Keys::InterlacedFades::frame + "', which must be an integer.");
 
             int frame = it->value.GetInt();
 
-            it = json_interlaced_fade.FindMember("field difference");
+            it = json_interlaced_fade.FindMember(Keys::InterlacedFades::field_difference);
             if (it == json_interlaced_fade.MemberEnd() || !it->value.IsNumber())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + "interlaced fades" + "' must contain the key '" + "field difference" + "', which must be a number.");
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::interlaced_fades + "' must contain the key '" + Keys::InterlacedFades::field_difference + "', which must be a number.");
 
             double field_difference = it->value.GetDouble();
 
