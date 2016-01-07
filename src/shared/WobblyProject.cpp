@@ -852,10 +852,12 @@ void WobblyProject::readProject(const std::string &path) {
         for (size_t i = 0; i < valid_parameters.size(); i++) {
             it = json_vfm_parameters.FindMember(valid_parameters[i]);
 
-            if (!it->value.IsNumber())
-                throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + Keys::vfm_parameters + "', must be a number.");
+            if (it != json_vfm_parameters.MemberEnd()) {
+                if (!it->value.IsNumber())
+                    throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + Keys::vfm_parameters + "', must be a number.");
 
-            vfm_parameters.insert({ valid_parameters[i], it->value.GetDouble() });
+                vfm_parameters.insert({ valid_parameters[i], it->value.GetDouble() });
+            }
         }
     }
 
@@ -876,10 +878,12 @@ void WobblyProject::readProject(const std::string &path) {
         for (size_t i = 0; i < valid_parameters.size(); i++) {
             it = json_vdecimate_parameters.FindMember(valid_parameters[i]);
 
-            if (!it->value.IsNumber())
-                throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + Keys::vdecimate_parameters + "', must be a number.");
+            if (it != json_vdecimate_parameters.MemberEnd()) {
+                if (!it->value.IsNumber())
+                    throw WobblyException(path + ": JSON key '" + valid_parameters[i] + "', member of '" + Keys::vdecimate_parameters + "', must be a number.");
 
-            vdecimate_parameters.insert({ valid_parameters[i], it->value.GetDouble() });
+                vdecimate_parameters.insert({ valid_parameters[i], it->value.GetDouble() });
+            }
         }
     }
 
@@ -1072,15 +1076,17 @@ void WobblyProject::readProject(const std::string &path) {
             Section section(section_start);
 
             it = json_section.FindMember(Keys::Sections::presets);
-            if (it == json_section.MemberEnd() || !it->value.IsArray())
-                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::sections + "' must contain the key '" + Keys::Sections::presets + "', which must be an array.");
+            if (it != json_section.MemberEnd()) {
+                if (!it->value.IsArray())
+                    throw WobblyException(path + ": JSON key '" + Keys::Sections::presets + "', member of element number " + std::to_string(i) + " of JSON key '" + Keys::sections + "', must be an array.");
 
-            const rj::Value &json_presets = it->value;
-            section.presets.resize(json_presets.Size());
-            for (rj::SizeType k = 0; k < json_presets.Size(); k++) {
-                if (!json_presets[k].IsString())
-                    throw WobblyException(path + ": element number " + std::to_string(k) + " of JSON key '" + Keys::Sections::presets + "', part of element number " + std::to_string(i) + " of key '" + Keys::sections + "', must be a string.");
-                section.presets[k] = json_presets[k].GetString();
+                const rj::Value &json_presets = it->value;
+                section.presets.resize(json_presets.Size());
+                for (rj::SizeType k = 0; k < json_presets.Size(); k++) {
+                    if (!json_presets[k].IsString())
+                        throw WobblyException(path + ": element number " + std::to_string(k) + " of JSON key '" + Keys::Sections::presets + "', part of element number " + std::to_string(i) + " of key '" + Keys::sections + "', must be a string.");
+                    section.presets[k] = json_presets[k].GetString();
+                }
             }
 
             addSection(section);
