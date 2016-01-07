@@ -523,6 +523,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
         throw WobblyException("Couldn't write the project to file '" + path + "'. Error message: " + file.errorString().toStdString());
 }
 
+
 void WobblyProject::readProject(const std::string &path) {
     QFile file(QString::fromStdString(path));
 
@@ -1302,6 +1303,7 @@ void WobblyProject::readProject(const std::string &path) {
     }
 }
 
+
 void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
     if (first > last)
         std::swap(first, last);
@@ -1331,9 +1333,11 @@ void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
     frozen_frames.insert(std::make_pair(first, ff));
 }
 
+
 void WobblyProject::deleteFreezeFrame(int frame) {
     frozen_frames.erase(frame);
 }
+
 
 const FreezeFrame *WobblyProject::findFreezeFrame(int frame) const {
     if (!frozen_frames.size())
@@ -1379,6 +1383,7 @@ bool WobblyProject::isNameSafeForPython(const std::string &name) const {
     return true;
 }
 
+
 void WobblyProject::addPreset(const std::string &preset_name, const std::string &preset_contents) {
     if (!isNameSafeForPython(preset_name))
         throw WobblyException("Can't add preset '" + preset_name + "': name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
@@ -1390,6 +1395,7 @@ void WobblyProject::addPreset(const std::string &preset_name, const std::string 
     if (!ret.second)
         throw WobblyException("Can't add preset '" + preset_name + "': preset name already in use.");
 }
+
 
 void WobblyProject::renamePreset(const std::string &old_name, const std::string &new_name) {
     if (old_name == new_name)
@@ -1418,6 +1424,7 @@ void WobblyProject::renamePreset(const std::string &old_name, const std::string 
             it->preset = new_name;
 }
 
+
 void WobblyProject::deletePreset(const std::string &preset_name) {
     if (presets.erase(preset_name) == 0)
         throw WobblyException("Can't delete preset '" + preset_name + "': no such preset.");
@@ -1432,6 +1439,7 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
             it->preset.clear();
 }
 
+
 std::vector<std::string> WobblyProject::getPresets() const {
     std::vector<std::string> preset_list;
 
@@ -1443,6 +1451,7 @@ std::vector<std::string> WobblyProject::getPresets() const {
     return preset_list;
 }
 
+
 const std::string &WobblyProject::getPresetContents(const std::string &preset_name) const {
     if (!presets.count(preset_name))
         throw WobblyException("Can't retrieve the contents of preset '" + preset_name + "': no such preset.");
@@ -1450,6 +1459,7 @@ const std::string &WobblyProject::getPresetContents(const std::string &preset_na
     const Preset &preset = presets.at(preset_name);
     return preset.contents;
 }
+
 
 void WobblyProject::setPresetContents(const std::string &preset_name, const std::string &preset_contents) {
     if (!presets.count(preset_name))
@@ -1678,12 +1688,14 @@ void WobblyProject::addSection(int section_start) {
     addSection(section);
 }
 
+
 void WobblyProject::addSection(const Section &section) {
     if (section.start < 0 || section.start >= getNumFrames(PostSource))
         throw WobblyException("Can't add section starting at " + std::to_string(section.start) + ": value out of range.");
 
     sections.insert(std::make_pair(section.start, section));
 }
+
 
 void WobblyProject::deleteSection(int section_start) {
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
@@ -1697,6 +1709,7 @@ void WobblyProject::deleteSection(int section_start) {
         sections.erase(section_start);
 }
 
+
 Section *WobblyProject::findSection(int frame) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't find the section frame " + std::to_string(frame) + " belongs to: frame number out of range.");
@@ -1705,6 +1718,7 @@ Section *WobblyProject::findSection(int frame) {
     it--;
     return &it->second;
 }
+
 
 Section *WobblyProject::findNextSection(int frame) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
@@ -1718,6 +1732,7 @@ Section *WobblyProject::findNextSection(int frame) {
     return nullptr;
 }
 
+
 int WobblyProject::getSectionEnd(int frame) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't find the end of the section frame " + std::to_string(frame) + " belongs to: frame number out of range.");
@@ -1728,6 +1743,7 @@ int WobblyProject::getSectionEnd(int frame) {
     else
         return getNumFrames(PostSource);
 }
+
 
 void WobblyProject::setSectionPreset(int section_start, const std::string &preset_name) {
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
@@ -1743,6 +1759,7 @@ void WobblyProject::setSectionPreset(int section_start, const std::string &prese
     sections.at(section_start).presets.push_back(preset_name);
 }
 
+
 void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::string &pattern) {
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't apply match pattern to section starting at " + std::to_string(section_start) + ": frame number out of range.");
@@ -1754,6 +1771,7 @@ void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::s
 
     setRangeMatchesFromPattern(section_start, section_end - 1, pattern);
 }
+
 
 void WobblyProject::setSectionDecimationFromPattern(int section_start, const std::string &pattern) {
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
@@ -1842,6 +1860,7 @@ void WobblyProject::addCustomList(const std::string &list_name) {
     addCustomList(list);
 }
 
+
 void WobblyProject::addCustomList(const CustomList &list) {
     if (list.position < 0 || list.position >= 3)
         throw WobblyException("Can't add custom list '" + list.name + "' with position " + std::to_string(list.position) + ": position out of range.");
@@ -1858,6 +1877,7 @@ void WobblyProject::addCustomList(const CustomList &list) {
 
     custom_lists.push_back(list);
 }
+
 
 void WobblyProject::renameCustomList(const std::string &old_name, const std::string &new_name) {
     if (old_name == new_name)
@@ -1884,6 +1904,7 @@ void WobblyProject::renameCustomList(const std::string &old_name, const std::str
     custom_lists[index].name = new_name;
 }
 
+
 void WobblyProject::deleteCustomList(const std::string &list_name) {
     for (size_t i = 0; i < custom_lists.size(); i++)
         if (custom_lists[i].name == list_name) {
@@ -1893,6 +1914,7 @@ void WobblyProject::deleteCustomList(const std::string &list_name) {
 
     throw WobblyException("Can't delete custom list with name '" + list_name + "': no such list.");
 }
+
 
 void WobblyProject::deleteCustomList(int list_index) {
     if (list_index < 0 || list_index >= (int)custom_lists.size())
@@ -2114,6 +2136,7 @@ static bool areDecimationPatternsEqual(const std::set<int8_t> &a, const std::set
 
     return true;
 }
+
 
 std::vector<DecimationPatternRange> WobblyProject::getDecimationPatternRanges() const {
     std::vector<DecimationPatternRange> ranges;
@@ -2827,6 +2850,7 @@ void WobblyProject::sectionsToScript(std::string &script) const {
     script += splice;
 }
 
+
 int WobblyProject::maybeTranslate(int frame, bool is_end, PositionInFilterChain position) const {
     if (position == PostDecimate) {
         if (is_end)
@@ -2836,6 +2860,7 @@ int WobblyProject::maybeTranslate(int frame, bool is_end, PositionInFilterChain 
     } else
         return frame;
 }
+
 
 void WobblyProject::customListsToScript(std::string &script, PositionInFilterChain position) const {
     for (size_t i = 0; i < custom_lists.size(); i++) {
@@ -2897,6 +2922,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
     }
 }
 
+
 void WobblyProject::headerToScript(std::string &script) const {
     script +=
             "import vapoursynth as vs\n"
@@ -2904,6 +2930,7 @@ void WobblyProject::headerToScript(std::string &script) const {
             "c = vs.get_core()\n"
             "\n";
 }
+
 
 void WobblyProject::presetsToScript(std::string &script) const {
     for (auto it = presets.cbegin(); it != presets.cend(); it++) {
@@ -2922,6 +2949,7 @@ void WobblyProject::presetsToScript(std::string &script) const {
     }
 }
 
+
 void WobblyProject::sourceToScript(std::string &script) const {
     script +=
             "try:\n"
@@ -2932,6 +2960,7 @@ void WobblyProject::sourceToScript(std::string &script) const {
             "\n";
 }
 
+
 void WobblyProject::trimToScript(std::string &script) const {
     script += "src = c.std.Splice(clips=[";
     for (auto it = trims.cbegin(); it != trims.cend(); it++)
@@ -2940,6 +2969,7 @@ void WobblyProject::trimToScript(std::string &script) const {
             "])\n"
             "\n";
 }
+
 
 void WobblyProject::fieldHintToScript(std::string &script) const {
     if (!matches.size() && !original_matches.size())
@@ -2956,6 +2986,7 @@ void WobblyProject::fieldHintToScript(std::string &script) const {
             "')\n"
             "\n";
 }
+
 
 void WobblyProject::freezeFramesToScript(std::string &script) const {
     std::string ff_first = ", first=[";
@@ -2979,6 +3010,7 @@ void WobblyProject::freezeFramesToScript(std::string &script) const {
             ")\n"
             "\n";
 }
+
 
 void WobblyProject::decimatedFramesToScript(std::string &script) const {
     std::string delete_frames;
@@ -3070,6 +3102,7 @@ void WobblyProject::decimatedFramesToScript(std::string &script) const {
         script += select_every;
 }
 
+
 void WobblyProject::cropToScript(std::string &script) const {
     script += "src = c.std.CropRel(clip=src, left=";
     script += std::to_string(crop.left) + ", top=";
@@ -3077,6 +3110,7 @@ void WobblyProject::cropToScript(std::string &script) const {
     script += std::to_string(crop.right) + ", bottom=";
     script += std::to_string(crop.bottom) + ")\n\n";
 }
+
 
 void WobblyProject::resizeAndBitDepthToScript(std::string &script, bool resize_enabled, bool depth_enabled) const {
     script += "src = c.resize.";
@@ -3101,9 +3135,11 @@ void WobblyProject::resizeAndBitDepthToScript(std::string &script, bool resize_e
     script += ")\n\n";
 }
 
+
 void WobblyProject::setOutputToScript(std::string &script) const {
     script += "src.set_output()\n";
 }
+
 
 std::string WobblyProject::generateFinalScript() const {
     // XXX Insert comments before and after each part.
@@ -3152,6 +3188,7 @@ std::string WobblyProject::generateFinalScript() const {
 
     return script;
 }
+
 
 std::string WobblyProject::generateMainDisplayScript() const {
     std::string script;

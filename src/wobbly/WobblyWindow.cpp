@@ -2906,6 +2906,7 @@ void WobblyWindow::updateCMatchSequencesWindow() {
     c_match_sequences_table->resizeColumnsToContents();
 }
 
+
 void WobblyWindow::initialiseCMatchSequencesWindow() {
     c_match_minimum_spin->blockSignals(true);
     c_match_minimum_spin->setValue(project->getCMatchSequencesMinimum());
@@ -4248,6 +4249,7 @@ void WobblyWindow::guessCurrentSectionPatternsFromMics() {
     }
 }
 
+
 void WobblyWindow::guessProjectPatternsFromMics() {
 
     if (!project)
@@ -4273,6 +4275,7 @@ void WobblyWindow::guessProjectPatternsFromMics() {
         errorPopup(e.what());
     }
 }
+
 
 void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
     if (!project)
@@ -4507,7 +4510,6 @@ void WobblyWindow::selectPreviousCustomList() {
 
     setSelectedCustomList(index);
 }
-
 
 
 void WobblyWindow::selectNextCustomList() {
