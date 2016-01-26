@@ -31,6 +31,7 @@ SOFTWARE.
 #include <QListWidget>
 #include <QMainWindow>
 #include <QSettings>
+#include <QSignalMapper>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStringListModel>
@@ -56,6 +57,8 @@ private:
     // Menus.
 
     QMenu *tools_menu;
+
+    QMenu *recent_menu;
 
 
 
@@ -153,6 +156,8 @@ private:
 
     QString window_title;
 
+    QSignalMapper *recent_menu_signal_mapper;
+
 
     // Other stuff.
 
@@ -214,6 +219,8 @@ private:
     void createSettingsWindow();
     void drawColorBars();
     void createUI();
+
+    void addRecentFile(const QString &path);
 
     void readSettings();
     void writeSettings();

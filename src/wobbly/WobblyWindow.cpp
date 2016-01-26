@@ -81,6 +81,43 @@ WobblyWindow::WobblyWindow()
 }
 
 
+void WobblyWindow::addRecentFile(const QString &path) {
+    int index = -1;
+    auto actions = recent_menu->actions();
+    for (int i = 0; i < actions.size(); i++) {
+        if (actions[i]->text().endsWith(path)) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == 0) {
+        return;
+    } else if (index > 0) {
+        recent_menu->removeAction(actions[index]);
+        recent_menu->insertAction(actions[0], actions[index]);
+    } else {
+        QAction *recent = new QAction(QStringLiteral("&0. %1").arg(path), this);
+        connect(recent, &QAction::triggered, recent_menu_signal_mapper, static_cast<void (QSignalMapper::*)()>(&QSignalMapper::map));
+        recent_menu_signal_mapper->setMapping(recent, path);
+
+        recent_menu->insertAction(actions.size() ? actions[0] : 0, recent);
+
+        if (actions.size() == 10)
+            recent_menu->removeAction(actions[9]);
+    }
+
+    actions = recent_menu->actions();
+    for (int i = 0; i < actions.size(); i++) {
+        QString text = actions[i]->text();
+        text[1] = QChar('0' + i);
+        actions[i]->setText(text);
+
+        settings.setValue(QStringLiteral("user_interface/recent%1").arg(i), text.mid(4));
+    }
+}
+
+
 void WobblyWindow::readSettings() {
     if (settings.contains("user_interface/state"))
         restoreState(settings.value("user_interface/state").toByteArray());
@@ -115,6 +152,15 @@ void WobblyWindow::readSettings() {
         settings_shortcuts_table->setItem(i, 2, item);
     }
     settings_shortcuts_table->resizeColumnsToContents();
+
+    QStringList recent;
+    for (int i = 9; i >= 0; i--) {
+        QString settings_key = QStringLiteral("user_interface/recent%1").arg(i);
+        if (settings.contains(settings_key))
+            recent.push_back(settings.value(settings_key).toString());
+    }
+    for (int i = 0; i < recent.size(); i++)
+        addRecentFile(recent[i]);
 }
 
 
@@ -231,18 +277,32 @@ void WobblyWindow::createMenu() {
         { "Save screenshot",            &WobblyWindow::saveScreenshot },
         { "Import from project",        &WobblyWindow::importFromProject },
         { nullptr,                      nullptr },
+        { "&Recently opened",           nullptr },
+        { nullptr,                      nullptr },
         { "&Quit",                      &WobblyWindow::quit }
     };
 
     for (size_t i = 0; i < project_menu.size(); i++) {
-        if (project_menu[i].name) {
+        if (project_menu[i].name && project_menu[i].func) {
             QAction *action = new QAction(project_menu[i].name, this);
             connect(action, &QAction::triggered, this, project_menu[i].func);
             p->addAction(action);
+        } else if (project_menu[i].name && !project_menu[i].func) {
+            // Not very nicely done.
+            recent_menu = p->addMenu(project_menu[i].name);
         } else {
             p->addSeparator();
         }
     }
+
+    recent_menu_signal_mapper = new QSignalMapper(this);
+
+    connect(recent_menu_signal_mapper, static_cast<void (QSignalMapper::*)(const QString &)>(&QSignalMapper::mapped), [this] (const QString &path) {
+        if (path.endsWith(".json"))
+            realOpenProject(path);
+        else
+            realOpenVideo(path);
+    });
 
 
     tools_menu = bar->addMenu("&Tools");
@@ -3007,6 +3067,8 @@ void WobblyWindow::realOpenProject(const QString &path) {
             delete project;
         project = tmp;
 
+        addRecentFile(path);
+
         current_frame = project->getLastVisitedFrame();
 
         initialiseUIFromProject();
@@ -3087,6 +3149,8 @@ void WobblyWindow::realOpenVideo(const QString &path) {
         vsscript_clearOutput(vsscript, 1);
 
         evaluateMainDisplayScript();
+
+        addRecentFile(path);
     } catch(WobblyException &e) {
         errorPopup(e.what());
 
@@ -3123,6 +3187,8 @@ void WobblyWindow::realSaveProject(const QString &path) {
     video_path.clear();
 
     updateWindowTitle();
+
+    addRecentFile(path);
 }
 
 
