@@ -34,6 +34,7 @@ SOFTWARE.
 #include <QScrollArea>
 #include <QShortcut>
 #include <QStatusBar>
+#include <QThread>
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -92,7 +93,13 @@ WibblyWindow::WibblyWindow()
 void VS_CC messageHandler(int msgType, const char *msg, void *userData) {
     WibblyWindow *window = (WibblyWindow *)userData;
 
-    QMetaObject::invokeMethod(window, "vsLogPopup", Qt::QueuedConnection, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
+    Qt::ConnectionType type;
+    if (QThread::currentThread() == window->thread())
+        type = Qt::DirectConnection;
+    else
+        type = Qt::BlockingQueuedConnection;
+
+    QMetaObject::invokeMethod(window, "vsLogPopup", type, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
 }
 
 
