@@ -490,9 +490,11 @@ void WibblyWindow::createMainWindow() {
     connect(main_destination_edit, &QLineEdit::editingFinished, destinationChanged);
 
     connect(main_choose_button, &QPushButton::clicked, [this, destinationChanged] () {
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), QString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), settings.value("user_interface/last_dir").toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
         if (!path.isEmpty()) {
+            settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+
             main_destination_edit->setText(path);
             destinationChanged();
         }
@@ -515,13 +517,17 @@ void WibblyWindow::createMainWindow() {
     });
 
     connect(main_add_jobs_button, &QPushButton::clicked, [this] () {
-        QStringList paths = QFileDialog::getOpenFileNames(this, QStringLiteral("Open video file"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
+        QStringList paths = QFileDialog::getOpenFileNames(this, QStringLiteral("Open video file"), settings.value("user_interface/last_dir").toString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
         paths.sort();
 
-        for (int i = 0; i < paths.size(); i++)
-            if (!paths[i].isNull())
+        for (int i = 0; i < paths.size(); i++) {
+            if (!paths[i].isNull()) {
+                settings.setValue("user_interface/last_dir", QFileInfo(paths[i]).absolutePath());
+
                 realOpenVideo(paths[i]);
+            }
+        }
     });
 
     connect(main_remove_jobs_button, &QPushButton::clicked, [this] () {

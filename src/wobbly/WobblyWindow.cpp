@@ -3087,10 +3087,13 @@ void WobblyWindow::realOpenProject(const QString &path) {
 
 
 void WobblyWindow::openProject() {
-    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), QString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
+    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), settings.value("user_interface/last_dir").toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
-    if (!path.isNull())
+    if (!path.isNull()) {
+        settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+
         realOpenProject(path);
+    }
 }
 
 
@@ -3160,10 +3163,13 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
 
 void WobblyWindow::openVideo() {
-    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open video file"), QString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
+    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open video file"), settings.value("user_interface/last_dir").toString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
-    if (!path.isNull())
+    if (!path.isNull()) {
+        settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+
         realOpenVideo(path);
+    }
 }
 
 
@@ -3212,10 +3218,13 @@ void WobblyWindow::saveProjectAs() {
         if (!project)
             throw WobblyException("Can't save the project because none has been loaded.");
 
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), QString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), settings.value("user_interface/last_dir").toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
-        if (!path.isNull())
+        if (!path.isNull()) {
+            settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+
             realSaveProject(path);
+        }
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -3270,8 +3279,11 @@ void WobblyWindow::saveScriptAs() {
 
         QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save script"), dir, QStringLiteral("VapourSynth scripts (*.py *.vpy);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
-        if (!path.isNull())
+        if (!path.isNull()) {
+            settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+
             realSaveScript(path);
+        }
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -3323,8 +3335,11 @@ void WobblyWindow::saveTimecodesAs() {
 
         QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save timecodes"), dir, QStringLiteral("Timecodes v1 files (*.txt);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
-        if (!path.isNull())
+        if (!path.isNull()) {
+            settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+
             realSaveTimecodes(path);
+        }
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -3343,8 +3358,11 @@ void WobblyWindow::saveScreenshot() {
 
     path = QFileDialog::getSaveFileName(this, QStringLiteral("Save screenshot"), path, QStringLiteral("PNG images (*.png);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
-    if (!path.isNull())
+    if (!path.isNull()) {
+        settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+
         frame_label->pixmap()->save(path, "png");
+    }
 }
 
 
