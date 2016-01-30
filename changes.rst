@@ -1,3 +1,16 @@
+v3 (tbd)
+=============
+
+Both
+----
+
+* Work around an error message with interlaced videos by deleting the
+  ``_FieldBased`` frame property when converting to RGB for display
+  purposes. This means interlaced video with vertical subsampling will
+  look slightly wrong in Wibbly and Wobbly.
+
+
+
 v2 (20160128)
 =============
 

@@ -3563,7 +3563,11 @@ void WobblyWindow::evaluateScript(bool final_script) {
             "src = vs.get_output(index=0)\n"
 
             "if src.format is None:\n"
-            "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n";
+            "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n"
+
+            // Workaround for bug in the resizers in VapourSynth R29 and R30.
+            // Remove at some point after R31.
+            "src = c.std.SetFrameProp(clip=src, prop='_FieldBased', delete=True)\n";
 
     if (crop_dock->isVisible() && project->isCropEnabled()) {
         script += "src = c.std.CropRel(clip=src, left=";

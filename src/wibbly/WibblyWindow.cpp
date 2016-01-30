@@ -1245,6 +1245,10 @@ void WibblyWindow::evaluateDisplayScript() {
     script +=
             "src = vs.get_output(index=0)\n"
 
+            "src = c.std.SetFrameProp(clip=src, prop='_FieldBased', delete=True)\n"
+
+            // Workaround for bug in the resizers in VapourSynth R29 and R30.
+            // Remove at some point after R31.
             "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32, dither_type='random', matrix_in_s='470bg', transfer_in_s='601', primaries_in_s='170m')\n"
 
             "src.set_output()\n";
