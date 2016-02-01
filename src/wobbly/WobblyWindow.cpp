@@ -53,6 +53,8 @@ WobblyWindow::WobblyWindow()
     , window_title(QStringLiteral("Wobbly IVTC Assistant v%1").arg(PACKAGE_VERSION))
     , project(nullptr)
     , current_frame(0)
+    , pending_frame(0)
+    , pending_requests(0)
     , match_pattern("ccnnc")
     , decimation_pattern("kkkkd")
     , preview(false)
@@ -980,7 +982,7 @@ void WobblyWindow::createSectionsEditor() {
         bool ok;
         int frame = item->text().toInt(&ok);
         if (ok)
-            displayFrame(frame);
+            requestFrames(frame);
     });
 
     connect(sections_table, &TableWidget::currentCellChanged, [this, section_presets_list] (int currentRow) {
@@ -1503,7 +1505,7 @@ void WobblyWindow::createCustomListsEditor() {
         if (!project)
             return;
 
-        displayFrame(item->data(Qt::UserRole).toInt());
+        requestFrames(item->data(Qt::UserRole).toInt());
     });
 
     connect(cl_delete_range_button, &QPushButton::clicked, [this, cl_ranges_list] () {
@@ -1654,7 +1656,7 @@ void WobblyWindow::createFrameRatesViewer() {
         bool ok;
         int frame = item->text().toInt(&ok);
         if (ok)
-            displayFrame(frame);
+            requestFrames(frame);
     });
 
 
@@ -1700,7 +1702,7 @@ void WobblyWindow::createFrozenFramesViewer() {
         bool ok;
         int frame = item->text().toInt(&ok);
         if (ok)
-            displayFrame(frame);
+            requestFrames(frame);
     });
 
     connect(frozen_frames_table, &TableWidget::deletePressed, delete_button, &QPushButton::click);
@@ -1888,7 +1890,7 @@ void WobblyWindow::createPatternGuessingWindow() {
         bool ok;
         int frame = item->text().toInt(&ok);
         if (ok)
-            displayFrame(frame);
+            requestFrames(frame);
     });
 
 
@@ -2044,7 +2046,7 @@ void WobblyWindow::createCMatchSequencesWindow() {
         bool ok;
         int frame = item->text().toInt(&ok);
         if (ok)
-            displayFrame(frame);
+            requestFrames(frame);
     });
 
 
@@ -2096,7 +2098,7 @@ void WobblyWindow::createFadesWindow() {
         bool ok;
         int frame = item->text().toInt(&ok);
         if (ok)
-            displayFrame(frame);
+            requestFrames(frame);
     });
 
 
@@ -2413,7 +2415,7 @@ void WobblyWindow::createUI() {
         if (!project)
             return;
 
-        displayFrame(value);
+        requestFrames(value);
     });
 
 
@@ -3439,7 +3441,7 @@ void WobblyWindow::importFromProject() {
 
                 initialiseUIFromProject();
 
-                displayFrame(current_frame);
+                requestFrames(current_frame);
 
                 import_window->hide();
             } catch (WobblyException &e) {
@@ -3615,7 +3617,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
     if (!vsnode[node_index])
         throw WobblyException(std::string(final_script ? "Final" : "Main display") + " script evaluated successfully, but no node found at output index 0.");
 
-    displayFrame(current_frame);
+    requestFrames(current_frame);
 }
 
 
@@ -3629,25 +3631,60 @@ void WobblyWindow::evaluateFinalScript() {
 }
 
 
-void WobblyWindow::displayFrame(int n) {
+void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *node, const char *errorMsg) {
+    WobblyWindow *window = (WobblyWindow *)userData;
+
+    // Qt::DirectConnection = frameDone runs in the worker threads
+    // Qt::QueuedConnection = frameDone runs in the GUI thread
+    QMetaObject::invokeMethod(window, "frameDone", Qt::QueuedConnection,
+                              Q_ARG(void *, (void *)f),
+                              Q_ARG(int, n),
+                              Q_ARG(void *, (void *)node),
+                              Q_ARG(void *, (void *)errorMsg));
+}
+
+
+void WobblyWindow::requestFrames(int n) {
     if (!vsnode[(int)preview])
         return;
 
-    if (n < 0)
-        n = 0;
-    if (n >= project->getNumFrames(PostSource))
-        n = project->getNumFrames(PostSource) - 1;
+    n = std::max(0, std::min(n, project->getNumFrames(PostSource) - 1));
+
+    current_frame = n;
+
+    frame_slider->blockSignals(true);
+    frame_slider->setValue(n);
+    frame_slider->blockSignals(false);
+
+    updateFrameDetails();
+
+    if (pending_requests)
+        return;
+
+    pending_frame = n;
 
     int frame_num = preview ? project->frameNumberAfterDecimation(n) : n;
-    int last_frame = (preview ? project->getNumFrames(PostDecimate) : project->getNumFrames(PostSource)) - 1;
-    std::vector<char> error(1024);
-    if (frame_num == last_frame)
-        // Workaround for bug in d2vsource: https://github.com/dwbuiten/d2vsource/issues/12
-        vsapi->freeFrame(vsapi->getFrame(frame_num - 1, vsnode[(int)preview], error.data(), 1024));
-    const VSFrameRef *frame = vsapi->getFrame(frame_num, vsnode[(int)preview], error.data(), 1024);
 
-    if (!frame)
-        throw WobblyException(std::string("Failed to retrieve frame. Error message: ") + error.data());
+    pending_requests++;
+    vsapi->getFrameAsync(frame_num, vsnode[(int)preview], frameDoneCallback, (void *)this);
+}
+
+
+// Runs in the GUI thread.
+void WobblyWindow::frameDone(void *framev, int n, void *nodev, void *errorMsgv) {
+    const VSFrameRef *frame = (const VSFrameRef *)framev;
+    VSNodeRef *node = (VSNodeRef *)nodev;
+    const char *errorMsg = (const char *)errorMsgv;
+
+    pending_requests--;
+
+    if (!pending_requests && pending_frame != current_frame)
+        requestFrames(current_frame);
+
+    if (!frame) {
+        errorPopup(QStringLiteral("Failed to retrieve frame %1. Error message: %2").arg(n).arg(errorMsg).toUtf8().constData());
+        return;
+    }
 
     const uint8_t *ptr = vsapi->getReadPtr(frame, 0);
     int width = vsapi->getFrameWidth(frame, 0);
@@ -3663,14 +3700,6 @@ void WobblyWindow::displayFrame(int n) {
     // Must free the frame only after replacing the pixmap.
     vsapi->freeFrame(vsframe);
     vsframe = frame;
-
-    current_frame = n;
-
-    frame_slider->blockSignals(true);
-    frame_slider->setValue(n);
-    frame_slider->blockSignals(false);
-
-    updateFrameDetails();
 }
 
 
@@ -3819,7 +3848,7 @@ void WobblyWindow::jumpRelative(int offset) {
         }
     }
 
-    displayFrame(target);
+    requestFrames(target);
 }
 
 
@@ -3918,7 +3947,7 @@ void WobblyWindow::jumpToPreviousMic() {
 
     int frame = project->getPreviousFrameWithMic(mic_search_minimum_spin->value(), current_frame);
     if (frame != -1)
-        displayFrame(frame);
+        requestFrames(frame);
 }
 
 
@@ -3928,7 +3957,7 @@ void WobblyWindow::jumpToNextMic() {
 
     int frame = project->getNextFrameWithMic(mic_search_minimum_spin->value(), current_frame);
     if (frame != -1)
-        displayFrame(frame);
+        requestFrames(frame);
 }
 
 
@@ -3939,7 +3968,7 @@ void WobblyWindow::jumpToFrame() {
     bool ok;
     int frame = QInputDialog::getInt(this, QStringLiteral("Jump to frame"), QStringLiteral("Destination frame:"), current_frame, 0, project->getNumFrames(PostSource) - 1, 1, &ok);
     if (ok)
-        displayFrame(frame);
+        requestFrames(frame);
 }
 
 
@@ -4443,7 +4472,7 @@ void WobblyWindow::zoom(bool in) {
         zoom += in ? 1 : -1;
         project->setZoom(zoom);
         try {
-            displayFrame(current_frame);
+            requestFrames(current_frame);
         } catch (WobblyException &e) {
             errorPopup(e.what());
         }

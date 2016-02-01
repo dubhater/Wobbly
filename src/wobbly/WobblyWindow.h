@@ -166,6 +166,8 @@ private:
     QString video_path;
 
     int current_frame;
+    int pending_frame;
+    int pending_requests;
 
     QString match_pattern;
     QString decimation_pattern;
@@ -251,7 +253,7 @@ private:
     void evaluateScript(bool final_script);
     void evaluateMainDisplayScript();
     void evaluateFinalScript();
-    void displayFrame(int n);
+    void requestFrames(int n);
     void updateFrameDetails();
 
     void errorPopup(const char *msg);
@@ -369,6 +371,7 @@ public slots:
     void zoomOut();
 
     void vsLogPopup(int msgType, void *msgv);
+    void frameDone(void *framev, int n, void *nodev, void *errorMsgv);
 };
 
 #endif // WOBBLYWINDOW_H
