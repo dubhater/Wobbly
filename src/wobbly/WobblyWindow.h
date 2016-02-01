@@ -47,6 +47,9 @@ SOFTWARE.
 #include "WobblyProject.h"
 
 
+#define NUM_THUMBNAILS 3
+
+
 class WobblyWindow : public QMainWindow {
     Q_OBJECT
 
@@ -66,6 +69,7 @@ private:
 
     DockWidget *details_dock;
     QLabel *frame_label;
+    QLabel *thumb_labels[NUM_THUMBNAILS];
     QSlider *frame_slider;
 
     QLabel *frame_num_label;
@@ -198,7 +202,7 @@ private:
     VSScript *vsscript;
     VSCore *vscore;
     VSNodeRef *vsnode[2];
-    const VSFrameRef *vsframe;
+    const VSFrameRef *vsframes[NUM_THUMBNAILS];
 
 
     // Functions

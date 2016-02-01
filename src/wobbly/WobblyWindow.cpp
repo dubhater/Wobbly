@@ -66,7 +66,7 @@ WobblyWindow::WobblyWindow()
     , vsscript(nullptr)
     , vscore(nullptr)
     , vsnode{nullptr, nullptr}
-    , vsframe(nullptr)
+    , vsframes{ }
 {
     createUI();
 
@@ -2398,6 +2398,12 @@ void WobblyWindow::createUI() {
     frame_label->setAlignment(Qt::AlignCenter);
     frame_label->setPixmap(QPixmap::fromImage(splash_image));
 
+    for (int i = 0; i < NUM_THUMBNAILS; i++) {
+        thumb_labels[i] = new QLabel;
+        thumb_labels[i]->setAlignment(Qt::AlignCenter);
+        thumb_labels[i]->setPixmap(QPixmap::fromImage(splash_image.scaled(splash_image.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)));
+    }
+
     ScrollArea *frame_scroll = new ScrollArea;
     frame_scroll->resize(720, 480);
     frame_scroll->setFrameShape(QFrame::NoFrame);
@@ -2421,6 +2427,14 @@ void WobblyWindow::createUI() {
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(frame_scroll);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addStretch(1);
+    for (int i = 0; i < NUM_THUMBNAILS; i++)
+        hbox->addWidget(thumb_labels[i]);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
     vbox->addWidget(frame_slider);
 
     QWidget *central_widget = new QWidget;
@@ -2520,9 +2534,12 @@ void WobblyWindow::initialiseVapourSynth() {
 
 
 void WobblyWindow::cleanUpVapourSynth() {
-    frame_label->setPixmap(QPixmap()); // Does it belong here?
-    vsapi->freeFrame(vsframe);
-    vsframe = nullptr;
+    frame_label->setPixmap(QPixmap());
+    for (int i = 0; i < NUM_THUMBNAILS; i++) {
+        thumb_labels[i]->setPixmap(QPixmap());
+        vsapi->freeFrame(vsframes[i]);
+        vsframes[i] = nullptr;
+    }
 
     for (int i = 0; i < 2; i++) {
         vsapi->freeNode(vsnode[i]);
@@ -3663,10 +3680,23 @@ void WobblyWindow::requestFrames(int n) {
 
     pending_frame = n;
 
-    int frame_num = preview ? project->frameNumberAfterDecimation(n) : n;
+    int frame_num = n;
+    int last_frame = project->getNumFrames(PostSource) - 1;
+    if (preview) {
+        frame_num = project->frameNumberAfterDecimation(n);
+        last_frame = project->getNumFrames(PostDecimate) - 1;
+    }
 
-    pending_requests++;
-    vsapi->getFrameAsync(frame_num, vsnode[(int)preview], frameDoneCallback, (void *)this);
+    // XXX Make it generic.
+    if (frame_num == 0)
+        thumb_labels[0]->setPixmap(QPixmap::fromImage(splash_image.scaled(splash_image.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)));
+    if (frame_num == last_frame)
+        thumb_labels[2]->setPixmap(QPixmap::fromImage(splash_image.scaled(splash_image.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)));
+
+    for (int i = std::max(0, frame_num - NUM_THUMBNAILS / 2); i < std::min(frame_num + NUM_THUMBNAILS / 2 + 1, last_frame + 1); i++) {
+        pending_requests++;
+        vsapi->getFrameAsync(i, vsnode[(int)preview], frameDoneCallback, (void *)this);
+    }
 }
 
 
@@ -3678,9 +3708,6 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, void *errorMsgv) 
 
     pending_requests--;
 
-    if (!pending_requests && pending_frame != current_frame)
-        requestFrames(current_frame);
-
     if (!frame) {
         errorPopup(QStringLiteral("Failed to retrieve frame %1. Error message: %2").arg(n).arg(errorMsg).toUtf8().constData());
         return;
@@ -3690,16 +3717,29 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, void *errorMsgv) 
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32).mirrored(false, true));
+    QImage image(ptr, width, height, stride, QImage::Format_RGB32);
+    QPixmap pixmap = QPixmap::fromImage(image.mirrored(false, true));
 
-    int zoom = project->getZoom();
-    if (zoom > 1)
-        pixmap = pixmap.scaled(width * zoom, height * zoom, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+    int offset;
+    if (node == vsnode[0])
+        offset = n - pending_frame;
+    else
+        offset = n - project->frameNumberAfterDecimation(pending_frame);
 
-    frame_label->setPixmap(pixmap);
+    if (offset == 0) {
+        int zoom = project->getZoom();
+        frame_label->setPixmap(pixmap.scaled(width * zoom, height * zoom, Qt::IgnoreAspectRatio, Qt::FastTransformation));
+    }
+
+    pixmap = pixmap.scaled(pixmap.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+    thumb_labels[offset + NUM_THUMBNAILS / 2]->setPixmap(pixmap);
     // Must free the frame only after replacing the pixmap.
-    vsapi->freeFrame(vsframe);
-    vsframe = frame;
+    vsapi->freeFrame(vsframes[offset + NUM_THUMBNAILS / 2]);
+    vsframes[offset + NUM_THUMBNAILS / 2] = frame;
+
+    if (!pending_requests && pending_frame != current_frame)
+        requestFrames(current_frame);
 }
 
 
