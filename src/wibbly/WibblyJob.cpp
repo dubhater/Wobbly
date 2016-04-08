@@ -280,14 +280,17 @@ void WibblyJob::interlacedFadesToScript(std::string &script) const {
     script +=
             "def copyProp(n, f):\n"
             "    fout = f[0].copy()\n"
-            "    fout.props.WibblyFieldDifference = abs(f[0].props.WibblyAverageEven - f[1].props.WibblyAverageOdd)\n"
+            "    fout.props.WibblyFieldDifference = abs(f[0].props.WibblyEvenAverage - f[1].props.WibblyOddAverage)\n"
             "    return fout\n"
             "\n"
             "separated = c.std.SeparateFields(clip=src, tff=True)\n"
+
             "even = c.std.SelectEvery(clip=separated, cycle=2, offsets=0)\n"
-            "even = c.std.PlaneAverage(clip=even, plane=0, prop='WibblyAverageEven')\n"
+            "even = c.std.PlaneStats(clipa=even, plane=0, prop='WibblyEven')\n"
+
             "odd = c.std.SelectEvery(clip=separated, cycle=2, offsets=1)\n"
-            "odd = c.std.PlaneAverage(clip=odd, plane=0, prop='WibblyAverageOdd')\n"
+            "odd = c.std.PlaneStats(clipa=odd, plane=0, prop='WibblyOdd')\n"
+
             "even = c.std.ModifyFrame(clip=even, clips=[even, odd], selector=copyProp)\n"
             "src = c.std.Interleave(clips=[even, odd])\n"
             "src = c.std.DoubleWeave(clip=src, tff=True)\n"

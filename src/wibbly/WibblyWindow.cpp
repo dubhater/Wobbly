@@ -205,6 +205,12 @@ void WibblyWindow::checkRequiredFilters() {
             { "Point", "Bilinear", "Bicubic", "Spline16", "Spline36", "Lanczos" },
             "built-in resizers not found. Did you compile VapourSynth yourself?",
             "VapourSynth version is older than r29."
+        },
+        {
+            "com.vapoursynth.std",
+            { "PlaneStats" },
+            "built-in filters not found. Something is borked.",
+            "VapourSynth version is older than r32."
         }
     };
 

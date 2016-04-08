@@ -22,7 +22,7 @@ Requirements:
 
     - Qt 5.4 or newer (just qtbase).
 
-    - VapourSynth r29 or newer.
+    - VapourSynth r32 or newer.
 
 
 License
