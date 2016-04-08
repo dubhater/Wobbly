@@ -1,5 +1,20 @@
-v3 (tbd)
+v3 (20160408)
 =============
+
+Wibbly
+------
+
+* Use std.PlaneStats instead of std.PlaneAverage, because VapourSynth
+  r32 doesn't have std.PlaneAverage anymore. Wibbly will continue to
+  work with older VapourSynth if the interlaced fades thing isn't used.
+
+Wobbly
+------
+
+* Make the interface more responsive by requesting frames from
+  VapourSynth asynchronously.
+
+* Show thumbnails of frames n-1, n, n+1 under the video frame.
 
 Both
 ----
