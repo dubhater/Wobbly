@@ -175,7 +175,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , mic_search_minimum(20)
     , c_match_sequences_minimum(20)
     , is_wobbly(_is_wobbly)
-    , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, { } }
+    , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, std::map<int, FailedPatternGuessing>() }
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
