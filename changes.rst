@@ -1,3 +1,23 @@
+v4 (20160718)
+=============
+
+Wobbly
+------
+
+* Fix crash when jumping to an interlaced fade (bug introduced in v1).
+
+* Fix off-by-one error in the interlaced fades window (bug introduced
+  in v1).
+
+Both
+----
+
+* Correctly create projects that lack decimation metrics, mics, or
+  matches. Such projects created by previous versions would cause an
+  error when loaded in Wobbly. (Bug introduced in v2).
+
+
+
 v3 (20160408)
 =============
 
