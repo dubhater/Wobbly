@@ -2094,7 +2094,7 @@ void WobblyWindow::createFadesWindow() {
     });
 
     connect(fades_table, &TableWidget::cellDoubleClicked, [this] (int row, int column) {
-        QTableWidgetItem *item = c_match_sequences_table->item(row, column);
+        QTableWidgetItem *item = fades_table->item(row, column);
         bool ok;
         int frame = item->text().toInt(&ok);
         if (ok)
