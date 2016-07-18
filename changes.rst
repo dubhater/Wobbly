@@ -16,6 +16,9 @@ Both
   matches. Such projects created by previous versions would cause an
   error when loaded in Wobbly. (Bug introduced in v2).
 
+* Fix JSON keys made of four words. The last two words were not
+  separated. (Bug introduced in v2.)
+
 
 
 v3 (20160408)

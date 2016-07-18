@@ -50,7 +50,7 @@ SOFTWARE.
 #define KEY1(a, b, c, d) const char a[] = #a;
 #define KEY2(a, b, c, d) const char a##_##b[] = #a " " #b;
 #define KEY3(a, b, c, d) const char a##_##b##_##c[] = #a " " #b " " #c;
-#define KEY4(a, b, c, d) const char a##_##b##_##c##_##d[] = #a " " #b " " #c "" #d;
+#define KEY4(a, b, c, d) const char a##_##b##_##c##_##d[] = #a " " #b " " #c " " #d;
 
 namespace Keys {
     K(wobbly, version);
