@@ -3020,7 +3020,7 @@ void WobblyWindow::updateFadesWindow() {
 
     it++;
     for ( ; it != fades.cend(); it++) {
-        if (it->first - end > ignore_gaps) {
+        if (it->first - end - 1 > ignore_gaps) {
             fades_ranges.push_back({ start, end });
             start = it->first;
             end = start;
