@@ -359,42 +359,64 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
     json_project.AddMember(Keys::vdecimate_parameters, json_vdecimate_parameters, a);
 
-    rj::Value json_mics(rj::kArrayType);
-    rj::Value json_matches(rj::kArrayType);
-    rj::Value json_original_matches(rj::kArrayType);
-    rj::Value json_combed_frames(rj::kArrayType);
-    rj::Value json_decimated_frames(rj::kArrayType);
-    rj::Value json_decimate_metrics(rj::kArrayType);
+    if (mics.size()) {
+        rj::Value json_mics(rj::kArrayType);
 
-    for (size_t i = 0; i < mics.size(); i++) {
-        rj::Value json_mic(rj::kArrayType);
-        for (int j = 0; j < 5; j++)
-            json_mic.PushBack(mics[i][j], a);
-        json_mics.PushBack(json_mic, a);
+        for (size_t i = 0; i < mics.size(); i++) {
+            rj::Value json_mic(rj::kArrayType);
+            for (int j = 0; j < 5; j++)
+                json_mic.PushBack(mics[i][j], a);
+            json_mics.PushBack(json_mic, a);
+        }
+
+        json_project.AddMember(Keys::mics, json_mics, a);
     }
 
-    for (size_t i = 0; i < matches.size(); i++)
-        json_matches.PushBack(rj::Value(&matches[i], 1), a);
+    if (matches.size()) {
+        rj::Value json_matches(rj::kArrayType);
 
-    for (size_t i = 0; i < original_matches.size(); i++)
-        json_original_matches.PushBack(rj::Value(&original_matches[i], 1), a);
+        for (size_t i = 0; i < matches.size(); i++)
+            json_matches.PushBack(rj::Value(&matches[i], 1), a);
 
-    for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
-        json_combed_frames.PushBack(*it, a);
+        json_project.AddMember(Keys::matches, json_matches, a);
+    }
 
-    for (size_t i = 0; i < decimated_frames.size(); i++)
-        for (auto it = decimated_frames[i].cbegin(); it != decimated_frames[i].cend(); it++)
-            json_decimated_frames.PushBack((int)i * 5 + *it, a);
+    if (original_matches.size()) {
+        rj::Value json_original_matches(rj::kArrayType);
 
-    for (size_t i = 0; i < decimate_metrics.size(); i++)
-        json_decimate_metrics.PushBack(getDecimateMetric(i), a);
+        for (size_t i = 0; i < original_matches.size(); i++)
+            json_original_matches.PushBack(rj::Value(&original_matches[i], 1), a);
 
-    json_project.AddMember(Keys::mics, json_mics, a);
-    json_project.AddMember(Keys::matches, json_matches, a);
-    json_project.AddMember(Keys::original_matches, json_original_matches, a);
-    json_project.AddMember(Keys::combed_frames, json_combed_frames, a);
-    json_project.AddMember(Keys::decimated_frames, json_decimated_frames, a);
-    json_project.AddMember(Keys::decimate_metrics, json_decimate_metrics, a);
+        json_project.AddMember(Keys::original_matches, json_original_matches, a);
+    }
+
+    if (combed_frames.cbegin() != combed_frames.cend()) {
+        rj::Value json_combed_frames(rj::kArrayType);
+
+        for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
+            json_combed_frames.PushBack(*it, a);
+
+        json_project.AddMember(Keys::combed_frames, json_combed_frames, a);
+    }
+
+    if (decimated_frames.size()) {
+        rj::Value json_decimated_frames(rj::kArrayType);
+
+        for (size_t i = 0; i < decimated_frames.size(); i++)
+            for (auto it = decimated_frames[i].cbegin(); it != decimated_frames[i].cend(); it++)
+                json_decimated_frames.PushBack((int)i * 5 + *it, a);
+
+        json_project.AddMember(Keys::decimated_frames, json_decimated_frames, a);
+    }
+
+    if (decimate_metrics.size()) {
+        rj::Value json_decimate_metrics(rj::kArrayType);
+
+        for (size_t i = 0; i < decimate_metrics.size(); i++)
+            json_decimate_metrics.PushBack(getDecimateMetric(i), a);
+
+        json_project.AddMember(Keys::decimate_metrics, json_decimate_metrics, a);
+    }
 
 
     rj::Value json_sections(rj::kArrayType);
