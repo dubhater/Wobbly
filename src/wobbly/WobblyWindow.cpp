@@ -3581,6 +3581,10 @@ void WobblyWindow::evaluateScript(bool final_script) {
     script +=
             "src = vs.get_output(index=0)\n"
 
+            // Since VapourSynth R41 get_output returns the alpha as well.
+            "if isinstance(src, tuple):\n"
+            "    src = src[0]\n"
+
             "if src.format is None:\n"
             "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n"
 

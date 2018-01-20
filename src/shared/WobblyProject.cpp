@@ -2976,6 +2976,9 @@ void WobblyProject::sourceToScript(std::string &script) const {
     script +=
             "try:\n"
             "    src = vs.get_output(index=1)\n"
+            // Since VapourSynth R41 get_output returns the alpha as well.
+            "    if isinstance(src, tuple):\n"
+            "        src = src[0]\n"
             "except KeyError:\n"
             "    src = c." + source_filter + "(r'" + input_file + "')\n"
             "    src.set_output(index=1)\n"

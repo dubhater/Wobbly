@@ -1250,6 +1250,9 @@ void WibblyWindow::evaluateDisplayScript() {
     // BT 601
     script +=
             "src = vs.get_output(index=0)\n"
+            // Since VapourSynth R41 get_output returns the alpha as well.
+            "if isinstance(src, tuple):\n"
+            "    src = src[0]\n"
 
             "src = c.std.SetFrameProp(clip=src, prop='_FieldBased', delete=True)\n"
 
