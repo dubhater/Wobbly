@@ -2471,12 +2471,12 @@ void VS_CC messageHandler(int msgType, const char *msg, void *userData) {
     else
         type = Qt::BlockingQueuedConnection;
 
-    QMetaObject::invokeMethod(window, "vsLogPopup", type, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
+    QMetaObject::invokeMethod(window, "vsLogPopup", type, Q_ARG(int, msgType), Q_ARG(QString, QString(msg)));
 }
 
 
-void WobblyWindow::vsLogPopup(int msgType, void *msgv) {
-    std::string message;
+void WobblyWindow::vsLogPopup(int msgType, const QString &msg) {
+    QString message;
 
     if (msgType == mtFatal) {
         if (project) {
@@ -2485,7 +2485,7 @@ void WobblyWindow::vsLogPopup(int msgType, void *msgv) {
 
             realSaveProject(project_path);
 
-            message += "Your work has been saved to '" + project_path.toStdString() + "'. ";
+            message += "Your work has been saved to '" + project_path + "'. ";
         }
         writeSettings();
 
@@ -2507,9 +2507,9 @@ void WobblyWindow::vsLogPopup(int msgType, void *msgv) {
     }
 
     message += ". Message: ";
-    message += (const char *)msgv;
+    message += msg;
 
-    QMessageBox::information(this, QStringLiteral("vsLog"), message.c_str());
+    QMessageBox::information(this, QStringLiteral("vsLog"), message);
 }
 
 
@@ -3661,7 +3661,8 @@ void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeR
                               Q_ARG(void *, (void *)f),
                               Q_ARG(int, n),
                               Q_ARG(void *, (void *)node),
-                              Q_ARG(void *, (void *)errorMsg));
+                              Q_ARG(QString, QString(errorMsg)));
+    // Pass a copy of the error message because the pointer won't be valid after this function returns.
 }
 
 
@@ -3705,10 +3706,9 @@ void WobblyWindow::requestFrames(int n) {
 
 
 // Runs in the GUI thread.
-void WobblyWindow::frameDone(void *framev, int n, void *nodev, void *errorMsgv) {
+void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &errorMsg) {
     const VSFrameRef *frame = (const VSFrameRef *)framev;
     VSNodeRef *node = (VSNodeRef *)nodev;
-    const char *errorMsg = (const char *)errorMsgv;
 
     pending_requests--;
 

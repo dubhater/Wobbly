@@ -48,10 +48,6 @@ std::mutex requests_mutex;
 std::condition_variable requests_condition;
 
 
-// For QMetaObject::invokeMethod.
-Q_DECLARE_METATYPE(const char *)
-
-
 WibblyWindow::WibblyWindow()
     : QMainWindow()
     , vsapi(nullptr)
@@ -70,9 +66,6 @@ WibblyWindow::WibblyWindow()
     , aborted(false)
     , request_count(0)
 {
-    // For QMetaObject::invokeMethod.
-    qRegisterMetaType<const char *>();
-
     createUI();
 
     try {
@@ -99,12 +92,12 @@ void VS_CC messageHandler(int msgType, const char *msg, void *userData) {
     else
         type = Qt::BlockingQueuedConnection;
 
-    QMetaObject::invokeMethod(window, "vsLogPopup", type, Q_ARG(int, msgType), Q_ARG(void *, (void *)msg));
+    QMetaObject::invokeMethod(window, "vsLogPopup", type, Q_ARG(int, msgType), Q_ARG(QString, QString(msg)));
 }
 
 
-void WibblyWindow::vsLogPopup(int msgType, void *msgv) {
-    std::string message;
+void WibblyWindow::vsLogPopup(int msgType, const QString &msg) {
+    QString message;
 
     if (msgType == mtFatal) {
         writeJobs();
@@ -128,9 +121,9 @@ void WibblyWindow::vsLogPopup(int msgType, void *msgv) {
     }
 
     message += ". Message: ";
-    message += (const char *)msgv;
+    message += msg;
 
-    QMessageBox::information(this, QStringLiteral("vsLog"), message.c_str());
+    QMessageBox::information(this, QStringLiteral("vsLog"), message);
 }
 
 
@@ -1195,13 +1188,8 @@ void WibblyWindow::realOpenVideo(const QString &path) {
 }
 
 
-void WibblyWindow::errorPopup(const char *msg) {
+void WibblyWindow::errorPopup(const QString &msg) {
     QMessageBox::information(this, QStringLiteral("Error"), msg);
-}
-
-
-void WibblyWindow::errorPopup(const std::string &msg) {
-    errorPopup(msg.c_str());
 }
 
 
@@ -1373,7 +1361,7 @@ void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeR
 
     // Qt::DirectConnection = frameDone runs in the worker threads
     // Qt::QueuedConnection = frameDone runs in the GUI thread
-    QMetaObject::invokeMethod(window, "frameDone", Qt::DirectConnection, Q_ARG(void *, (void *)f), Q_ARG(int, n), Q_ARG(void *, (void *)errorMsg));
+    QMetaObject::invokeMethod(window, "frameDone", Qt::DirectConnection, Q_ARG(void *, (void *)f), Q_ARG(int, n), Q_ARG(QString, QString(errorMsg)));
 }
 
 
@@ -1486,9 +1474,8 @@ void WibblyWindow::startNextJob() {
 
 // Runs in the worker threads, so don't touch the GUI directly.
 // The worker threads are queued up inside VapourSynth, so they run one at a time.
-void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
+void WibblyWindow::frameDone(void *frame_v, int n, const QString &error_msg) {
     const VSFrameRef *frame = (const VSFrameRef *)frame_v;
-    const char *error_msg = (const char *)error_msg_v;
 
     if (aborted) {
         vsapi->freeFrame(frame);
@@ -1549,7 +1536,7 @@ void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
 
                     QMetaObject::invokeMethod(this, "startNextJob", Qt::QueuedConnection);
                 } catch (WobblyException &e) {
-                    QMetaObject::invokeMethod(this, "errorPopup", Qt::QueuedConnection, Q_ARG(const char *, e.what()));
+                    QMetaObject::invokeMethod(this, "errorPopup", Qt::QueuedConnection, Q_ARG(QString, QString(e.what())));
 
                     aborted = true;
                     current_job = -1;
@@ -1565,7 +1552,7 @@ void WibblyWindow::frameDone(void *frame_v, int n, void *error_msg_v) {
             delete current_project;
             current_project = nullptr;
 
-            QMetaObject::invokeMethod(this, "errorPopup", Qt::QueuedConnection, Q_ARG(const char *, ("Job number " + std::to_string(current_job) + ": failed to retrieve frame number " + std::to_string(n) + ". Error message:\n\n" + error_msg).c_str()));
+            QMetaObject::invokeMethod(this, "errorPopup", Qt::QueuedConnection, Q_ARG(QString, QStringLiteral("Job number %1: failed to retrieve frame number %2. Error message:\n\n%3").arg(current_job).arg(n).arg(error_msg)));
         }
     }
 

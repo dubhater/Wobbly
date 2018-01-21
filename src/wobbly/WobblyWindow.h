@@ -374,8 +374,8 @@ public slots:
     void zoomIn();
     void zoomOut();
 
-    void vsLogPopup(int msgType, void *msgv);
-    void frameDone(void *framev, int n, void *nodev, void *errorMsgv);
+    void vsLogPopup(int msgType, const QString &msg);
+    void frameDone(void *framev, int n, void *nodev, const QString &errorMsg);
 };
 
 #endif // WOBBLYWINDOW_H

@@ -150,8 +150,6 @@ class WibblyWindow : public QMainWindow
 
     void realOpenVideo(const QString &path);
 
-    void errorPopup(const std::string &msg);
-
     void evaluateFinalScript(int job_index);
     void evaluateDisplayScript();
     void displayFrame(int n);
@@ -183,12 +181,12 @@ public:
     WibblyWindow();
 
 public slots:
-    void vsLogPopup(int msgType, void *msgv);
-    void frameDone(void *frame_v, int n, void *error_msg_v);
+    void vsLogPopup(int msgType, const QString &msg);
+    void frameDone(void *frame_v, int n, const QString &error_msg);
 
     void startNextJob();
 
-    void errorPopup(const char *msg);
+    void errorPopup(const QString &msg);
 };
 
 #endif // WIBBLYWINDOW_H
