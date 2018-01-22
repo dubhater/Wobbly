@@ -4490,6 +4490,9 @@ void WobblyWindow::guessProjectPatternsFromMatches() {
 
 
 void WobblyWindow::togglePreview() {
+    if (!project)
+        return;
+
     preview = !preview;
 
     try {
