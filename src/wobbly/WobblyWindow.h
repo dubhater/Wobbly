@@ -68,6 +68,7 @@ private:
     // Widgets.
 
     DockWidget *details_dock;
+    QTabBar *tab_bar;
     QLabel *frame_label;
     QLabel *thumb_labels[NUM_THUMBNAILS];
     QSlider *frame_slider;

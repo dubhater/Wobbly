@@ -2397,6 +2397,13 @@ void WobblyWindow::createUI() {
 
     drawColorBars();
 
+    tab_bar = new QTabBar;
+    tab_bar->addTab(QStringLiteral("Source"));
+    tab_bar->addTab(QStringLiteral("Preview"));
+    tab_bar->setExpanding(false);
+    tab_bar->setEnabled(false);
+    tab_bar->setFocusPolicy(Qt::NoFocus);
+
     frame_label = new QLabel;
     frame_label->setAlignment(Qt::AlignCenter);
     frame_label->setPixmap(QPixmap::fromImage(splash_image));
@@ -2420,6 +2427,9 @@ void WobblyWindow::createUI() {
     frame_slider->setFocusPolicy(Qt::NoFocus);
 
 
+    connect(tab_bar, &QTabBar::currentChanged, this, &WobblyWindow::togglePreview);
+
+
     connect(frame_slider, &QSlider::valueChanged, [this] (int value) {
         if (!project)
             return;
@@ -2429,6 +2439,8 @@ void WobblyWindow::createUI() {
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(tab_bar);
+
     vbox->addWidget(frame_scroll);
 
     QHBoxLayout *hbox = new QHBoxLayout;
@@ -3052,6 +3064,8 @@ void WobblyWindow::updateFadesWindow() {
 
 void WobblyWindow::initialiseUIFromProject() {
     updateWindowTitle();
+
+    tab_bar->setEnabled(true);
 
     frame_slider->setRange(0, project->getNumFrames(PostSource) - 1);
     frame_slider->setPageStep(project->getNumFrames(PostSource) * 20 / 100);
@@ -4510,6 +4524,10 @@ void WobblyWindow::togglePreview() {
         errorPopup(e.what());
         preview = !preview;
     }
+
+    tab_bar->blockSignals(true);
+    tab_bar->setCurrentIndex((int)preview);
+    tab_bar->blockSignals(false);
 }
 
 
