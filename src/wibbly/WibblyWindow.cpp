@@ -65,6 +65,9 @@ WibblyWindow::WibblyWindow()
     , frames_left(0)
     , aborted(false)
     , request_count(0)
+#ifdef _WIN32
+    , settings(QApplication::applicationDirPath() + "/wibbly.ini", QSettings::IniFormat)
+#endif
 {
     createUI();
 

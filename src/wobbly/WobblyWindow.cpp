@@ -62,6 +62,9 @@ WobblyWindow::WobblyWindow()
     , range_end(-1)
     , selected_preset(-1)
     , selected_custom_list(-1)
+#ifdef _WIN32
+    , settings(QApplication::applicationDirPath() + "/wobbly.ini", QSettings::IniFormat)
+#endif
     , vsapi(nullptr)
     , vsscript(nullptr)
     , vscore(nullptr)

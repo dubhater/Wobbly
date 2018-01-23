@@ -19,6 +19,7 @@ SOFTWARE.
 
 
 #include <QApplication>
+#include <QFileInfo>
 
 #include "WibblyWindow.h"
 
@@ -40,6 +41,26 @@ int main(int argv, char **args) {
 
     app.setOrganizationName("wobbly");
     app.setApplicationName("wibbly");
+
+#ifdef _WIN32
+    QString wibbly_ini = QApplication::applicationDirPath() + "/wibbly.ini";
+
+    if (!QFileInfo::exists(wibbly_ini)) {
+        // Migrate the settings from the registry to ini file next to wibbly.exe
+
+        QSettings old_settings;
+
+        QStringList keys = old_settings.allKeys();
+        if (keys.size()) {
+            QSettings new_settings(wibbly_ini, QSettings::IniFormat);
+
+            for (const QString &key : keys)
+                new_settings.setValue(key, old_settings.value(key));
+
+            old_settings.clear();
+        }
+    }
+#endif
 
     WibblyWindow w;
 

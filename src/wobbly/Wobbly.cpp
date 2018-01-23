@@ -19,6 +19,7 @@ SOFTWARE.
 
 
 #include <QApplication>
+#include <QFileInfo>
 
 #include "WobblyWindow.h"
 
@@ -40,6 +41,26 @@ int main(int argv, char **args) {
 
     app.setOrganizationName("wobbly");
     app.setApplicationName("wobbly");
+
+#ifdef _WIN32
+    QString wobbly_ini = QApplication::applicationDirPath() + "/wobbly.ini";
+
+    if (!QFileInfo::exists(wobbly_ini)) {
+        // Migrate the settings from the registry to ini file next to wobbly.exe
+
+        QSettings old_settings;
+
+        QStringList keys = old_settings.allKeys();
+        if (keys.size()) {
+            QSettings new_settings(wobbly_ini, QSettings::IniFormat);
+
+            for (const QString &key : keys)
+                new_settings.setValue(key, old_settings.value(key));
+
+            old_settings.clear();
+        }
+    }
+#endif
 
     WobblyWindow w;
 
