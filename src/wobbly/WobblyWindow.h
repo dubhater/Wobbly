@@ -40,8 +40,10 @@ SOFTWARE.
 #include <VSScript.h>
 
 #include "DockWidget.h"
+#include "FrameLabel.h"
 #include "ImportWindow.h"
 #include "ListWidget.h"
+#include "OverlayLabel.h"
 #include "PresetTextEdit.h"
 #include "TableWidget.h"
 #include "WobblyProject.h"
@@ -69,8 +71,9 @@ private:
 
     DockWidget *details_dock;
     QTabBar *tab_bar;
-    QLabel *frame_label;
+    FrameLabel *frame_label;
     QLabel *thumb_labels[NUM_THUMBNAILS];
+    OverlayLabel *overlay_label;
     QSlider *frame_slider;
 
     QLabel *frame_num_label;
@@ -148,6 +151,7 @@ private:
     QCheckBox *settings_compact_projects_check;
     QComboBox *settings_colormatrix_combo;
     QSpinBox *settings_cache_spin;
+    QCheckBox *settings_print_details_check;
     TableWidget *settings_shortcuts_table;
 
     ImportWindow *import_window;
@@ -353,6 +357,8 @@ public slots:
     void showHideMicSearchWindow();
     void showHideCMatchSequencesWindow();
     void showHideFadesWindow();
+
+    void showHideFrameDetailsOnVideo();
 
     void presetChanged(const QString &text);
     void presetEdited();

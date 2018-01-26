@@ -140,6 +140,8 @@ void WobblyWindow::readSettings() {
     if (settings.contains("user_interface/maximum_cache_size"))
         settings_cache_spin->setValue(settings.value("user_interface/maximum_cache_size").toInt());
 
+    settings_print_details_check->setChecked(settings.value("user_interface/print_details_on_video", true).toBool());
+
     settings_shortcuts_table->setRowCount(shortcuts.size());
     for (size_t i = 0; i < shortcuts.size(); i++) {
         QString settings_key = "user_interface/keys/" + shortcuts[i].description;
@@ -376,6 +378,8 @@ void WobblyWindow::createShortcuts() {
         { "", "",                   "Show or hide C match sequences window", &WobblyWindow::showHideCMatchSequencesWindow },
         { "", "",                   "Show or hide interlaced fades window", &WobblyWindow::showHideFadesWindow },
 
+        { "", "",                   "Show or hide frame details printed on the video", &WobblyWindow::showHideFrameDetailsOnVideo },
+
         { "", "Left",               "Jump 1 frame back", &WobblyWindow::jump1Backward },
         { "", "Right",              "Jump 1 frame forward", &WobblyWindow::jump1Forward },
         { "", "Ctrl+Left",          "Jump 5 frames back", &WobblyWindow::jump5Backward },
@@ -441,7 +445,9 @@ void WobblyWindow::createFrameDetailsViewer() {
     matches_label->setTextFormat(Qt::RichText);
     matches_label->resize(QFontMetrics(matches_label->font()).width("CCCCCCCCCCCCCCCCCCCCC"), matches_label->height());
     section_label = new QLabel;
+    section_label->setTextFormat(Qt::RichText);
     custom_list_label = new QLabel;
+    custom_list_label->setTextFormat(Qt::RichText);
     freeze_label = new QLabel;
     decimate_metric_label = new QLabel;
     mic_label = new QLabel;
@@ -465,11 +471,12 @@ void WobblyWindow::createFrameDetailsViewer() {
 
     details_dock = new DockWidget("Frame details", this);
     details_dock->setObjectName("frame details");
-    details_dock->setFloating(false);
+    details_dock->setVisible(false);
+    details_dock->setFloating(true);
     details_dock->setWidget(details_widget);
     addDockWidget(Qt::LeftDockWidgetArea, details_dock);
     tools_menu->addAction(details_dock->toggleViewAction());
-    //connect(details_dock, &QDockWidget::visibilityChanged, details_dock, &QDockWidget::setEnabled);
+    connect(details_dock, &QDockWidget::visibilityChanged, details_dock, &QDockWidget::setEnabled);
 }
 
 
@@ -2151,6 +2158,8 @@ void WobblyWindow::createSettingsWindow() {
     settings_cache_spin->setPrefix(QStringLiteral("Maximum cache size: "));
     settings_cache_spin->setSuffix(QStringLiteral(" MiB"));
 
+    settings_print_details_check = new QCheckBox(QStringLiteral("Print frame details on top of the video"));
+
     settings_shortcuts_table = new TableWidget(0, 3, this);
     settings_shortcuts_table->setHorizontalHeaderLabels({ "Current", "Default", "Description" });
 
@@ -2186,6 +2195,12 @@ void WobblyWindow::createSettingsWindow() {
 
     connect(settings_cache_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
         settings.setValue("user_interface/maximum_cache_size", value);
+    });
+
+    connect(settings_print_details_check, &QCheckBox::toggled, [this] (bool checked) {
+        settings.setValue("user_interface/print_details_on_video", checked);
+
+        updateFrameDetails();
     });
 
     connect(settings_shortcuts_table, &TableWidget::cellDoubleClicked, settings_shortcut_edit, static_cast<void (QLineEdit::*)()>(&QLineEdit::setFocus));
@@ -2270,6 +2285,11 @@ void WobblyWindow::createSettingsWindow() {
 
     hbox = new QHBoxLayout;
     hbox->addWidget(settings_cache_spin);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(settings_print_details_check);
     hbox->addStretch(1);
     vbox->addLayout(hbox);
 
@@ -2404,7 +2424,7 @@ void WobblyWindow::createUI() {
     tab_bar->setEnabled(false);
     tab_bar->setFocusPolicy(Qt::NoFocus);
 
-    frame_label = new QLabel;
+    frame_label = new FrameLabel;
     frame_label->setAlignment(Qt::AlignCenter);
     frame_label->setPixmap(QPixmap::fromImage(splash_image));
 
@@ -2422,12 +2442,18 @@ void WobblyWindow::createUI() {
     frame_scroll->setWidgetResizable(true);
     frame_scroll->setWidget(frame_label);
 
+    overlay_label = new OverlayLabel;
+    overlay_label->setAttribute(Qt::WA_TransparentForMouseEvents);
+
     frame_slider = new QSlider(Qt::Horizontal);
     frame_slider->setTracking(false);
     frame_slider->setFocusPolicy(Qt::NoFocus);
 
 
     connect(tab_bar, &QTabBar::currentChanged, this, &WobblyWindow::togglePreview);
+
+
+    connect(frame_label, &FrameLabel::pixmapSizeChanged, overlay_label, &OverlayLabel::setFramePixmapSize);
 
 
     connect(frame_slider, &QSlider::valueChanged, [this] (int value) {
@@ -2456,6 +2482,10 @@ void WobblyWindow::createUI() {
     central_widget->setLayout(vbox);
 
     setCentralWidget(central_widget);
+
+    vbox = new QVBoxLayout;
+    vbox->addWidget(overlay_label);
+    frame_scroll->setLayout(vbox);
 
 
     presets_model = new QStringListModel(this);
@@ -3564,6 +3594,11 @@ void WobblyWindow::showHideFadesWindow() {
 }
 
 
+void WobblyWindow::showHideFrameDetailsOnVideo() {
+    settings_print_details_check->setChecked(!settings_print_details_check->isChecked());
+}
+
+
 void WobblyWindow::evaluateScript(bool final_script) {
     std::string script;
 
@@ -3765,6 +3800,9 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
 
 
 void WobblyWindow::updateFrameDetails() {
+    if (!project)
+        return;
+
     QString frame("Frame: ");
 
     if (!preview)
@@ -3854,9 +3892,9 @@ void WobblyWindow::updateFrameDetails() {
     }
 
     if (presets.isNull())
-        presets = "<none>";
+        presets = "&lt;none&gt;";
 
-    section_label->setText(QStringLiteral("Section: [%1,%2]\nPresets:\n%3").arg(section_start).arg(section_end).arg(presets));
+    section_label->setText(QStringLiteral("Section: [%1,%2]<br />Presets:<br />%3").arg(section_start).arg(section_end).arg(presets));
 
 
     QString custom_lists;
@@ -3871,9 +3909,9 @@ void WobblyWindow::updateFrameDetails() {
     }
 
     if (custom_lists.isNull())
-        custom_lists = "<none>";
+        custom_lists = "&lt;none&gt;";
 
-    custom_list_label->setText(QStringLiteral("Custom lists:\n%1").arg(custom_lists));
+    custom_list_label->setText(QStringLiteral("Custom lists:<br />%1").arg(custom_lists));
 
 
     const FreezeFrame *freeze = project->findFreezeFrame(current_frame);
@@ -3881,6 +3919,23 @@ void WobblyWindow::updateFrameDetails() {
         freeze_label->setText(QStringLiteral("Frozen: [%1,%2,%3]").arg(freeze->first).arg(freeze->last).arg(freeze->replacement));
     else
         freeze_label->clear();
+
+
+    if (settings_print_details_check->isChecked()) {
+        QString drawn_text = frame_num_label->text() + "<br />";
+        drawn_text += time_label->text() + "<br />";
+        drawn_text += matches_label->text() + "<br />";
+        drawn_text += section_label->text() + "<br />";
+        drawn_text += custom_list_label->text() + "<br />";
+        drawn_text += freeze_label->text() + "<br />";
+        drawn_text += decimate_metric_label->text() + "<br />";
+        drawn_text += mic_label->text() + "<br />";
+        drawn_text += combed_label->text();
+
+        overlay_label->setText(drawn_text);
+    } else {
+        overlay_label->clear();
+    }
 }
 
 
