@@ -211,7 +211,7 @@ int WobblyProject::getNumFrames(PositionInFilterChain position) const {
     else if (position == PostDecimate)
         return num_frames[1];
     else
-        throw WobblyException("Can't set the number of frames for position " + std::to_string(position) + ": invalid position.");
+        throw WobblyException("Can't get the number of frames for position " + std::to_string(position) + ": invalid position.");
 }
 
 
