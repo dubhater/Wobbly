@@ -207,7 +207,6 @@ private:
     VSScript *vsscript;
     VSCore *vscore;
     VSNodeRef *vsnode[2];
-    const VSFrameRef *vsframes[NUM_THUMBNAILS];
 
 
     // Functions

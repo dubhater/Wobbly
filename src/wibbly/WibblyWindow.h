@@ -106,7 +106,6 @@ class WibblyWindow : public QMainWindow
     VSCore *vscore;
     VSNodeRef *vsnode;
     const VSVideoInfo *vsvi;
-    const VSFrameRef *vsframe;
 
 
     // Other stuff.

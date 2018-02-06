@@ -55,7 +55,6 @@ WibblyWindow::WibblyWindow()
     , vscore(nullptr)
     , vsnode(nullptr)
     , vsvi(nullptr)
-    , vsframe(nullptr)
     , current_frame(0)
     , trim_start(-1)
     , trim_end(-1)
@@ -152,8 +151,6 @@ void WibblyWindow::initialiseVapourSynth() {
 
 void WibblyWindow::cleanUpVapourSynth() {
     video_frame_label->setPixmap(QPixmap());
-    vsapi->freeFrame(vsframe);
-    vsframe = nullptr;
 
     vsapi->freeNode(vsnode);
     vsnode = nullptr;
@@ -1220,8 +1217,6 @@ void WibblyWindow::evaluateFinalScript(int job_index) {
     vsvi = vsapi->getVideoInfo(vsnode);
 
     video_frame_label->setPixmap(QPixmap());
-    vsapi->freeFrame(vsframe);
-    vsframe = nullptr;
 }
 
 
@@ -1328,12 +1323,9 @@ void WibblyWindow::displayFrame(int n) {
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32).mirrored(false, true));
+    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32, (QImageCleanupFunction)vsapi->freeFrame, (void *)frame).mirrored(false, true));
 
     video_frame_label->setPixmap(pixmap);
-    // Must free the frame only after replacing the pixmap.
-    vsapi->freeFrame(vsframe);
-    vsframe = frame;
 
     current_frame = n;
 

@@ -69,7 +69,6 @@ WobblyWindow::WobblyWindow()
     , vsscript(nullptr)
     , vscore(nullptr)
     , vsnode{nullptr, nullptr}
-    , vsframes{ }
 {
     createUI();
 
@@ -2580,11 +2579,8 @@ void WobblyWindow::initialiseVapourSynth() {
 
 void WobblyWindow::cleanUpVapourSynth() {
     frame_label->setPixmap(QPixmap());
-    for (int i = 0; i < NUM_THUMBNAILS; i++) {
+    for (int i = 0; i < NUM_THUMBNAILS; i++)
         thumb_labels[i]->setPixmap(QPixmap());
-        vsapi->freeFrame(vsframes[i]);
-        vsframes[i] = nullptr;
-    }
 
     for (int i = 0; i < 2; i++) {
         vsapi->freeNode(vsnode[i]);
@@ -3772,7 +3768,7 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QImage image(ptr, width, height, stride, QImage::Format_RGB32);
+    QImage image(ptr, width, height, stride, QImage::Format_RGB32, (QImageCleanupFunction)vsapi->freeFrame, (void *)frame);
     QPixmap pixmap = QPixmap::fromImage(image.mirrored(false, true));
 
     int offset;
@@ -3789,9 +3785,6 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
     pixmap = pixmap.scaled(pixmap.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
     thumb_labels[offset + NUM_THUMBNAILS / 2]->setPixmap(pixmap);
-    // Must free the frame only after replacing the pixmap.
-    vsapi->freeFrame(vsframes[offset + NUM_THUMBNAILS / 2]);
-    vsframes[offset + NUM_THUMBNAILS / 2] = frame;
 
     if (!pending_requests && pending_frame != current_frame)
         requestFrames(current_frame);
