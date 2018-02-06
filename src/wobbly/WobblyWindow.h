@@ -323,6 +323,7 @@ public slots:
     void freezeRange();
 
     void deleteFreezeFrame();
+    void toggleFreezeFrames();
 
     void cycleMatchBCN();
 

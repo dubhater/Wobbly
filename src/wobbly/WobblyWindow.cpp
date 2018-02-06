@@ -399,6 +399,7 @@ void WobblyWindow::createShortcuts() {
         { "", "Shift+F",            "Replace current frame with previous", &WobblyWindow::freezeBackward },
         { "", "F",                  "Freeze current frame or a range", &WobblyWindow::freezeRange },
         { "", "Q",                  "Delete freezeframe", &WobblyWindow::deleteFreezeFrame },
+        { "", "",                   "Toggle all freezeframes in the source tab", &WobblyWindow::toggleFreezeFrames },
         { "", "D",                  "Toggle decimation for the current frame", &WobblyWindow::toggleDecimation },
         { "", "I",                  "Start new section at current frame", &WobblyWindow::addSection },
         { "", "Ctrl+Q",             "Delete current section", &WobblyWindow::deleteSection },
@@ -3907,10 +3908,18 @@ void WobblyWindow::updateFrameDetails() {
 
 
     const FreezeFrame *freeze = project->findFreezeFrame(current_frame);
-    if (freeze)
-        freeze_label->setText(QStringLiteral("Frozen: [%1,%2,%3]").arg(freeze->first).arg(freeze->last).arg(freeze->replacement));
-    else
+    if (freeze) {
+        QString strike_open, strike_close;
+
+        if (!project->getFreezeFramesWanted() && !preview) {
+            strike_open = "<s>";
+            strike_close = "</s>";
+        }
+
+        freeze_label->setText(QStringLiteral("%1Frozen: [%2,%3,%4]%5").arg(strike_open).arg(freeze->first).arg(freeze->last).arg(freeze->replacement).arg(strike_close));
+    } else {
         freeze_label->clear();
+    }
 
 
     if (settings_print_details_check->isChecked()) {
@@ -4186,6 +4195,22 @@ void WobblyWindow::deleteFreezeFrame() {
 
         updateFrozenFramesViewer();
 
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+        }
+    }
+}
+
+
+void WobblyWindow::toggleFreezeFrames() {
+    if (!project)
+        return;
+
+    project->setFreezeFramesWanted(!project->getFreezeFramesWanted());
+
+    if (!preview) {
         try {
             evaluateMainDisplayScript();
         } catch (WobblyException &e) {

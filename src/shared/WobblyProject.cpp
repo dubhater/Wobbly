@@ -179,6 +179,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
+    , freeze_frames_wanted(true)
 {
 
 }
@@ -2331,6 +2332,16 @@ void WobblyProject::setSourceFilter(const std::string &filter) {
 }
 
 
+bool WobblyProject::getFreezeFramesWanted() const {
+    return freeze_frames_wanted;
+}
+
+
+void WobblyProject::setFreezeFramesWanted(bool wanted) {
+    freeze_frames_wanted = wanted;
+}
+
+
 int WobblyProject::getZoom() const {
     return zoom;
 }
@@ -3230,7 +3241,7 @@ std::string WobblyProject::generateMainDisplayScript() const {
 
     fieldHintToScript(script);
 
-    if (frozen_frames.size())
+    if (frozen_frames.size() && freeze_frames_wanted)
         freezeFramesToScript(script);
 
     setOutputToScript(script);

@@ -272,6 +272,8 @@ class WobblyProject {
 
         std::string source_filter;
 
+        bool freeze_frames_wanted;
+
         // Only functions below.
 
         void setNumFrames(PositionInFilterChain position, int frames);
@@ -408,6 +410,10 @@ class WobblyProject {
 
         const std::string &getSourceFilter() const;
         void setSourceFilter(const std::string &filter);
+
+
+        bool getFreezeFramesWanted() const;
+        void setFreezeFramesWanted(bool wanted);
 
 
         int getZoom() const;
