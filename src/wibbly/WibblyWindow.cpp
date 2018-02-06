@@ -444,26 +444,24 @@ void WibblyWindow::createMainWindow() {
         const Crop &crop = job.getCrop();
         int crop_values[4] = { crop.left, crop.top, crop.right, crop.bottom };
         for (int i = 0; i < 4; i++) {
-            crop_spin[i]->blockSignals(true);
+            QSignalBlocker block(crop_spin[i]);
             crop_spin[i]->setValue(crop_values[i]);
-            crop_spin[i]->blockSignals(false);
         }
 
-        fades_threshold_spin->blockSignals(true);
-        fades_threshold_spin->setValue(job.getFadesThreshold());
-        fades_threshold_spin->blockSignals(false);
+        {
+            QSignalBlocker block(fades_threshold_spin);
+            fades_threshold_spin->setValue(job.getFadesThreshold());
+        }
 
         for (size_t i = 0; i < vfm_params.size(); i++) {
             if (vfm_params[i].type == VIVTCParamInt) {
                 QSpinBox *spin = reinterpret_cast<QSpinBox *>(vfm_params[i].widget);
-                spin->blockSignals(true);
+                QSignalBlocker block(spin);
                 spin->setValue(job.getVFMParameterInt(vfm_params[i].name.toStdString()));
-                spin->blockSignals(false);
             } else if (vfm_params[i].type == VIVTCParamDouble) {
                 QDoubleSpinBox *spin = reinterpret_cast<QDoubleSpinBox *>(vfm_params[i].widget);
-                spin->blockSignals(true);
+                QSignalBlocker block(spin);
                 spin->setValue(job.getVFMParameterDouble(vfm_params[i].name.toStdString()));
-                spin->blockSignals(false);
             } else if (vfm_params[i].type == VIVTCParamBool) {
                 QCheckBox *check = reinterpret_cast<QCheckBox *>(vfm_params[i].widget);
                 check->setChecked(job.getVFMParameterBool(vfm_params[i].name.toStdString()));
@@ -535,16 +533,16 @@ void WibblyWindow::createMainWindow() {
     connect(main_remove_jobs_button, &QPushButton::clicked, [this] () {
         auto selection = main_jobs_list->selectedItems();
 
-        main_jobs_list->blockSignals(true);
+        {
+            QSignalBlocker block(main_jobs_list);
 
-        for (int i = selection.size() - 1; i >= 0; i--) {
-            int row = main_jobs_list->row(selection[i]);
+            for (int i = selection.size() - 1; i >= 0; i--) {
+                int row = main_jobs_list->row(selection[i]);
 
-            jobs.erase(jobs.cbegin() + row);
-            delete main_jobs_list->takeItem(row);
+                jobs.erase(jobs.cbegin() + row);
+                delete main_jobs_list->takeItem(row);
+            }
         }
-
-        main_jobs_list->blockSignals(false);
     });
 
     connect(main_copy_jobs_button, &QPushButton::clicked, [this] () {
@@ -1288,17 +1286,18 @@ void WibblyWindow::evaluateDisplayScript() {
 
     video_frame_spin->setMaximum(vsvi->numFrames - 1);
 
-    video_time_edit->blockSignals(true);
-    video_time_edit->setTime(QTime(0, 0, 0, 0));
-    if (vsvi->fpsNum && vsvi->fpsDen) {
-        int milliseconds = (int)(((vsvi->numFrames - 1) * vsvi->fpsDen * 1000 / vsvi->fpsNum) % 1000);
-        int seconds_total = (int)((vsvi->numFrames - 1) * vsvi->fpsDen / vsvi->fpsNum);
-        int seconds = seconds_total % 60;
-        int minutes = (seconds_total / 60) % 60;
-        int hours = seconds_total / 3600;
-        video_time_edit->setMaximumTime(QTime(hours, minutes, seconds, milliseconds));
+    {
+        QSignalBlocker block(video_time_edit);
+        video_time_edit->setTime(QTime(0, 0, 0, 0));
+        if (vsvi->fpsNum && vsvi->fpsDen) {
+            int milliseconds = (int)(((vsvi->numFrames - 1) * vsvi->fpsDen * 1000 / vsvi->fpsNum) % 1000);
+            int seconds_total = (int)((vsvi->numFrames - 1) * vsvi->fpsDen / vsvi->fpsNum);
+            int seconds = seconds_total % 60;
+            int minutes = (seconds_total / 60) % 60;
+            int hours = seconds_total / 3600;
+            video_time_edit->setMaximumTime(QTime(hours, minutes, seconds, milliseconds));
+        }
     }
-    video_time_edit->blockSignals(false);
 
     video_frame_slider->setMaximum(vsvi->numFrames - 1);
     video_frame_slider->setPageStep(vsvi->numFrames * 20 / 100);
@@ -1338,9 +1337,10 @@ void WibblyWindow::displayFrame(int n) {
 
     current_frame = n;
 
-    video_frame_spin->blockSignals(true);
-    video_frame_spin->setValue(n);
-    video_frame_spin->blockSignals(false);
+    {
+        QSignalBlocker block(video_frame_spin);
+        video_frame_spin->setValue(n);
+    }
 
     if (vsvi->fpsNum && vsvi->fpsDen) {
         int milliseconds = (int)((n * vsvi->fpsDen * 1000 / vsvi->fpsNum) % 1000);
@@ -1348,14 +1348,17 @@ void WibblyWindow::displayFrame(int n) {
         int seconds = seconds_total % 60;
         int minutes = (seconds_total / 60) % 60;
         int hours = seconds_total / 3600;
-        video_time_edit->blockSignals(true);
-        video_time_edit->setTime(QTime(hours, minutes, seconds, milliseconds));
-        video_time_edit->blockSignals(false);
+
+        {
+            QSignalBlocker block(video_time_edit);
+            video_time_edit->setTime(QTime(hours, minutes, seconds, milliseconds));
+        }
     }
 
-    video_frame_slider->blockSignals(true);
-    video_frame_slider->setValue(n);
-    video_frame_slider->blockSignals(false);
+    {
+        QSignalBlocker block(video_frame_slider);
+        video_frame_slider->setValue(n);
+    }
 }
 
 

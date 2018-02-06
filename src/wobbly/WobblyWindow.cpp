@@ -2698,36 +2698,31 @@ void WobblyWindow::updateWindowTitle() {
 
 void WobblyWindow::initialiseCropAssistant() {
     // Crop.
-    for (int i = 0; i < 4; i++)
-        crop_spin[i]->blockSignals(true);
-
     const Crop &crop = project->getCrop();
-    crop_spin[0]->setValue(crop.left);
-    crop_spin[1]->setValue(crop.top);
-    crop_spin[2]->setValue(crop.right);
-    crop_spin[3]->setValue(crop.bottom);
+    int crop_values[4] = { crop.left, crop.top, crop.right, crop.bottom };
 
-    for (int i = 0; i < 4; i++)
-        crop_spin[i]->blockSignals(false);
+    for (int i = 0; i < 4; i++) {
+        QSignalBlocker block(crop_spin[i]);
+        crop_spin[i]->setValue(crop_values[i]);
+    }
 
     crop_box->setChecked(project->isCropEnabled());
     crop_early_check->setChecked(project->isCropEarly());
 
 
     // Resize.
-    for (int i = 0; i < 2; i++)
-        resize_spin[i]->blockSignals(true);
-
     const Resize &resize = project->getResize();
-    resize_spin[0]->setValue(resize.width);
-    resize_spin[1]->setValue(resize.height);
+    int resize_values[2] = { resize.width, resize.height };
 
-    for (int i = 0; i < 2; i++)
-        resize_spin[i]->blockSignals(false);
+    for (int i = 0; i < 2; i++) {
+        QSignalBlocker block(resize_spin[i]);
+        resize_spin[i]->setValue(resize_values[i]);
+    }
 
-    resize_box->blockSignals(true);
-    resize_box->setChecked(project->isResizeEnabled());
-    resize_box->blockSignals(false);
+    {
+        QSignalBlocker block(resize_box);
+        resize_box->setChecked(project->isResizeEnabled());
+    }
 
     QString filter = QString::fromStdString(resize.filter);
     filter[0] = filter[0].toUpper();
@@ -2746,9 +2741,10 @@ void WobblyWindow::initialiseCropAssistant() {
         { "error_diffusion", 3 }
     };
     const Depth &depth = project->getBitDepth();
-    depth_box->blockSignals(true);
-    depth_box->setChecked(depth.enabled);
-    depth_box->blockSignals(false);
+    {
+        QSignalBlocker block(depth_box);
+        depth_box->setChecked(depth.enabled);
+    }
     depth_bits_combo->setCurrentIndex(bits_to_index[(int)depth.float_samples][depth.bits]);
     depth_dither_combo->setCurrentIndex(dither_to_index[depth.dither]);
 }
@@ -3006,9 +3002,10 @@ void WobblyWindow::initialisePatternGuessingWindow() {
 
 
 void WobblyWindow::initialiseMicSearchWindow() {
-    mic_search_minimum_spin->blockSignals(true);
-    mic_search_minimum_spin->setValue(project->getMicSearchMinimum());
-    mic_search_minimum_spin->blockSignals(false);
+    {
+        QSignalBlocker block(mic_search_minimum_spin);
+        mic_search_minimum_spin->setValue(project->getMicSearchMinimum());
+    }
 }
 
 
@@ -3039,9 +3036,10 @@ void WobblyWindow::updateCMatchSequencesWindow() {
 
 
 void WobblyWindow::initialiseCMatchSequencesWindow() {
-    c_match_minimum_spin->blockSignals(true);
-    c_match_minimum_spin->setValue(project->getCMatchSequencesMinimum());
-    c_match_minimum_spin->blockSignals(false);
+    {
+        QSignalBlocker block(c_match_minimum_spin);
+        c_match_minimum_spin->setValue(project->getCMatchSequencesMinimum());
+    }
 
     updateCMatchSequencesWindow();
 }
@@ -3726,9 +3724,10 @@ void WobblyWindow::requestFrames(int n) {
 
     current_frame = n;
 
-    frame_slider->blockSignals(true);
-    frame_slider->setValue(n);
-    frame_slider->blockSignals(false);
+    {
+        QSignalBlocker block(frame_slider);
+        frame_slider->setValue(n);
+    }
 
     updateFrameDetails();
 
@@ -4580,9 +4579,10 @@ void WobblyWindow::togglePreview() {
         preview = !preview;
     }
 
-    tab_bar->blockSignals(true);
-    tab_bar->setCurrentIndex((int)preview);
-    tab_bar->blockSignals(false);
+    {
+        QSignalBlocker block(tab_bar);
+        tab_bar->setCurrentIndex((int)preview);
+    }
 }
 
 
