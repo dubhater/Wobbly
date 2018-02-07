@@ -1449,7 +1449,9 @@ void WibblyWindow::startNextJob() {
         return;
     }
 
-    main_progress_dialog->setLabelText(QStringLiteral("Job %1/%2:\n%3").arg(current_job + 1).arg(jobs.size()).arg(QString::fromStdString(job.getOutputFile())));
+    progress_dialog_label_text = QStringLiteral("Job %1/%2:\n%3").arg(current_job + 1).arg(jobs.size()).arg(QString::fromStdString(job.getOutputFile()));
+
+    main_progress_dialog->setLabelText(progress_dialog_label_text + "\n\n");
     main_progress_dialog->setMinimum(0);
     main_progress_dialog->setMaximum(vsvi->numFrames);
     main_progress_dialog->setValue(0);
@@ -1462,6 +1464,8 @@ void WibblyWindow::startNextJob() {
     frames_left = vsvi->numFrames;
 
     next_frame = 0;
+    elapsed_timer.start();
+    update_timer.start();
     for (int i = 0; i < requests; i++) {
         ++request_count;
         vsapi->getFrameAsync(next_frame, vsnode, frameDoneCallback, (void *)this);
@@ -1520,7 +1524,31 @@ void WibblyWindow::frameDone(void *frame_v, int n, const QString &error_msg) {
 
             frames_left--;
 
-            QMetaObject::invokeMethod(main_progress_dialog, "setValue", Qt::QueuedConnection, Q_ARG(int, vsvi->numFrames - frames_left));
+            // Speed and time remaining updated every five seconds,
+            // or as long as it takes to process a frames, whichever is larger.
+            if (update_timer.elapsed() >= 5000) {
+                update_timer.start();
+
+                qint64 elapsed_milliseconds = elapsed_timer.elapsed();
+                double frames_per_second = (double)(vsvi->numFrames - frames_left) * 1000 / elapsed_milliseconds;
+                int seconds_left = (int)(frames_left / frames_per_second);
+                int minutes_left = seconds_left / 60;
+                seconds_left = seconds_left % 60;
+                int hours_left = minutes_left / 60;
+                minutes_left = minutes_left % 60;
+
+                QMetaObject::invokeMethod(
+                            main_progress_dialog,
+                            "setLabelText",
+                            Qt::QueuedConnection,
+                            Q_ARG(QString, QStringLiteral("%1\n\n%2 fps, %3:%4:%5 to finish this job").arg(progress_dialog_label_text).arg(frames_per_second, 0, 'f', 2).arg(hours_left).arg(minutes_left).arg(seconds_left)));
+            }
+
+            QMetaObject::invokeMethod(
+                        main_progress_dialog,
+                        "setValue",
+                        Qt::QueuedConnection,
+                        Q_ARG(int, vsvi->numFrames - frames_left));
 
             if (frames_left == 0) {
                 try {

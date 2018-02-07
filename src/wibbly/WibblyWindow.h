@@ -26,6 +26,7 @@ SOFTWARE.
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QDoubleSpinBox>
+#include <QElapsedTimer>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
@@ -122,6 +123,10 @@ class WibblyWindow : public QMainWindow
     int frames_left;
     bool aborted;
     std::atomic<int> request_count;
+
+    QString progress_dialog_label_text;
+    QElapsedTimer elapsed_timer;
+    QElapsedTimer update_timer;
 
     QSettings settings;
 
