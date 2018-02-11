@@ -28,6 +28,7 @@ wobbly_moc_files = src/wobbly/moc_FrameLabel.cpp \
 				   src/wobbly/moc_ImportWindow.cpp \
 				   src/wobbly/moc_OverlayLabel.cpp \
 				   src/wobbly/moc_PresetTextEdit.cpp \
+				   src/wobbly/moc_SpinBox.cpp \
 				   src/wobbly/moc_TableWidget.cpp \
 				   src/wobbly/moc_WobblyWindow.cpp
 
@@ -86,6 +87,8 @@ wobbly_SOURCES = $(shared_sources) \
 				 src/wobbly/OverlayLabel.h \
 				 src/wobbly/PresetTextEdit.cpp \
 				 src/wobbly/PresetTextEdit.h \
+				 src/wobbly/SpinBox.cpp \
+				 src/wobbly/SpinBox.h \
 				 src/wobbly/TableWidget.cpp \
 				 src/wobbly/TableWidget.h \
 				 src/wobbly/Wobbly.cpp \

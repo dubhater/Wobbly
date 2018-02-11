@@ -45,11 +45,12 @@ SOFTWARE.
 #include "ListWidget.h"
 #include "OverlayLabel.h"
 #include "PresetTextEdit.h"
+#include "SpinBox.h"
 #include "TableWidget.h"
 #include "WobblyProject.h"
 
 
-#define NUM_THUMBNAILS 3
+#define MAX_THUMBNAILS 21
 
 
 class WobblyWindow : public QMainWindow {
@@ -72,7 +73,7 @@ private:
     DockWidget *details_dock;
     QTabBar *tab_bar;
     FrameLabel *frame_label;
-    QLabel *thumb_labels[NUM_THUMBNAILS];
+    QLabel *thumb_labels[MAX_THUMBNAILS];
     OverlayLabel *overlay_label;
     QSlider *frame_slider;
 
@@ -152,6 +153,7 @@ private:
     QComboBox *settings_colormatrix_combo;
     QSpinBox *settings_cache_spin;
     QCheckBox *settings_print_details_check;
+    SpinBox *settings_num_thumbnails_spin;
     TableWidget *settings_shortcuts_table;
 
     ImportWindow *import_window;
@@ -162,6 +164,7 @@ private:
     QStringListModel *presets_model;
 
     QImage splash_image;
+    QPixmap splash_thumb;
 
     QString window_title;
 

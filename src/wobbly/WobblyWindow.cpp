@@ -133,6 +133,8 @@ void WobblyWindow::readSettings() {
 
     settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
 
+    /// Why is it that the default values for some of these settings are kept in this function,
+    /// but for others they are kept in createSettingsWindow ?
     if (settings.contains("user_interface/colormatrix"))
         settings_colormatrix_combo->setCurrentText(settings.value("user_interface/colormatrix").toString());
 
@@ -140,6 +142,8 @@ void WobblyWindow::readSettings() {
         settings_cache_spin->setValue(settings.value("user_interface/maximum_cache_size").toInt());
 
     settings_print_details_check->setChecked(settings.value("user_interface/print_details_on_video", true).toBool());
+
+    settings_num_thumbnails_spin->setValue(settings.value("user_interface/number_of_thumbnails", 3).toInt());
 
     settings_shortcuts_table->setRowCount(shortcuts.size());
     for (size_t i = 0; i < shortcuts.size(); i++) {
@@ -2160,6 +2164,13 @@ void WobblyWindow::createSettingsWindow() {
 
     settings_print_details_check = new QCheckBox(QStringLiteral("Print frame details on top of the video"));
 
+    settings_num_thumbnails_spin = new SpinBox;
+    settings_num_thumbnails_spin->setRange(-1, 21);
+    settings_num_thumbnails_spin->setSingleStep(2);
+    settings_num_thumbnails_spin->setPrefix(QStringLiteral("Number of thumbnails: "));
+    settings_num_thumbnails_spin->setSpecialValueText(QStringLiteral("Number of thumbnails: none"));
+    settings_num_thumbnails_spin->lineEdit()->setReadOnly(true);
+
     settings_shortcuts_table = new TableWidget(0, 3, this);
     settings_shortcuts_table->setHorizontalHeaderLabels({ "Current", "Default", "Description" });
 
@@ -2201,6 +2212,27 @@ void WobblyWindow::createSettingsWindow() {
         settings.setValue("user_interface/print_details_on_video", checked);
 
         updateFrameDetails();
+    });
+
+    connect(settings_num_thumbnails_spin, static_cast<void (SpinBox::*)(int)>(&SpinBox::valueChanged), [this] (int num_thumbnails) {
+        settings.setValue("user_interface/number_of_thumbnails", num_thumbnails);
+
+        int first_visible = (MAX_THUMBNAILS - num_thumbnails) / 2;
+        int last_visible = first_visible + num_thumbnails - 1;
+
+        for (int i = 0; i < MAX_THUMBNAILS; i++) {
+            bool visible = i >= first_visible && i <= last_visible;
+
+            thumb_labels[i]->setVisible(visible);
+
+            if (!visible)
+                thumb_labels[i]->setPixmap(QPixmap());
+
+            if (visible && !project)
+                thumb_labels[i]->setPixmap(splash_thumb);
+        }
+
+        requestFrames(current_frame);
     });
 
     connect(settings_shortcuts_table, &TableWidget::cellDoubleClicked, settings_shortcut_edit, static_cast<void (QLineEdit::*)()>(&QLineEdit::setFocus));
@@ -2290,6 +2322,11 @@ void WobblyWindow::createSettingsWindow() {
 
     hbox = new QHBoxLayout;
     hbox->addWidget(settings_print_details_check);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(settings_num_thumbnails_spin);
     hbox->addStretch(1);
     vbox->addLayout(hbox);
 
@@ -2395,6 +2432,8 @@ void WobblyWindow::drawColorBars() {
     drawRect(528, 360,  25, 120,  25,  25,  25);
     drawRect(553, 360,  77, 120,  16,  16,  16);
     drawRect(630, 360,  90, 120,  49,  49,  49);
+
+    splash_thumb = QPixmap::fromImage(splash_image.scaled(splash_image.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 }
 
 
@@ -2428,10 +2467,11 @@ void WobblyWindow::createUI() {
     frame_label->setAlignment(Qt::AlignCenter);
     frame_label->setPixmap(QPixmap::fromImage(splash_image));
 
-    for (int i = 0; i < NUM_THUMBNAILS; i++) {
+    for (int i = 0; i < MAX_THUMBNAILS; i++) {
         thumb_labels[i] = new QLabel;
         thumb_labels[i]->setAlignment(Qt::AlignCenter);
-        thumb_labels[i]->setPixmap(QPixmap::fromImage(splash_image.scaled(splash_image.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)));
+        thumb_labels[i]->setPixmap(splash_thumb);
+        thumb_labels[i]->setVisible(false);
     }
 
     ScrollArea *frame_scroll = new ScrollArea;
@@ -2471,7 +2511,7 @@ void WobblyWindow::createUI() {
 
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->addStretch(1);
-    for (int i = 0; i < NUM_THUMBNAILS; i++)
+    for (int i = 0; i < MAX_THUMBNAILS; i++)
         hbox->addWidget(thumb_labels[i]);
     hbox->addStretch(1);
     vbox->addLayout(hbox);
@@ -2580,7 +2620,7 @@ void WobblyWindow::initialiseVapourSynth() {
 
 void WobblyWindow::cleanUpVapourSynth() {
     frame_label->setPixmap(QPixmap());
-    for (int i = 0; i < NUM_THUMBNAILS; i++)
+    for (int i = 0; i < MAX_THUMBNAILS; i++)
         thumb_labels[i]->setPixmap(QPixmap());
 
     for (int i = 0; i < 2; i++) {
@@ -3740,13 +3780,17 @@ void WobblyWindow::requestFrames(int n) {
         last_frame = project->getNumFrames(PostDecimate) - 1;
     }
 
-    // XXX Make it generic.
-    if (frame_num == 0)
-        thumb_labels[0]->setPixmap(QPixmap::fromImage(splash_image.scaled(splash_image.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)));
-    if (frame_num == last_frame)
-        thumb_labels[2]->setPixmap(QPixmap::fromImage(splash_image.scaled(splash_image.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)));
+    int num_thumbnails = settings_num_thumbnails_spin->value();
+    int first_visible = (MAX_THUMBNAILS - num_thumbnails) / 2;
+    int last_visible = first_visible + num_thumbnails - 1;
 
-    for (int i = std::max(0, frame_num - NUM_THUMBNAILS / 2); i < std::min(frame_num + NUM_THUMBNAILS / 2 + 1, last_frame + 1); i++) {
+    for (int i = 0; i < num_thumbnails / 2 - frame_num; i++)
+        thumb_labels[first_visible + i]->setPixmap(splash_thumb);
+
+    for (int i = 0; i < num_thumbnails / 2 - (last_frame - frame_num); i++)
+        thumb_labels[last_visible - i]->setPixmap(splash_thumb);
+
+    for (int i = std::max(0, frame_num - num_thumbnails / 2); i < std::min(frame_num + num_thumbnails / 2 + 1, last_frame + 1); i++) {
         pending_requests++;
         vsapi->getFrameAsync(i, vsnode[(int)preview], frameDoneCallback, (void *)this);
     }
@@ -3785,7 +3829,7 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
 
     pixmap = pixmap.scaled(pixmap.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
-    thumb_labels[offset + NUM_THUMBNAILS / 2]->setPixmap(pixmap);
+    thumb_labels[offset + MAX_THUMBNAILS / 2]->setPixmap(pixmap);
 
     if (!pending_requests && pending_frame != current_frame)
         requestFrames(current_frame);
