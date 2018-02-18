@@ -20,7 +20,8 @@ bin_PROGRAMS = wibbly wobbly
 
 shared_moc_files = src/shared/moc_DockWidget.cpp \
 				   src/shared/moc_ListWidget.cpp \
-				   src/shared/moc_ScrollArea.cpp
+				   src/shared/moc_ScrollArea.cpp \
+				   src/shared/moc_WobblyProject.cpp
 
 wibbly_moc_files = src/wibbly/moc_WibblyWindow.cpp
 

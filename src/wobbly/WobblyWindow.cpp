@@ -191,9 +191,7 @@ void WobblyWindow::errorPopup(const char *msg) {
 
 
 void WobblyWindow::closeEvent(QCloseEvent *event) {
-    // XXX Only ask if the project was modified.
-
-    if (project) {
+    if (project && project->isModified()) {
         QMessageBox::StandardButton answer = QMessageBox::question(this, QStringLiteral("Save?"), QStringLiteral("Save project?"), QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel, QMessageBox::Yes);
 
         if (answer == QMessageBox::Yes) {
@@ -2733,7 +2731,7 @@ void WobblyWindow::updateGeometry() {
 }
 
 void WobblyWindow::updateWindowTitle() {
-    setWindowTitle(QStringLiteral("%1 - %2").arg(window_title).arg(project_path.isEmpty() ? video_path : project_path));
+    setWindowTitle(QStringLiteral("%1 - %2%3").arg(window_title).arg(project->isModified() ? "*" : "").arg(project_path.isEmpty() ? video_path : project_path));
 }
 
 
@@ -3181,6 +3179,8 @@ void WobblyWindow::realOpenProject(const QString &path) {
         vsscript_clearOutput(vsscript, 1);
 
         evaluateMainDisplayScript();
+
+        connect(project, &WobblyProject::modifiedChanged, this, &WobblyWindow::updateWindowTitle);
     } catch (WobblyException &e) {
         errorPopup(e.what());
 
@@ -3259,6 +3259,8 @@ void WobblyWindow::realOpenVideo(const QString &path) {
         evaluateMainDisplayScript();
 
         addRecentFile(path);
+
+        connect(project, &WobblyProject::modifiedChanged, this, &WobblyWindow::updateWindowTitle);
     } catch(WobblyException &e) {
         errorPopup(e.what());
 

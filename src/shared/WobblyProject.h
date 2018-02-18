@@ -33,6 +33,8 @@ SOFTWARE.
 #include <vector>
 #include <string>
 
+#include <QObject>
+
 #include "WobblyException.h"
 
 
@@ -222,7 +224,9 @@ struct ImportedThings {
 };
 
 
-class WobblyProject {
+class WobblyProject : public QObject {
+    Q_OBJECT
+
     private:
         int num_frames[2];
 
@@ -274,6 +278,8 @@ class WobblyProject {
 
         bool freeze_frames_wanted;
 
+        bool is_modified;
+
         // Only functions below.
 
         void setNumFrames(PositionInFilterChain position, int frames);
@@ -289,7 +295,7 @@ class WobblyProject {
 
         int getNumFrames(PositionInFilterChain position) const;
 
-        void writeProject(const std::string &path, bool compact_project) const;
+        void writeProject(const std::string &path, bool compact_project);
         void readProject(const std::string &path);
 
 
@@ -416,6 +422,10 @@ class WobblyProject {
         void setFreezeFramesWanted(bool wanted);
 
 
+        bool isModified() const;
+        void setModified(bool modified);
+
+
         int getZoom() const;
         void setZoom(int ratio);
 
@@ -482,6 +492,9 @@ class WobblyProject {
 
 
         void importFromOtherProject(const std::string &path, const ImportedThings &imports);
+
+    signals:
+        void modifiedChanged(bool modified);
 };
 
 #endif // WOBBLYPROJECT_H

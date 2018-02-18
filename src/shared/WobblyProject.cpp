@@ -180,6 +180,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
     , freeze_frames_wanted(true)
+    , is_modified(false)
 {
 
 }
@@ -203,6 +204,8 @@ WobblyProject::WobblyProject(bool _is_wobbly, const std::string &_input_file, co
     addSection(0);
     resize.width = _width;
     resize.height = _height;
+
+    setModified(false);
 }
 
 
@@ -226,7 +229,7 @@ void WobblyProject::setNumFrames(PositionInFilterChain position, int frames) {
 }
 
 
-void WobblyProject::writeProject(const std::string &path, bool compact_project) const {
+void WobblyProject::writeProject(const std::string &path, bool compact_project) {
     QFile file(QString::fromStdString(path));
 
     if (!file.open(QIODevice::WriteOnly))
@@ -544,6 +547,8 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
     if (file.write(buffer.GetString(), buffer.GetSize()) < 0)
         throw WobblyException("Couldn't write the project to file '" + path + "'. Error message: " + file.errorString().toStdString());
+
+    setModified(false);
 }
 
 
@@ -1324,6 +1329,8 @@ void WobblyProject::readProject(const std::string &path) {
             interlaced_fades.insert({ frame, { frame, field_difference } });
         }
     }
+
+    setModified(false);
 }
 
 
@@ -1354,11 +1361,15 @@ void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
         .replacement = replacement
     };
     frozen_frames.insert(std::make_pair(first, ff));
+
+    setModified(true);
 }
 
 
 void WobblyProject::deleteFreezeFrame(int frame) {
     frozen_frames.erase(frame);
+
+    setModified(true);
 }
 
 
@@ -1417,6 +1428,8 @@ void WobblyProject::addPreset(const std::string &preset_name, const std::string 
     auto ret = presets.insert(std::make_pair(preset_name, preset));
     if (!ret.second)
         throw WobblyException("Can't add preset '" + preset_name + "': preset name already in use.");
+
+    setModified(true);
 }
 
 
@@ -1445,6 +1458,8 @@ void WobblyProject::renamePreset(const std::string &old_name, const std::string 
     for (auto it = custom_lists.begin(); it != custom_lists.end(); it++)
         if (it->preset == old_name)
             it->preset = new_name;
+
+    setModified(true);
 }
 
 
@@ -1460,6 +1475,8 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
     for (auto it = custom_lists.begin(); it != custom_lists.end(); it++)
         if (it->preset == preset_name)
             it->preset.clear();
+
+    setModified(true);
 }
 
 
@@ -1490,6 +1507,8 @@ void WobblyProject::setPresetContents(const std::string &preset_name, const std:
 
     Preset &preset = presets.at(preset_name);
     preset.contents = preset_contents;
+
+    setModified(true);
 }
 
 
@@ -1667,6 +1686,8 @@ void WobblyProject::cycleMatchBCN(int frame) {
     }
 
     setMatch(frame, match);
+
+    setModified(true);
 }
 
 
@@ -1703,6 +1724,8 @@ void WobblyProject::cycleMatch(int frame) {
     }
 
     setMatch(frame, match);
+
+    setModified(true);
 }
 
 
@@ -1717,6 +1740,8 @@ void WobblyProject::addSection(const Section &section) {
         throw WobblyException("Can't add section starting at " + std::to_string(section.start) + ": value out of range.");
 
     sections.insert(std::make_pair(section.start, section));
+
+    setModified(true);
 }
 
 
@@ -1730,6 +1755,8 @@ void WobblyProject::deleteSection(int section_start) {
     // Never delete the very first section.
     if (section_start > 0)
         sections.erase(section_start);
+
+    setModified(true);
 }
 
 
@@ -1780,6 +1807,8 @@ void WobblyProject::setSectionPreset(int section_start, const std::string &prese
 
     // The user may want to assign the same preset twice.
     sections.at(section_start).presets.push_back(preset_name);
+
+    setModified(true);
 }
 
 
@@ -1793,6 +1822,8 @@ void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::s
     int section_end = getSectionEnd(section_start);
 
     setRangeMatchesFromPattern(section_start, section_end - 1, pattern);
+
+    setModified(true);
 }
 
 
@@ -1806,6 +1837,8 @@ void WobblyProject::setSectionDecimationFromPattern(int section_start, const std
     int section_end = getSectionEnd(section_start);
 
     setRangeDecimationFromPattern(section_start, section_end - 1, pattern);
+
+    setModified(true);
 }
 
 
@@ -1824,6 +1857,8 @@ void WobblyProject::setRangeMatchesFromPattern(int range_start, int range_end, c
 
         setMatch(i, pattern[i % 5]);
     }
+
+    setModified(true);
 }
 
 
@@ -1840,6 +1875,8 @@ void WobblyProject::setRangeDecimationFromPattern(int range_start, int range_end
         else
             deleteDecimatedFrame(i);
     }
+
+    setModified(true);
 }
 
 
@@ -1857,6 +1894,8 @@ void WobblyProject::resetRangeMatches(int start, int end) {
         memcpy(matches.data() + start, original_matches.data() + start, end - start + 1);
     else
         memset(matches.data() + start, 'c', end - start + 1);
+
+    setModified(true);
 }
 
 
@@ -1870,6 +1909,8 @@ void WobblyProject::resetSectionMatches(int section_start) {
     int section_end = getSectionEnd(section_start);
 
     resetRangeMatches(section_start, section_end - 1);
+
+    setModified(true);
 }
 
 
@@ -1899,6 +1940,8 @@ void WobblyProject::addCustomList(const CustomList &list) {
             throw WobblyException("Can't add custom list '" + list.name + "': a list with this name already exists.");
 
     custom_lists.push_back(list);
+
+    setModified(true);
 }
 
 
@@ -1925,6 +1968,8 @@ void WobblyProject::renameCustomList(const std::string &old_name, const std::str
         throw WobblyException("Can't rename custom list '" + old_name + "' to '" + new_name + "': new name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
 
     custom_lists[index].name = new_name;
+
+    setModified(true);
 }
 
 
@@ -1944,6 +1989,8 @@ void WobblyProject::deleteCustomList(int list_index) {
         throw WobblyException("Can't delete custom list with index " + std::to_string(list_index) + ": index out of range.");
 
     custom_lists.erase(custom_lists.cbegin() + list_index);
+
+    setModified(true);
 }
 
 
@@ -1955,6 +2002,8 @@ void WobblyProject::moveCustomListUp(int list_index) {
         return;
 
     std::swap(custom_lists[list_index - 1], custom_lists[list_index]);
+
+    setModified(true);
 }
 
 
@@ -1966,6 +2015,8 @@ void WobblyProject::moveCustomListDown(int list_index) {
         return;
 
     std::swap(custom_lists[list_index], custom_lists[list_index + 1]);
+
+    setModified(true);
 }
 
 
@@ -1977,6 +2028,8 @@ void WobblyProject::setCustomListPreset(int list_index, const std::string &prese
         throw WobblyException("Can't assign preset '" + preset_name + "' to custom list '" + custom_lists[list_index].name + "': no such preset.");
 
     custom_lists[list_index].preset = preset_name;
+
+    setModified(true);
 }
 
 
@@ -1988,6 +2041,8 @@ void WobblyProject::setCustomListPosition(int list_index, PositionInFilterChain 
         throw WobblyException("Can't put custom list '" + custom_lists[list_index].name + "' in position " + std::to_string(position) + ": position out of range.");
 
     custom_lists[list_index].position = position;
+
+    setModified(true);
 }
 
 
@@ -2017,6 +2072,8 @@ void WobblyProject::addCustomListRange(int list_index, int first, int last) {
         throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + custom_lists[list_index].name + "': overlaps range (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + ").");
 
     ranges.insert({ first, { first, last } });
+
+    setModified(true);
 }
 
 
@@ -2030,6 +2087,8 @@ void WobblyProject::deleteCustomListRange(int list_index, int first) {
         throw WobblyException("Can't delete range starting at frame " + std::to_string(first) + " from custom list '" + custom_lists[list_index].name + "': no such range.");
 
     custom_lists[list_index].ranges.erase(first);
+
+    setModified(true);
 }
 
 
@@ -2093,8 +2152,11 @@ void WobblyProject::addDecimatedFrame(int frame) {
 
     auto result = decimated_frames[frame / 5].insert(frame % 5);
 
-    if (result.second)
+    if (result.second) {
         setNumFrames(PostDecimate, getNumFrames(PostDecimate) - 1);
+
+        setModified(true);
+    }
 }
 
 
@@ -2104,8 +2166,11 @@ void WobblyProject::deleteDecimatedFrame(int frame) {
 
     size_t result = decimated_frames[frame / 5].erase(frame % 5);
 
-    if (result)
+    if (result) {
         setNumFrames(PostDecimate, getNumFrames(PostDecimate) + 1);
+
+        setModified(true);
+    }
 }
 
 
@@ -2220,6 +2285,8 @@ void WobblyProject::addCombedFrame(int frame) {
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as combed: value out of range.");
 
     combed_frames.insert(frame);
+
+    setModified(true);
 }
 
 
@@ -2228,6 +2295,8 @@ void WobblyProject::deleteCombedFrame(int frame) {
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as not combed: value out of range.");
 
     combed_frames.erase(frame);
+
+    setModified(true);
 }
 
 
@@ -2251,11 +2320,15 @@ void WobblyProject::setResize(int new_width, int new_height, const std::string &
     resize.width = new_width;
     resize.height = new_height;
     resize.filter = filter;
+
+    setModified(true);
 }
 
 
 void WobblyProject::setResizeEnabled(bool enabled) {
     resize.enabled = enabled;
+
+    setModified(true);
 }
 
 
@@ -2277,11 +2350,15 @@ void WobblyProject::setCrop(int left, int top, int right, int bottom) {
     crop.top = top;
     crop.right = right;
     crop.bottom = bottom;
+
+    setModified(true);
 }
 
 
 void WobblyProject::setCropEnabled(bool enabled) {
     crop.enabled = enabled;
+
+    setModified(true);
 }
 
 
@@ -2292,6 +2369,8 @@ bool WobblyProject::isCropEnabled() const {
 
 void WobblyProject::setCropEarly(bool early) {
     crop.early = early;
+
+    setModified(true);
 }
 
 
@@ -2309,11 +2388,15 @@ void WobblyProject::setBitDepth(int bits, bool float_samples, const std::string 
     depth.bits = bits;
     depth.float_samples = float_samples;
     depth.dither = dither;
+
+    setModified(true);
 }
 
 
 void WobblyProject::setBitDepthEnabled(bool enabled) {
     depth.enabled = enabled;
+
+    setModified(true);
 }
 
 
@@ -2339,6 +2422,20 @@ bool WobblyProject::getFreezeFramesWanted() const {
 
 void WobblyProject::setFreezeFramesWanted(bool wanted) {
     freeze_frames_wanted = wanted;
+}
+
+
+bool WobblyProject::isModified() const {
+    return is_modified;
+}
+
+
+void WobblyProject::setModified(bool modified) {
+    if (modified != is_modified) {
+        is_modified = modified;
+
+        emit modifiedChanged(modified);
+    }
 }
 
 
@@ -2562,6 +2659,8 @@ void WobblyProject::applyPatternGuessingDecimation(const int section_start, cons
         if (drop_frame >= section_start && drop_frame < section_end)
             addDecimatedFrame(drop_frame);
     }
+
+    setModified(true);
 }
 
 
@@ -2584,6 +2683,8 @@ bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_
         failure.reason = SectionTooShort;
         pattern_guessing.failures.erase(failure.start);
         pattern_guessing.failures.insert({ failure.start, failure });
+
+        setModified(true);
 
         return false;
     }
@@ -2645,6 +2746,8 @@ bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_
         pattern_guessing.failures.erase(failure.start);
         pattern_guessing.failures.insert({ failure.start, failure });
 
+        setModified(true);
+
         return false;
     }
 
@@ -2673,6 +2776,8 @@ bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_
 
     pattern_guessing.failures.erase(section_start);
 
+    setModified(true);
+
     return true;
 }
 
@@ -2687,6 +2792,8 @@ void WobblyProject::guessProjectPatternsFromMics(int minimum_length, int use_pat
     pattern_guessing.minimum_length = minimum_length;
     pattern_guessing.use_patterns = use_patterns;
     pattern_guessing.decimation = drop_duplicate;
+
+    setModified(true);
 }
 
 
@@ -2705,6 +2812,8 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
         failure.reason = SectionTooShort;
         pattern_guessing.failures.erase(failure.start);
         pattern_guessing.failures.insert({ failure.start, failure });
+
+        setModified(true);
 
         return false;
     }
@@ -2787,6 +2896,9 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
 
         // A pattern was found.
         pattern_guessing.failures.erase(section_start);
+
+        setModified(true);
+
         return true;
     } else {
         // A pattern was not found.
@@ -2795,6 +2907,9 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
         failure.reason = AmbiguousMatchPattern;
         pattern_guessing.failures.erase(failure.start);
         pattern_guessing.failures.insert({ failure.start, failure });
+
+        setModified(true);
+
         return false;
     }
 }
@@ -2810,6 +2925,8 @@ void WobblyProject::guessProjectPatternsFromMatches(int minimum_length, int use_
     pattern_guessing.minimum_length = minimum_length;
     pattern_guessing.third_n_match = use_third_n_match;
     pattern_guessing.decimation = drop_duplicate;
+
+    setModified(true);
 }
 
 
@@ -3356,6 +3473,8 @@ void WobblyProject::importFromOtherProject(const std::string &path, const Import
             setZoom(other->getZoom());
 
         delete other;
+
+        setModified(true);
     } catch (WobblyException &e) {
         delete other;
 
