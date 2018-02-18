@@ -21,6 +21,7 @@ SOFTWARE.
 #include <QApplication>
 #include <QButtonGroup>
 #include <QComboBox>
+#include <QDesktopWidget>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QMenuBar>
@@ -144,6 +145,8 @@ void WobblyWindow::readSettings() {
     settings_print_details_check->setChecked(settings.value("user_interface/print_details_on_video", true).toBool());
 
     settings_num_thumbnails_spin->setValue(settings.value("user_interface/number_of_thumbnails", 3).toInt());
+
+    settings_thumbnail_size_dspin->setValue(settings.value("user_interface/thumbnail_size", 12).toDouble());
 
     settings_shortcuts_table->setRowCount(shortcuts.size());
     for (size_t i = 0; i < shortcuts.size(); i++) {
@@ -2171,6 +2174,12 @@ void WobblyWindow::createSettingsWindow() {
     settings_num_thumbnails_spin->setSpecialValueText(QStringLiteral("Number of thumbnails: none"));
     settings_num_thumbnails_spin->lineEdit()->setReadOnly(true);
 
+    settings_thumbnail_size_dspin = new QDoubleSpinBox;
+    settings_thumbnail_size_dspin->setDecimals(1);
+    settings_thumbnail_size_dspin->setSingleStep(0.5);
+    settings_thumbnail_size_dspin->setPrefix(QStringLiteral("Thumbnail size: "));
+    settings_thumbnail_size_dspin->setSuffix(QStringLiteral("% of screen size"));
+
     settings_shortcuts_table = new TableWidget(0, 3, this);
     settings_shortcuts_table->setHorizontalHeaderLabels({ "Current", "Default", "Description" });
 
@@ -2233,6 +2242,26 @@ void WobblyWindow::createSettingsWindow() {
         }
 
         requestFrames(current_frame);
+    });
+
+    connect(settings_thumbnail_size_dspin, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), [this] (double percentage) {
+        settings.setValue("user_interface/thumbnail_size", percentage);
+
+        splash_thumb = getThumbnail(splash_image);
+
+        int num_thumbnails = settings_num_thumbnails_spin->value();
+
+        if (num_thumbnails > 0) {
+            if (project) {
+                requestFrames(current_frame);
+            } else {
+                int first_visible = (MAX_THUMBNAILS - num_thumbnails) / 2;
+                int last_visible = first_visible + num_thumbnails - 1;
+
+                for (int i = first_visible; i <= last_visible; i++)
+                    thumb_labels[i]->setPixmap(splash_thumb);
+            }
+        }
     });
 
     connect(settings_shortcuts_table, &TableWidget::cellDoubleClicked, settings_shortcut_edit, static_cast<void (QLineEdit::*)()>(&QLineEdit::setFocus));
@@ -2327,6 +2356,11 @@ void WobblyWindow::createSettingsWindow() {
 
     hbox = new QHBoxLayout;
     hbox->addWidget(settings_num_thumbnails_spin);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+    hbox = new QHBoxLayout;
+    hbox->addWidget(settings_thumbnail_size_dspin);
     hbox->addStretch(1);
     vbox->addLayout(hbox);
 
@@ -2432,8 +2466,6 @@ void WobblyWindow::drawColorBars() {
     drawRect(528, 360,  25, 120,  25,  25,  25);
     drawRect(553, 360,  77, 120,  16,  16,  16);
     drawRect(630, 360,  90, 120,  49,  49,  49);
-
-    splash_thumb = QPixmap::fromImage(splash_image.scaled(splash_image.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 }
 
 
@@ -2544,6 +2576,12 @@ void WobblyWindow::createUI() {
     createCMatchSequencesWindow();
     createFadesWindow();
     createSettingsWindow();
+
+
+    splash_thumb = getThumbnail(splash_image);
+
+    for (int i = 0; i < MAX_THUMBNAILS; i++)
+        thumb_labels[i]->setPixmap(splash_thumb);
 }
 
 
@@ -3813,8 +3851,7 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QImage image(ptr, width, height, stride, QImage::Format_RGB32, (QImageCleanupFunction)vsapi->freeFrame, (void *)frame);
-    QPixmap pixmap = QPixmap::fromImage(image.mirrored(false, true));
+    QImage image = QImage(ptr, width, height, stride, QImage::Format_RGB32, (QImageCleanupFunction)vsapi->freeFrame, (void *)frame).mirrored(false, true);
 
     int offset;
     if (node == vsnode[0])
@@ -3824,12 +3861,10 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
 
     if (offset == 0) {
         int zoom = project->getZoom();
-        frame_label->setPixmap(pixmap.scaled(width * zoom, height * zoom, Qt::IgnoreAspectRatio, Qt::FastTransformation));
+        frame_label->setPixmap(QPixmap::fromImage(image).scaled(width * zoom, height * zoom, Qt::IgnoreAspectRatio, Qt::FastTransformation));
     }
 
-    pixmap = pixmap.scaled(pixmap.size() / 5, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-
-    thumb_labels[offset + MAX_THUMBNAILS / 2]->setPixmap(pixmap);
+    thumb_labels[offset + MAX_THUMBNAILS / 2]->setPixmap(getThumbnail(image));
 
     if (!pending_requests && pending_frame != current_frame)
         requestFrames(current_frame);
@@ -4893,4 +4928,28 @@ void WobblyWindow::addRangeToSelectedCustomList() {
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
+}
+
+
+QSize WobblyWindow::getThumbnailSize(QSize image_size) {
+    QSize thumbnail_size;
+    QRect desktop_rect = QApplication::desktop()->screenGeometry(this);
+    double percentage = settings_thumbnail_size_dspin->value();
+
+    if (desktop_rect.width() >= desktop_rect.height()) {
+        thumbnail_size.setHeight((int)(desktop_rect.height() * percentage / 100));
+        thumbnail_size.setWidth((int)(image_size.width() * thumbnail_size.height() / image_size.height()));
+    } else {
+        thumbnail_size.setHeight((int)(desktop_rect.width() * percentage / 100));
+        thumbnail_size.setWidth((int)(image_size.width() * thumbnail_size.height() / image_size.height()));
+    }
+
+    return thumbnail_size;
+}
+
+
+QPixmap WobblyWindow::getThumbnail(const QImage &image) {
+    QSize thumbnail_size = getThumbnailSize(image.size());
+
+    return QPixmap::fromImage(image.scaled(thumbnail_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 }

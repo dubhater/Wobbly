@@ -154,6 +154,7 @@ private:
     QSpinBox *settings_cache_spin;
     QCheckBox *settings_print_details_check;
     SpinBox *settings_num_thumbnails_spin;
+    QDoubleSpinBox *settings_thumbnail_size_dspin;
     TableWidget *settings_shortcuts_table;
 
     ImportWindow *import_window;
@@ -299,6 +300,9 @@ private:
     void selectPreviousCustomList();
     void selectNextCustomList();
     void addRangeToSelectedCustomList();
+
+    QSize getThumbnailSize(QSize image_size);
+    QPixmap getThumbnail(const QImage &image);
 
 public slots:
     void jump1Forward();
