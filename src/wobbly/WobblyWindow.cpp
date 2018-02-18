@@ -37,6 +37,7 @@ SOFTWARE.
 #include <QTabWidget>
 #include <QThread>
 
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 
@@ -2144,11 +2145,12 @@ void WobblyWindow::createFadesWindow() {
 
 
 void WobblyWindow::createSettingsWindow() {
+    settings_compact_projects_check = new QCheckBox("Create compact project files");
+
+    settings_print_details_check = new QCheckBox(QStringLiteral("Print frame details on top of the video"));
+
     settings_font_spin = new QSpinBox;
     settings_font_spin->setRange(4, 99);
-    settings_font_spin->setPrefix(QStringLiteral("Font size: "));
-
-    settings_compact_projects_check = new QCheckBox("Create compact project files");
 
     settings_colormatrix_combo = new QComboBox;
     settings_colormatrix_combo->addItems({
@@ -2162,22 +2164,17 @@ void WobblyWindow::createSettingsWindow() {
     settings_cache_spin = new QSpinBox;
     settings_cache_spin->setRange(1, 99999);
     settings_cache_spin->setValue(200);
-    settings_cache_spin->setPrefix(QStringLiteral("Maximum cache size: "));
     settings_cache_spin->setSuffix(QStringLiteral(" MiB"));
-
-    settings_print_details_check = new QCheckBox(QStringLiteral("Print frame details on top of the video"));
 
     settings_num_thumbnails_spin = new SpinBox;
     settings_num_thumbnails_spin->setRange(-1, 21);
     settings_num_thumbnails_spin->setSingleStep(2);
-    settings_num_thumbnails_spin->setPrefix(QStringLiteral("Number of thumbnails: "));
-    settings_num_thumbnails_spin->setSpecialValueText(QStringLiteral("Number of thumbnails: none"));
+    settings_num_thumbnails_spin->setSpecialValueText(QStringLiteral("none"));
     settings_num_thumbnails_spin->lineEdit()->setReadOnly(true);
 
     settings_thumbnail_size_dspin = new QDoubleSpinBox;
     settings_thumbnail_size_dspin->setDecimals(1);
     settings_thumbnail_size_dspin->setSingleStep(0.5);
-    settings_thumbnail_size_dspin->setPrefix(QStringLiteral("Thumbnail size: "));
     settings_thumbnail_size_dspin->setSuffix(QStringLiteral("% of screen size"));
 
     settings_shortcuts_table = new TableWidget(0, 3, this);
@@ -2188,16 +2185,22 @@ void WobblyWindow::createSettingsWindow() {
     QPushButton *settings_reset_shortcuts_button = new QPushButton("Reset selected shortcuts");
 
 
+    connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
+        settings.setValue("projects/compact_project_files", checked);
+    });
+
+    connect(settings_print_details_check, &QCheckBox::toggled, [this] (bool checked) {
+        settings.setValue("user_interface/print_details_on_video", checked);
+
+        updateFrameDetails();
+    });
+
     connect(settings_font_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
         QFont font = QApplication::font();
         font.setPointSize(value);
         QApplication::setFont(font);
 
         settings.setValue("user_interface/font_size", value);
-    });
-
-    connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
-        settings.setValue("projects/compact_project_files", checked);
     });
 
     connect(settings_colormatrix_combo, &QComboBox::currentTextChanged, [this] (const QString &text) {
@@ -2215,12 +2218,6 @@ void WobblyWindow::createSettingsWindow() {
 
     connect(settings_cache_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
         settings.setValue("user_interface/maximum_cache_size", value);
-    });
-
-    connect(settings_print_details_check, &QCheckBox::toggled, [this] (bool checked) {
-        settings.setValue("user_interface/print_details_on_video", checked);
-
-        updateFrameDetails();
     });
 
     connect(settings_num_thumbnails_spin, static_cast<void (SpinBox::*)(int)>(&SpinBox::valueChanged), [this] (int num_thumbnails) {
@@ -2326,54 +2323,23 @@ void WobblyWindow::createSettingsWindow() {
 
     QTabWidget *settings_tabs = new QTabWidget;
 
-    QVBoxLayout *vbox = new QVBoxLayout;
-
-    QHBoxLayout *hbox = new QHBoxLayout;
-    hbox->addWidget(settings_font_spin);
-    hbox->addStretch(1);
-    vbox->addLayout(hbox);
-
-    hbox = new QHBoxLayout;
-    hbox->addWidget(settings_compact_projects_check);
-    hbox->addStretch(1);
-    vbox->addLayout(hbox);
-
-    hbox = new QHBoxLayout;
-    hbox->addWidget(new QLabel("Colormatrix:"));
-    hbox->addWidget(settings_colormatrix_combo);
-    hbox->addStretch(1);
-    vbox->addLayout(hbox);
-
-    hbox = new QHBoxLayout;
-    hbox->addWidget(settings_cache_spin);
-    hbox->addStretch(1);
-    vbox->addLayout(hbox);
-
-    hbox = new QHBoxLayout;
-    hbox->addWidget(settings_print_details_check);
-    hbox->addStretch(1);
-    vbox->addLayout(hbox);
-
-    hbox = new QHBoxLayout;
-    hbox->addWidget(settings_num_thumbnails_spin);
-    hbox->addStretch(1);
-    vbox->addLayout(hbox);
-
-    hbox = new QHBoxLayout;
-    hbox->addWidget(settings_thumbnail_size_dspin);
-    hbox->addStretch(1);
-    vbox->addLayout(hbox);
-
-    vbox->addStretch(1);
+    QFormLayout *form = new QFormLayout;
+    form->addRow(settings_compact_projects_check);
+    form->addRow(settings_print_details_check);
+    form->addRow(QStringLiteral("Font size"), settings_font_spin);
+    form->addRow(QStringLiteral("Colormatrix"), settings_colormatrix_combo);
+    form->addRow(QStringLiteral("Maximum cache size"), settings_cache_spin);
+    form->addRow(QStringLiteral("Number of thumbnails"), settings_num_thumbnails_spin);
+    form->addRow(QStringLiteral("Thumbnail size"), settings_thumbnail_size_dspin);
 
     QWidget *settings_general_widget = new QWidget;
-    settings_general_widget->setLayout(vbox);
+    settings_general_widget->setLayout(form);
     settings_tabs->addTab(settings_general_widget, "General");
 
-    vbox = new QVBoxLayout;
+    QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(settings_shortcuts_table);
 
-    hbox = new QHBoxLayout;
+    QHBoxLayout *hbox = new QHBoxLayout;
     hbox->addWidget(new QLabel("Edit shortcut:"));
     hbox->addWidget(settings_shortcut_edit);
     hbox->addWidget(settings_reset_shortcuts_button);
