@@ -30,6 +30,7 @@ SOFTWARE.
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
+#include <QMessageBox>
 #include <QSettings>
 #include <QSignalMapper>
 #include <QSlider>
@@ -280,6 +281,8 @@ private:
     void realSaveProject(const QString &path);
     void realSaveScript(const QString &path);
     void realSaveTimecodes(const QString &path);
+
+    QMessageBox::StandardButton askToSaveIfModified();
 
     void jumpRelative(int offset);
 

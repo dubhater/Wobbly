@@ -191,17 +191,9 @@ void WobblyWindow::errorPopup(const char *msg) {
 
 
 void WobblyWindow::closeEvent(QCloseEvent *event) {
-    if (project && project->isModified()) {
-        QMessageBox::StandardButton answer = QMessageBox::question(this, QStringLiteral("Save?"), QStringLiteral("Save project?"), QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel, QMessageBox::Yes);
-
-        if (answer == QMessageBox::Yes) {
-            saveProject();
-        } else if (answer == QMessageBox::No) {
-            ;
-        } else {
-            event->ignore();
-            return;
-        }
+    if (askToSaveIfModified() == QMessageBox::Cancel) {
+        event->ignore();
+        return;
     }
 
     writeSettings();
@@ -310,6 +302,9 @@ void WobblyWindow::createMenu() {
     recent_menu_signal_mapper = new QSignalMapper(this);
 
     connect(recent_menu_signal_mapper, static_cast<void (QSignalMapper::*)(const QString &)>(&QSignalMapper::mapped), [this] (const QString &path) {
+        if (askToSaveIfModified() == QMessageBox::Cancel)
+            return;
+
         if (path.endsWith(".json"))
             realOpenProject(path);
         else
@@ -3192,6 +3187,9 @@ void WobblyWindow::realOpenProject(const QString &path) {
 
 
 void WobblyWindow::openProject() {
+    if (askToSaveIfModified() == QMessageBox::Cancel)
+        return;
+
     QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), settings.value("user_interface/last_dir").toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
 
     if (!path.isNull()) {
@@ -3270,6 +3268,9 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
 
 void WobblyWindow::openVideo() {
+    if (askToSaveIfModified() == QMessageBox::Cancel)
+        return;
+
     QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open video file"), settings.value("user_interface/last_dir").toString(), QString(), nullptr, QFileDialog::DontUseNativeDialog);
 
     if (!path.isNull()) {
@@ -3470,6 +3471,20 @@ void WobblyWindow::saveScreenshot() {
 
         frame_label->pixmap()->save(path, "png");
     }
+}
+
+
+QMessageBox::StandardButton WobblyWindow::askToSaveIfModified() {
+    QMessageBox::StandardButton answer = QMessageBox::NoButton;
+
+    if (project && project->isModified()) {
+        answer = QMessageBox::question(this, QStringLiteral("Save?"), QStringLiteral("Save project?"), QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel, QMessageBox::Yes);
+
+        if (answer == QMessageBox::Yes)
+            saveProject();
+    }
+
+    return answer;
 }
 
 
