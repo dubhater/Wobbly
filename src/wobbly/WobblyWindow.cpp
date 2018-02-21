@@ -245,7 +245,7 @@ void WobblyWindow::keyPressEvent(QKeyEvent *event) {
     int key = event->key();
 
     QKeySequence sequence(mod | key);
-    QString sequence_string = sequence.toString();
+    QString sequence_string = sequence.toString(QKeySequence::PortableText);
     //fprintf(stderr, "Sequence: '%s'\n", sequence_string.toUtf8().constData());
 
     for (size_t i = 0; i < shortcuts.size(); i++) {
@@ -2269,9 +2269,9 @@ void WobblyWindow::createSettingsWindow() {
             return;
 
         QString keys;
-        QKeySequence key_sequence(text);
+        QKeySequence key_sequence(text, QKeySequence::NativeText);
         if (key_sequence.count() <= 1)
-            keys = key_sequence.toString();
+            keys = key_sequence.toString(QKeySequence::PortableText);
         shortcuts[row].keys = keys;
         settings_shortcuts_table->item(row, 0)->setText(keys);
         settings_shortcuts_table->resizeColumnToContents(0);
