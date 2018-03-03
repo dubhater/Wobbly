@@ -3156,7 +3156,11 @@ void WobblyWindow::realOpenProject(const QString &path) {
     WobblyProject *tmp = new WobblyProject(true);
 
     try {
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+
         tmp->readProject(path.toStdString());
+
+        QApplication::restoreOverrideCursor();
 
         project_path = path;
         video_path.clear();
@@ -3177,6 +3181,8 @@ void WobblyWindow::realOpenProject(const QString &path) {
 
         connect(project, &WobblyProject::modifiedChanged, this, &WobblyWindow::updateWindowTitle);
     } catch (WobblyException &e) {
+        QApplication::restoreOverrideCursor();
+
         errorPopup(e.what());
 
         if (project == tmp)
@@ -3223,6 +3229,8 @@ void WobblyWindow::realOpenVideo(const QString &path) {
                     "c.%1(r'%2').set_output()\n");
         script = script.arg(source_filter).arg(path);
 
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+
         if (vsscript_evaluateScript(&vsscript, script.toUtf8().constData(), QFileInfo(path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
             std::string error = vsscript_getError(vsscript);
             // The traceback is mostly unnecessary noise.
@@ -3230,8 +3238,12 @@ void WobblyWindow::realOpenVideo(const QString &path) {
             if (traceback != std::string::npos)
                 error.insert(traceback, 1, '\n');
 
+            QApplication::restoreOverrideCursor();
+
             throw WobblyException("Can't extract basic information from the video file: script evaluation failed. Error message:\n" + error);
         }
+
+        QApplication::restoreOverrideCursor();
 
         VSNodeRef *node = vsscript_getOutput(vsscript, 0);
         if (!node)
@@ -3295,7 +3307,17 @@ void WobblyWindow::realSaveProject(const QString &path) {
     project->setUIState(std::string(state.constData(), state.size()));
     project->setUIGeometry(std::string(geometry.constData(), geometry.size()));
 
-    project->writeProject(path.toStdString(), settings_compact_projects_check->isChecked());
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
+    try {
+        project->writeProject(path.toStdString(), settings_compact_projects_check->isChecked());
+    } catch (WobblyException &e) {
+        QApplication::restoreOverrideCursor();
+
+        throw e;
+    }
+
+    QApplication::restoreOverrideCursor();
 
     project_path = path;
     video_path.clear();
@@ -3815,6 +3837,9 @@ void WobblyWindow::requestFrames(int n) {
         pending_requests++;
         vsapi->getFrameAsync(i, vsnode[(int)preview], frameDoneCallback, (void *)this);
     }
+
+    // restoreOverrideCursor called in frameDone
+    QApplication::setOverrideCursor(Qt::BusyCursor);
 }
 
 
@@ -3826,7 +3851,11 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
     pending_requests--;
 
     if (!frame) {
+        // setOverrideCursor called in requestFrames
+        QApplication::restoreOverrideCursor();
+
         errorPopup(QStringLiteral("Failed to retrieve frame %1. Error message: %2").arg(n).arg(errorMsg).toUtf8().constData());
+
         return;
     }
 
@@ -3845,6 +3874,9 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
     if (offset == 0) {
         int zoom = project->getZoom();
         frame_label->setPixmap(QPixmap::fromImage(image).scaled(width * zoom, height * zoom, Qt::IgnoreAspectRatio, Qt::FastTransformation));
+
+        // setOverrideCursor called in requestFrames
+        QApplication::restoreOverrideCursor();
     }
 
     thumb_labels[offset + MAX_THUMBNAILS / 2]->setPixmap(getThumbnail(image));
@@ -4536,6 +4568,8 @@ void WobblyWindow::guessCurrentSectionPatternsFromMics() {
     if (!project)
         return;
 
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
     int section_start = project->findSection(current_frame)->start;
 
     int use_patterns = 0;
@@ -4549,11 +4583,16 @@ void WobblyWindow::guessCurrentSectionPatternsFromMics() {
     try {
         success = project->guessSectionPatternsFromMics(section_start, pg_length_spin->value(), use_patterns, pg_decimate_buttons->checkedId());
     } catch (WobblyException &e) {
+        QApplication::restoreOverrideCursor();
+
         errorPopup(e.what());
+
         return;
     }
 
     updatePatternGuessingWindow();
+
+    QApplication::restoreOverrideCursor();
 
     if (success) {
         updateFrameRatesViewer();
@@ -4574,6 +4613,8 @@ void WobblyWindow::guessProjectPatternsFromMics() {
     if (!project)
         return;
 
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
     int use_patterns = 0;
     auto buttons = pg_use_patterns_buttons->buttons();
     for (int i = 0; i < buttons.size(); i++)
@@ -4583,6 +4624,8 @@ void WobblyWindow::guessProjectPatternsFromMics() {
     try {
         project->guessProjectPatternsFromMics(pg_length_spin->value(), use_patterns, pg_decimate_buttons->checkedId());
 
+        QApplication::restoreOverrideCursor();
+
         updatePatternGuessingWindow();
 
         updateFrameRatesViewer();
@@ -4591,6 +4634,8 @@ void WobblyWindow::guessProjectPatternsFromMics() {
 
         evaluateMainDisplayScript();
     } catch (WobblyException &e) {
+        QApplication::restoreOverrideCursor();
+
         errorPopup(e.what());
     }
 }
@@ -4600,11 +4645,15 @@ void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
     if (!project)
         return;
 
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
     int section_start = project->findSection(current_frame)->start;
 
     bool success = project->guessSectionPatternsFromMatches(section_start, pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
 
     updatePatternGuessingWindow();
+
+    QApplication::restoreOverrideCursor();
 
     if (success) {
         updateFrameRatesViewer();
@@ -4624,6 +4673,8 @@ void WobblyWindow::guessProjectPatternsFromMatches() {
     if (!project)
         return;
 
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
     project->guessProjectPatternsFromMatches(pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
 
     updatePatternGuessingWindow();
@@ -4631,6 +4682,8 @@ void WobblyWindow::guessProjectPatternsFromMatches() {
     updateFrameRatesViewer();
 
     updateCMatchSequencesWindow();
+
+    QApplication::restoreOverrideCursor();
 
     try {
         evaluateMainDisplayScript();
