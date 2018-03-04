@@ -2280,6 +2280,11 @@ std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) const {
 }
 
 
+const std::set<int> &WobblyProject::getCombedFrames() const {
+    return combed_frames;
+}
+
+
 void WobblyProject::addCombedFrame(int frame) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as combed: value out of range.");

@@ -391,6 +391,7 @@ class WobblyProject : public QObject {
         std::map<size_t, size_t> getCMatchSequences(int minimum) const;
 
 
+        const std::set<int> &getCombedFrames() const;
         void addCombedFrame(int frame);
         void deleteCombedFrame(int frame);
         bool isCombedFrame(int frame) const;

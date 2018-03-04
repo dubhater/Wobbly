@@ -377,6 +377,7 @@ void WobblyWindow::createShortcuts() {
         { "", "",                   "Show or hide mic search", &WobblyWindow::showHideMicSearchWindow },
         { "", "",                   "Show or hide C match sequences window", &WobblyWindow::showHideCMatchSequencesWindow },
         { "", "",                   "Show or hide interlaced fades window", &WobblyWindow::showHideFadesWindow },
+        { "", "",                   "Show or hide combed frames window", &WobblyWindow::showHideCombedFramesWindow },
 
         { "", "",                   "Show or hide frame details printed on the video", &WobblyWindow::showHideFrameDetailsOnVideo },
 
@@ -2137,6 +2138,69 @@ void WobblyWindow::createFadesWindow() {
 }
 
 
+void WobblyWindow::createCombedFramesWindow() {
+    combed_table = new TableWidget(0, 1, this);
+    combed_table->setHorizontalHeaderLabels({ "Frame" });
+
+    QPushButton *delete_button = new QPushButton(QStringLiteral("Delete"));
+
+
+    connect(combed_table, &TableWidget::cellDoubleClicked, [this] (int row) {
+        QTableWidgetItem *item = combed_table->item(row, 0);
+        bool ok;
+        int frame = item->text().toInt(&ok);
+        if (ok)
+            requestFrames(frame);
+    });
+
+    connect(combed_table, &TableWidget::deletePressed, delete_button, &QPushButton::click);
+
+    connect(delete_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        auto selection = combed_table->selectedRanges();
+
+        for (int i = selection.size() - 1; i >= 0; i--) {
+            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
+                bool ok;
+                int frame = combed_table->item(j, 0)->text().toInt(&ok);
+                if (ok) {
+                    project->deleteCombedFrame(frame);
+                    combed_table->removeRow(j);
+                }
+            }
+        }
+
+        if (combed_table->rowCount())
+            combed_table->selectRow(combed_table->currentRow());
+    });
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(combed_table);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(delete_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+
+    QWidget *combed_widget = new QWidget;
+    combed_widget->setLayout(vbox);
+
+
+    combed_dock = new DockWidget("Combed frames", this);
+    combed_dock->setObjectName("combed frames window");
+    combed_dock->setVisible(false);
+    combed_dock->setFloating(true);
+    combed_dock->setWidget(combed_widget);
+    addDockWidget(Qt::RightDockWidgetArea, combed_dock);
+    tools_menu->addAction(combed_dock->toggleViewAction());
+    connect(combed_dock, &DockWidget::visibilityChanged, combed_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::createSettingsWindow() {
     settings_compact_projects_check = new QCheckBox("Create compact project files");
 
@@ -2534,6 +2598,7 @@ void WobblyWindow::createUI() {
     createMicSearchWindow();
     createCMatchSequencesWindow();
     createFadesWindow();
+    createCombedFramesWindow();
     createSettingsWindow();
 
 
@@ -3124,6 +3189,27 @@ void WobblyWindow::updateFadesWindow() {
 }
 
 
+void WobblyWindow::updateCombedFramesWindow() {
+    combed_table->setRowCount(0);
+
+    const auto &combed_frames = project->getCombedFrames();
+
+    combed_table->setRowCount(combed_frames.size());
+
+    auto it = combed_frames.cbegin();
+    for (size_t i = 0; i < combed_frames.size(); i++, it++) {
+        QTableWidgetItem *item = new QTableWidgetItem(QString::number(*it));
+        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        combed_table->setItem(i, 0, item);
+    }
+
+    combed_table->resizeColumnsToContents();
+
+    if (combed_frames.size())
+        combed_table->selectRow(0);
+}
+
+
 void WobblyWindow::initialiseUIFromProject() {
     updateWindowTitle();
 
@@ -3149,6 +3235,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialiseMicSearchWindow();
     initialiseCMatchSequencesWindow();
     updateFadesWindow();
+    updateCombedFramesWindow();
 }
 
 
@@ -3669,6 +3756,11 @@ void WobblyWindow::showHideCMatchSequencesWindow() {
 
 void WobblyWindow::showHideFadesWindow() {
     fades_dock->setVisible(!fades_dock->isVisible());
+}
+
+
+void WobblyWindow::showHideCombedFramesWindow() {
+    combed_dock->setVisible(!combed_dock->isVisible());
 }
 
 
@@ -4355,6 +4447,8 @@ void WobblyWindow::toggleCombed() {
             project->addCombedFrame(i);
 
     updateFrameDetails();
+
+    updateCombedFramesWindow();
 }
 
 

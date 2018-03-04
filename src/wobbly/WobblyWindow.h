@@ -148,6 +148,9 @@ private:
     QSpinBox *fades_gaps_spin;
     TableWidget *fades_table;
 
+    DockWidget *combed_dock;
+    TableWidget *combed_table;
+
     DockWidget *settings_dock;
     QSpinBox *settings_font_spin;
     QCheckBox *settings_compact_projects_check;
@@ -231,6 +234,7 @@ private:
     void createMicSearchWindow();
     void createCMatchSequencesWindow();
     void createFadesWindow();
+    void createCombedFramesWindow();
     void createSettingsWindow();
     void drawColorBars();
     void createUI();
@@ -261,6 +265,7 @@ private:
     void updateCMatchSequencesWindow();
     void initialiseCMatchSequencesWindow();
     void updateFadesWindow();
+    void updateCombedFramesWindow();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);
@@ -367,6 +372,7 @@ public slots:
     void showHideMicSearchWindow();
     void showHideCMatchSequencesWindow();
     void showHideFadesWindow();
+    void showHideCombedFramesWindow();
 
     void showHideFrameDetailsOnVideo();
 
