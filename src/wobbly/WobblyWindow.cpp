@@ -3389,7 +3389,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
         QApplication::setOverrideCursor(Qt::WaitCursor);
 
-        if (vsscript_evaluateScript(&vsscript, script.toUtf8().constData(), QFileInfo(path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+        if (vsscript_evaluateScript(&vsscript, script.toUtf8().constData(), path.toUtf8().constData(), efSetWorkingDir)) {
             std::string error = vsscript_getError(vsscript);
             // The traceback is mostly unnecessary noise.
             size_t traceback = error.find("Traceback");
@@ -3913,7 +3913,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
     script +=
             "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(project_path).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), (project_path.isEmpty() ? video_path : project_path).toUtf8().constData(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");

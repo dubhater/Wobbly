@@ -1198,7 +1198,7 @@ void WibblyWindow::evaluateFinalScript(int job_index) {
 
     script = job.generateFinalScript();
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(QString::fromStdString(job.getInputFile())).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), job.getInputFile().c_str(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
@@ -1256,7 +1256,7 @@ void WibblyWindow::evaluateDisplayScript() {
     }
     vsapi->freeMap(m);
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), QFileInfo(QString::fromStdString(job.getInputFile())).dir().path().toUtf8().constData(), efSetWorkingDir)) {
+    if (vsscript_evaluateScript(&vsscript, script.c_str(), job.getInputFile().c_str(), efSetWorkingDir)) {
         std::string error = vsscript_getError(vsscript);
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
