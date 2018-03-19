@@ -395,6 +395,7 @@ class WobblyProject : public QObject {
         void addCombedFrame(int frame);
         void deleteCombedFrame(int frame);
         bool isCombedFrame(int frame) const;
+        void clearCombedFrames();
 
 
         const Resize &getResize() const;
@@ -459,6 +460,7 @@ class WobblyProject : public QObject {
 
 
         int frameNumberAfterDecimation(int frame) const;
+        int frameNumberBeforeDecimation(int frame) const;
 
 
         bool guessSectionPatternsFromMics(int section_start, int minimum_length, int use_patterns, int drop_duplicate);

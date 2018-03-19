@@ -27,6 +27,7 @@ SOFTWARE.
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegExpValidator>
@@ -43,6 +44,7 @@ SOFTWARE.
 
 #include <VSScript.h>
 
+#include "CombedFramesCollector.h"
 #include "ScrollArea.h"
 #include "WobblyException.h"
 #include "WobblyWindow.h"
@@ -2144,6 +2146,9 @@ void WobblyWindow::createCombedFramesWindow() {
 
     QPushButton *delete_button = new QPushButton(QStringLiteral("Delete"));
 
+    QPushButton *refresh_button = new QPushButton(QStringLiteral("Refresh"));
+    refresh_button->setToolTip(QStringLiteral("Run the 'final' script through tdm.IsCombed to see what frames are still combed."));
+
 
     connect(combed_table, &TableWidget::cellDoubleClicked, [this] (int row) {
         QTableWidgetItem *item = combed_table->item(row, 0);
@@ -2176,6 +2181,65 @@ void WobblyWindow::createCombedFramesWindow() {
             combed_table->selectRow(combed_table->currentRow());
     });
 
+    connect(refresh_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        std::string script;
+
+        try {
+            script = project->generateFinalScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+
+            return;
+        }
+
+        setEnabled(false);
+
+        script += "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
+
+        CombedFramesCollector *collector = new CombedFramesCollector(vsapi, vscore, vsscript);
+
+        QProgressDialog *progress_dialog = new QProgressDialog;
+        progress_dialog->setModal(true);
+        progress_dialog->setWindowTitle(QStringLiteral("Detecting combed frames..."));
+        progress_dialog->setLabel(new QLabel);
+        progress_dialog->reset();
+        progress_dialog->setMinimum(0);
+        progress_dialog->setMaximum(project->getNumFrames(PostDecimate));
+        progress_dialog->setValue(0);
+
+        connect(collector, &CombedFramesCollector::errorMessage, this, &WobblyWindow::errorPopup);
+
+        connect(collector, &CombedFramesCollector::progressUpdate, progress_dialog, &QProgressDialog::setValue);
+
+        connect(collector, &CombedFramesCollector::speedUpdate, [progress_dialog] (double fps, QString time_left) {
+            progress_dialog->setLabelText(QStringLiteral("%1 fps, %2 left").arg(fps, 0, 'f', 2).arg(time_left));
+        });
+
+        connect(collector, &CombedFramesCollector::combedFramesCollected, [this] (const std::set<int> &combed_frames) {
+            project->clearCombedFrames();
+
+            for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
+                project->addCombedFrame(project->frameNumberBeforeDecimation(*it));
+
+            updateCombedFramesWindow();
+            updateFrameDetails();
+        });
+
+        connect(collector, &CombedFramesCollector::workFinished, [this, collector, progress_dialog] () {
+            collector->deleteLater();
+            progress_dialog->deleteLater();
+
+            setEnabled(true);
+        });
+
+        connect(progress_dialog, &QProgressDialog::canceled, collector, &CombedFramesCollector::stop);
+
+        collector->start(script, (project_path.isEmpty() ? video_path : project_path).toUtf8().constData());
+    });
+
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(combed_table);
@@ -2183,6 +2247,7 @@ void WobblyWindow::createCombedFramesWindow() {
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->addWidget(delete_button);
     hbox->addStretch(1);
+    hbox->addWidget(refresh_button);
     vbox->addLayout(hbox);
 
 
@@ -2733,6 +2798,12 @@ void WobblyWindow::checkRequiredFilters() {
             { "Point", "Bilinear", "Bicubic", "Spline16", "Spline36", "Lanczos" },
             "built-in resizers not found. Did you compile VapourSynth yourself?",
             "VapourSynth version is older than r29."
+        },
+        {
+            "com.holywu.tdeintmod",
+            { "IsCombed" },
+            "TDeintMod plugin not found.",
+            "TDeintMod plugin is older than r4."
         }
     };
 

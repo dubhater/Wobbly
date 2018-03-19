@@ -2313,6 +2313,11 @@ bool WobblyProject::isCombedFrame(int frame) const {
 }
 
 
+void WobblyProject::clearCombedFrames() {
+    combed_frames.clear();
+}
+
+
 const Resize &WobblyProject::getResize() const {
     return resize;
 }
@@ -2564,6 +2569,29 @@ int WobblyProject::frameNumberAfterDecimation(int frame) const {
         out_frame--;
 
     return out_frame;
+}
+
+
+int WobblyProject::frameNumberBeforeDecimation(int frame) const {
+    int original_frame = frame;
+
+    if (frame < 0)
+        frame = 0;
+
+    if (frame >= getNumFrames(PostDecimate))
+        frame = getNumFrames(PostDecimate) - 1;
+
+    for (size_t i = 0; i < decimated_frames.size(); i++) {
+        for (int j = 0; j < 5; j++) {
+            if (!decimated_frames[i].count(j))
+                frame--;
+
+            if (frame == -1)
+                return i * 5 + j;
+        }
+    }
+
+    throw WobblyException("Failed to convert frame number " + std::to_string(original_frame) + " after decimation into the frame number before decimation.");
 }
 
 
