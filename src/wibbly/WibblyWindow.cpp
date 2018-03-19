@@ -1541,7 +1541,12 @@ void WibblyWindow::frameDone(void *frame_v, int n, const QString &error_msg) {
                             main_progress_dialog,
                             "setLabelText",
                             Qt::QueuedConnection,
-                            Q_ARG(QString, QStringLiteral("%1\n\n%2 fps, %3:%4:%5 to finish this job").arg(progress_dialog_label_text).arg(frames_per_second, 0, 'f', 2).arg(hours_left).arg(minutes_left).arg(seconds_left)));
+                            Q_ARG(QString, QStringLiteral("%1\n\n%2 fps, %3:%4:%5 to finish this job")
+                                  .arg(progress_dialog_label_text)
+                                  .arg(frames_per_second, 0, 'f', 2)
+                                  .arg(hours_left, 2, 10, QLatin1Char('0'))
+                                  .arg(minutes_left, 2, 10, QLatin1Char('0'))
+                                  .arg(seconds_left, 2, 10, QLatin1Char('0'))));
             }
 
             QMetaObject::invokeMethod(
