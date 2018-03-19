@@ -66,7 +66,7 @@ ImportWindow::ImportWindow(const QString &_file_name, const ImportedThings &impo
 
 
     connect(browse_button, &QPushButton::clicked, [this] () {
-        QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Select Wobbly project"), file_name, QStringLiteral("Wobbly projects (*.json);;All files (*)"), nullptr, QFileDialog::DontUseNativeDialog);
+        QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Select Wobbly project"), file_name, QStringLiteral("Wobbly projects (*.json);;All files (*)"));
 
         if (!path.isEmpty()) {
             file_name_edit->setText(path);
