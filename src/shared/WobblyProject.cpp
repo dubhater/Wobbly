@@ -2150,6 +2150,10 @@ void WobblyProject::addDecimatedFrame(int frame) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " for decimation: value out of range.");
 
+    // Don't allow decimating all the frames in a cycle.
+    if (decimated_frames[frame / 5].size() == 5 - 1)
+        return;
+
     auto result = decimated_frames[frame / 5].insert(frame % 5);
 
     if (result.second) {
