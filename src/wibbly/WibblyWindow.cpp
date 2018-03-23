@@ -729,7 +729,7 @@ void WibblyWindow::createVideoOutputWindow() {
 
     ScrollArea *video_frame_scroll = new ScrollArea;
     video_frame_scroll->setFrameShape(QFrame::NoFrame);
-    video_frame_scroll->setFocusPolicy(Qt::NoFocus);
+    video_frame_scroll->setFocusPolicy(Qt::ClickFocus);
     video_frame_scroll->setAlignment(Qt::AlignCenter);
     video_frame_scroll->setWidgetResizable(true);
     video_frame_scroll->setWidget(video_frame_label);

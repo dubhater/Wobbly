@@ -33,6 +33,7 @@ public:
 private:
     void mousePressEvent(QMouseEvent *e);
     void mouseMoveEvent(QMouseEvent *e);
+    void keyPressEvent(QKeyEvent *e);
 
     QPoint old_mouse_position;
 };

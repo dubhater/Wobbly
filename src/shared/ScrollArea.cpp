@@ -48,3 +48,8 @@ void ScrollArea::mouseMoveEvent(QMouseEvent *e) {
         QScrollArea::mouseMoveEvent(e);
     }
 }
+
+
+void ScrollArea::keyPressEvent(QKeyEvent *e) {
+    QWidget::keyPressEvent(e);
+}
