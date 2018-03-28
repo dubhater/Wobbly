@@ -82,7 +82,8 @@ shared_sources = $(rapidjson_sources) \
 				 src/shared/ScrollArea.h \
 				 src/shared/WobblyProject.cpp \
 				 src/shared/WobblyProject.h \
-				 src/shared/WobblyException.h
+				 src/shared/WobblyException.h \
+				 src/shared/WobblyTypes.h
 
 wobbly_SOURCES = $(shared_sources) \
 				 src/wobbly/CombedFramesCollector.cpp \
