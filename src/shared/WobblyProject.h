@@ -35,6 +35,7 @@ SOFTWARE.
 
 #include <QObject>
 
+#include "CombedFramesModel.h"
 #include "WobblyException.h"
 
 
@@ -252,7 +253,6 @@ class WobblyProject : public QObject {
         std::vector<std::array<int16_t, 5> > mics;
         std::vector<char> matches;
         std::vector<char> original_matches;
-        std::set<int> combed_frames;
         std::vector<std::set<int8_t> > decimated_frames; // unordered_set may be sufficient.
         std::vector<int> decimate_metrics;
 
@@ -269,6 +269,8 @@ class WobblyProject : public QObject {
         PatternGuessing pattern_guessing;
 
         std::map<int, InterlacedFade> interlaced_fades; // Key is InterlacedFade::frame
+
+        CombedFramesModel *combed_frames;
 
         Resize resize;
         Crop crop;
@@ -391,7 +393,7 @@ class WobblyProject : public QObject {
         std::map<size_t, size_t> getCMatchSequences(int minimum) const;
 
 
-        const std::set<int> &getCombedFrames() const;
+        CombedFramesModel *getCombedFramesModel();
         void addCombedFrame(int frame);
         void deleteCombedFrame(int frame);
         bool isCombedFrame(int frame) const;

@@ -47,6 +47,7 @@ SOFTWARE.
 #include "OverlayLabel.h"
 #include "PresetTextEdit.h"
 #include "SpinBox.h"
+#include "TableView.h"
 #include "TableWidget.h"
 #include "WobblyProject.h"
 
@@ -149,7 +150,7 @@ private:
     TableWidget *fades_table;
 
     DockWidget *combed_dock;
-    TableWidget *combed_table;
+    TableView *combed_view;
 
     DockWidget *settings_dock;
     QSpinBox *settings_font_spin;
@@ -265,7 +266,7 @@ private:
     void updateCMatchSequencesWindow();
     void initialiseCMatchSequencesWindow();
     void updateFadesWindow();
-    void updateCombedFramesWindow();
+    void initialiseCombedFramesWindow();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);

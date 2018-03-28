@@ -18,7 +18,8 @@ moc_%.cpp : %.h
 
 bin_PROGRAMS = wibbly wobbly
 
-shared_moc_files = src/shared/moc_DockWidget.cpp \
+shared_moc_files = src/shared/moc_CombedFramesModel.cpp \
+				   src/shared/moc_DockWidget.cpp \
 				   src/shared/moc_ListWidget.cpp \
 				   src/shared/moc_ScrollArea.cpp \
 				   src/shared/moc_WobblyProject.cpp
@@ -31,6 +32,7 @@ wobbly_moc_files = src/wobbly/moc_CombedFramesCollector.cpp \
 				   src/wobbly/moc_OverlayLabel.cpp \
 				   src/wobbly/moc_PresetTextEdit.cpp \
 				   src/wobbly/moc_SpinBox.cpp \
+				   src/wobbly/moc_TableView.cpp \
 				   src/wobbly/moc_TableWidget.cpp \
 				   src/wobbly/moc_WobblyWindow.cpp
 
@@ -70,6 +72,8 @@ rapidjson_sources = rapidjson/allocators.h \
 					rapidjson/msinttypes/stdint.h
 
 shared_sources = $(rapidjson_sources) \
+				 src/shared/CombedFramesModel.cpp \
+				 src/shared/CombedFramesModel.h \
 				 src/shared/DockWidget.cpp \
 				 src/shared/DockWidget.h \
 				 src/shared/ListWidget.cpp \
@@ -93,6 +97,8 @@ wobbly_SOURCES = $(shared_sources) \
 				 src/wobbly/PresetTextEdit.h \
 				 src/wobbly/SpinBox.cpp \
 				 src/wobbly/SpinBox.h \
+				 src/wobbly/TableView.cpp \
+				 src/wobbly/TableView.h \
 				 src/wobbly/TableWidget.cpp \
 				 src/wobbly/TableWidget.h \
 				 src/wobbly/Wobbly.cpp \

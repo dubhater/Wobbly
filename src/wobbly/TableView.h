@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2015, John Smith
+Copyright (c) 2018, John Smith
 
 Permission to use, copy, modify, and/or distribute this software for
 any purpose with or without fee is hereby granted, provided that the
@@ -18,18 +18,19 @@ SOFTWARE.
 */
 
 
-#ifndef TABLEWIDGET_H
-#define TABLEWIDGET_H
+#ifndef TABLEVIEW_H
+#define TABLEVIEW_H
 
-#include <QTableWidget>
+#include <QTableView>
 
 
-class TableWidget : public QTableWidget {
+class TableView : public QTableView {
     Q_OBJECT
 
 public:
-    TableWidget(int rows, int columns, QWidget *parent = 0);
-    QList<QTableWidgetSelectionRange> selectedRanges() const;
+    TableView(QWidget *parent = Q_NULLPTR);
+
+    void setModel(QAbstractItemModel *model);
 
 signals:
     void deletePressed();
@@ -38,4 +39,4 @@ private:
     void keyPressEvent(QKeyEvent *event);
 };
 
-#endif // TABLEWIDGET_H
+#endif // TABLEVIEW_H

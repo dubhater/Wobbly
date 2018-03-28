@@ -176,6 +176,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , c_match_sequences_minimum(20)
     , is_wobbly(_is_wobbly)
     , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, std::map<int, FailedPatternGuessing>() }
+    , combed_frames(new CombedFramesModel(this))
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
@@ -394,10 +395,10 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
         json_project.AddMember(Keys::original_matches, json_original_matches, a);
     }
 
-    if (combed_frames.cbegin() != combed_frames.cend()) {
+    if (combed_frames->cbegin() != combed_frames->cend()) {
         rj::Value json_combed_frames(rj::kArrayType);
 
-        for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
+        for (auto it = combed_frames->cbegin(); it != combed_frames->cend(); it++)
             json_combed_frames.PushBack(*it, a);
 
         json_project.AddMember(Keys::combed_frames, json_combed_frames, a);
@@ -2284,7 +2285,7 @@ std::map<size_t, size_t> WobblyProject::getCMatchSequences(int minimum) const {
 }
 
 
-const std::set<int> &WobblyProject::getCombedFrames() const {
+CombedFramesModel *WobblyProject::getCombedFramesModel() {
     return combed_frames;
 }
 
@@ -2293,7 +2294,7 @@ void WobblyProject::addCombedFrame(int frame) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as combed: value out of range.");
 
-    combed_frames.insert(frame);
+    combed_frames->insert(frame);
 
     setModified(true);
 }
@@ -2303,7 +2304,7 @@ void WobblyProject::deleteCombedFrame(int frame) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't mark frame " + std::to_string(frame) + " as not combed: value out of range.");
 
-    combed_frames.erase(frame);
+    combed_frames->erase(frame);
 
     setModified(true);
 }
@@ -2313,12 +2314,12 @@ bool WobblyProject::isCombedFrame(int frame) const {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't check if frame " + std::to_string(frame) + " is combed: value out of range.");
 
-    return (bool)combed_frames.count(frame);
+    return (bool)combed_frames->count(frame);
 }
 
 
 void WobblyProject::clearCombedFrames() {
-    combed_frames.clear();
+    combed_frames->clear();
 }
 
 

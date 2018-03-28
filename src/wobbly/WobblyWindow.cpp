@@ -2141,8 +2141,7 @@ void WobblyWindow::createFadesWindow() {
 
 
 void WobblyWindow::createCombedFramesWindow() {
-    combed_table = new TableWidget(0, 1, this);
-    combed_table->setHorizontalHeaderLabels({ "Frame" });
+    combed_view = new TableView;
 
     QPushButton *delete_button = new QPushButton(QStringLiteral("Delete"));
 
@@ -2150,35 +2149,39 @@ void WobblyWindow::createCombedFramesWindow() {
     refresh_button->setToolTip(QStringLiteral("Run the 'final' script through tdm.IsCombed to see what frames are still combed."));
 
 
-    connect(combed_table, &TableWidget::cellDoubleClicked, [this] (int row) {
-        QTableWidgetItem *item = combed_table->item(row, 0);
+    connect(combed_view, &TableView::doubleClicked, [this] (const QModelIndex &index) {
         bool ok;
-        int frame = item->text().toInt(&ok);
+        int frame = combed_view->model()->data(index).toInt(&ok);
         if (ok)
             requestFrames(frame);
     });
 
-    connect(combed_table, &TableWidget::deletePressed, delete_button, &QPushButton::click);
+    connect(combed_view, &TableView::deletePressed, delete_button, &QPushButton::click);
 
     connect(delete_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        auto selection = combed_table->selectedRanges();
+        QModelIndexList selection = combed_view->selectionModel()->selectedRows();
 
-        for (int i = selection.size() - 1; i >= 0; i--) {
-            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
-                bool ok;
-                int frame = combed_table->item(j, 0)->text().toInt(&ok);
-                if (ok) {
-                    project->deleteCombedFrame(frame);
-                    combed_table->removeRow(j);
-                }
-            }
+        // Can't use the model indexes after modifying the model.
+        std::vector<int> frames;
+        frames.reserve(selection.size());
+
+        for (int i = 0; i < selection.size(); i++) {
+            bool ok;
+            int frame = combed_view->model()->data(selection[i]).toInt(&ok);
+            if (ok)
+                frames.push_back(frame);
         }
 
-        if (combed_table->rowCount())
-            combed_table->selectRow(combed_table->currentRow());
+        for (size_t i = 0 ; i < frames.size(); i++)
+            project->deleteCombedFrame(frames[i]);
+
+        if (combed_view->model()->rowCount())
+            combed_view->selectRow(combed_view->currentIndex().row());
+
+        updateFrameDetails();
     });
 
     connect(refresh_button, &QPushButton::clicked, [this] () {
@@ -2224,7 +2227,6 @@ void WobblyWindow::createCombedFramesWindow() {
             for (auto it = combed_frames.cbegin(); it != combed_frames.cend(); it++)
                 project->addCombedFrame(project->frameNumberBeforeDecimation(*it));
 
-            updateCombedFramesWindow();
             updateFrameDetails();
         });
 
@@ -2242,7 +2244,7 @@ void WobblyWindow::createCombedFramesWindow() {
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
-    vbox->addWidget(combed_table);
+    vbox->addWidget(combed_view);
 
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->addWidget(delete_button);
@@ -3260,24 +3262,10 @@ void WobblyWindow::updateFadesWindow() {
 }
 
 
-void WobblyWindow::updateCombedFramesWindow() {
-    combed_table->setRowCount(0);
+void WobblyWindow::initialiseCombedFramesWindow() {
+    combed_view->setModel(project->getCombedFramesModel());
 
-    const auto &combed_frames = project->getCombedFrames();
-
-    combed_table->setRowCount(combed_frames.size());
-
-    auto it = combed_frames.cbegin();
-    for (size_t i = 0; i < combed_frames.size(); i++, it++) {
-        QTableWidgetItem *item = new QTableWidgetItem(QString::number(*it));
-        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        combed_table->setItem(i, 0, item);
-    }
-
-    combed_table->resizeColumnsToContents();
-
-    if (combed_frames.size())
-        combed_table->selectRow(0);
+    combed_view->resizeColumnsToContents();
 }
 
 
@@ -3306,7 +3294,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialiseMicSearchWindow();
     initialiseCMatchSequencesWindow();
     updateFadesWindow();
-    updateCombedFramesWindow();
+    initialiseCombedFramesWindow();
 }
 
 
@@ -4518,8 +4506,6 @@ void WobblyWindow::toggleCombed() {
             project->addCombedFrame(i);
 
     updateFrameDetails();
-
-    updateCombedFramesWindow();
 }
 
 

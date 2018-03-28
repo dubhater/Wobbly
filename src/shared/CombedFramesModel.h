@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2015, John Smith
+Copyright (c) 2018, John Smith
 
 Permission to use, copy, modify, and/or distribute this software for
 any purpose with or without fee is hereby granted, provided that the
@@ -18,24 +18,35 @@ SOFTWARE.
 */
 
 
-#ifndef TABLEWIDGET_H
-#define TABLEWIDGET_H
+#ifndef COMBEDFRAMESMODEL_H
+#define COMBEDFRAMESMODEL_H
 
-#include <QTableWidget>
+#include <set>
+
+#include <QAbstractListModel>
 
 
-class TableWidget : public QTableWidget {
+class CombedFramesModel : public QAbstractListModel, private std::set<int> {
     Q_OBJECT
 
 public:
-    TableWidget(int rows, int columns, QWidget *parent = 0);
-    QList<QTableWidgetSelectionRange> selectedRanges() const;
+    CombedFramesModel(QObject *parent = Q_NULLPTR);
 
-signals:
-    void deletePressed();
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
 
-private:
-    void keyPressEvent(QKeyEvent *event);
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+
+    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+
+    using std::set<int>::cbegin;
+    using std::set<int>::cend;
+    using std::set<int>::count;
+
+    void insert(int frame);
+
+    void erase(int frame);
+
+    void clear();
 };
 
-#endif // TABLEWIDGET_H
+#endif // COMBEDFRAMESMODEL_H
