@@ -128,7 +128,7 @@ private:
     TableWidget *frame_rates_table;
 
     DockWidget *frozen_frames_dock;
-    TableWidget *frozen_frames_table;
+    TableView *frozen_frames_view;
 
     DockWidget *pg_dock;
     QSpinBox *pg_length_spin;
@@ -259,7 +259,7 @@ private:
     void updateCustomListsEditor();
     void updateFrameRatesViewer();
     void initialiseFrameRatesViewer();
-    void updateFrozenFramesViewer();
+    void initialiseFrozenFramesViewer();
     void updatePatternGuessingWindow();
     void initialisePatternGuessingWindow();
     void initialiseMicSearchWindow();

@@ -36,6 +36,7 @@ SOFTWARE.
 #include <QObject>
 
 #include "CombedFramesModel.h"
+#include "FrozenFramesModel.h"
 #include "WobblyException.h"
 #include "WobblyTypes.h"
 
@@ -105,8 +106,6 @@ class WobblyProject : public QObject {
 
         std::map<std::string, Preset> presets; // Key is Preset::name
 
-        std::map<int, FreezeFrame> frozen_frames; // Key is FreezeFrame::first
-
         std::map<int, Section> sections; // Key is Section::start
 
         std::vector<CustomList> custom_lists;
@@ -116,6 +115,7 @@ class WobblyProject : public QObject {
         std::map<int, InterlacedFade> interlaced_fades; // Key is InterlacedFade::frame
 
         CombedFramesModel *combed_frames;
+        FrozenFramesModel *frozen_frames;
 
         Resize resize;
         Crop crop;
@@ -149,7 +149,7 @@ class WobblyProject : public QObject {
         void addFreezeFrame(int first, int last, int replacement);
         void deleteFreezeFrame(int frame);
         const FreezeFrame *findFreezeFrame(int frame) const;
-        std::vector<FreezeFrame> getFreezeFrames() const;
+        FrozenFramesModel *getFrozenFramesModel();
 
 
         void addPreset(const std::string &preset_name);

@@ -1705,41 +1705,42 @@ void WobblyWindow::createFrameRatesViewer() {
 
 
 void WobblyWindow::createFrozenFramesViewer() {
-    frozen_frames_table = new TableWidget(0, 3, this);
-    frozen_frames_table->setHorizontalHeaderLabels({ "First", "Last", "Replacement" });
+    frozen_frames_view = new TableView;
 
     QPushButton *delete_button = new QPushButton("Delete");
 
 
-    connect(frozen_frames_table, &TableWidget::cellDoubleClicked, [this] (int row) {
-        QTableWidgetItem *item = frozen_frames_table->item(row, 0);
+    connect(frozen_frames_view, &TableView::doubleClicked, [this] (const QModelIndex &index) {
         bool ok;
-        int frame = item->text().toInt(&ok);
+        int frame = index.data().toInt(&ok);
         if (ok)
             requestFrames(frame);
     });
 
-    connect(frozen_frames_table, &TableWidget::deletePressed, delete_button, &QPushButton::click);
+    connect(frozen_frames_view, &TableView::deletePressed, delete_button, &QPushButton::click);
 
     connect(delete_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        auto selection = frozen_frames_table->selectedRanges();
+        QModelIndexList selection = frozen_frames_view->selectionModel()->selectedRows();
 
-        for (int i = selection.size() - 1; i >= 0; i--) {
-            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
-                bool ok;
-                int frame = frozen_frames_table->item(j, 0)->text().toInt(&ok);
-                if (ok) {
-                    project->deleteFreezeFrame(frame);
-                    frozen_frames_table->removeRow(j);
-                }
-            }
+        // Can't use the model indexes after modifying the model.
+        std::vector<int> frames;
+        frames.reserve(selection.size());
+
+        for (int i = 0; i < selection.size(); i++) {
+            bool ok;
+            int frame = frozen_frames_view->model()->data(selection[i]).toInt(&ok);
+            if (ok)
+                frames.push_back(frame);
         }
 
-        if (frozen_frames_table->rowCount())
-            frozen_frames_table->selectRow(frozen_frames_table->currentRow());
+        for (size_t i = 0 ; i < frames.size(); i++)
+            project->deleteFreezeFrame(frames[i]);
+
+        if (frozen_frames_view->model()->rowCount())
+            frozen_frames_view->selectRow(frozen_frames_view->currentIndex().row());
 
         if (selection.size()) {
             try {
@@ -1752,7 +1753,7 @@ void WobblyWindow::createFrozenFramesViewer() {
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
-    vbox->addWidget(frozen_frames_table);
+    vbox->addWidget(frozen_frames_view);
 
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->addWidget(delete_button);
@@ -3095,31 +3096,10 @@ void WobblyWindow::initialiseFrameRatesViewer() {
 }
 
 
-void WobblyWindow::updateFrozenFramesViewer() {
-    frozen_frames_table->setRowCount(0);
+void WobblyWindow::initialiseFrozenFramesViewer() {
+    frozen_frames_view->setModel(project->getFrozenFramesModel());
 
-    const auto &ff = project->getFreezeFrames();
-
-    frozen_frames_table->setRowCount(ff.size());
-
-    for (size_t i = 0; i < ff.size(); i++) {
-        QTableWidgetItem *item = new QTableWidgetItem(QString::number(ff[i].first));
-        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        frozen_frames_table->setItem(i, 0, item);
-
-        item = new QTableWidgetItem(QString::number(ff[i].last));
-        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        frozen_frames_table->setItem(i, 1, item);
-
-        item = new QTableWidgetItem(QString::number(ff[i].replacement));
-        item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        frozen_frames_table->setItem(i, 2, item);
-    }
-
-    frozen_frames_table->resizeColumnsToContents();
-
-    if (ff.size())
-        frozen_frames_table->selectRow(0);
+    frozen_frames_view->resizeColumnsToContents();
 }
 
 
@@ -3289,7 +3269,7 @@ void WobblyWindow::initialiseUIFromProject() {
     updateSectionsEditor();
     updateCustomListsEditor();
     initialiseFrameRatesViewer();
-    updateFrozenFramesViewer();
+    initialiseFrozenFramesViewer();
     initialisePatternGuessingWindow();
     initialiseMicSearchWindow();
     initialiseCMatchSequencesWindow();
@@ -4361,8 +4341,6 @@ void WobblyWindow::freezeForward() {
         project->addFreezeFrame(current_frame, current_frame, current_frame + 1);
 
         evaluateMainDisplayScript();
-
-        updateFrozenFramesViewer();
     } catch (WobblyException &e) {
         errorPopup(e.what());
         //statusBar()->showMessage(QStringLiteral("Couldn't freeze forward."), 5000);
@@ -4381,8 +4359,6 @@ void WobblyWindow::freezeBackward() {
         project->addFreezeFrame(current_frame, current_frame, current_frame - 1);
 
         evaluateMainDisplayScript();
-
-        updateFrozenFramesViewer();
     } catch (WobblyException &e) {
         errorPopup(e.what());
         //statusBar()->showMessage(QStringLiteral("Couldn't freeze backward."), 5000);
@@ -4416,8 +4392,6 @@ void WobblyWindow::freezeRange() {
             project->addFreezeFrame(ff.first, ff.last, ff.replacement);
 
             evaluateMainDisplayScript();
-
-            updateFrozenFramesViewer();
         } catch (WobblyException &e) {
             updateFrameDetails();
 
@@ -4437,8 +4411,6 @@ void WobblyWindow::deleteFreezeFrame() {
     const FreezeFrame *ff = project->findFreezeFrame(current_frame);
     if (ff) {
         project->deleteFreezeFrame(ff->first);
-
-        updateFrozenFramesViewer();
 
         try {
             evaluateMainDisplayScript();

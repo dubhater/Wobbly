@@ -177,6 +177,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , is_wobbly(_is_wobbly)
     , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, std::map<int, FailedPatternGuessing>() }
     , combed_frames(new CombedFramesModel(this))
+    , frozen_frames(new FrozenFramesModel(this))
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
@@ -468,7 +469,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
             json_presets.PushBack(json_preset, a);
         }
 
-        for (auto it = frozen_frames.cbegin(); it != frozen_frames.cend(); it++) {
+        for (auto it = frozen_frames->cbegin(); it != frozen_frames->cend(); it++) {
             rj::Value json_ff(rj::kArrayType);
             json_ff.PushBack(it->second.first, a);
             json_ff.PushBack(it->second.last, a);
@@ -1348,8 +1349,8 @@ void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
     if (!overlap)
         overlap = findFreezeFrame(last);
     if (!overlap) {
-        auto it = frozen_frames.upper_bound(first);
-        if (it != frozen_frames.cend() && it->second.first < last)
+        auto it = frozen_frames->upper_bound(first);
+        if (it != frozen_frames->cend() && it->second.first < last)
             overlap = &it->second;
     }
 
@@ -1361,24 +1362,24 @@ void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
         .last = last,
         .replacement = replacement
     };
-    frozen_frames.insert(std::make_pair(first, ff));
+    frozen_frames->insert(std::make_pair(first, ff));
 
     setModified(true);
 }
 
 
 void WobblyProject::deleteFreezeFrame(int frame) {
-    frozen_frames.erase(frame);
+    frozen_frames->erase(frame);
 
     setModified(true);
 }
 
 
 const FreezeFrame *WobblyProject::findFreezeFrame(int frame) const {
-    if (!frozen_frames.size())
+    if (!frozen_frames->size())
         return nullptr;
 
-    auto it = frozen_frames.upper_bound(frame);
+    auto it = frozen_frames->upper_bound(frame);
 
     it--;
 
@@ -1389,16 +1390,8 @@ const FreezeFrame *WobblyProject::findFreezeFrame(int frame) const {
 }
 
 
-std::vector<FreezeFrame> WobblyProject::getFreezeFrames() const {
-
-    std::vector<FreezeFrame> ff;
-
-    ff.reserve(frozen_frames.size());
-
-    for (auto it = frozen_frames.cbegin(); it != frozen_frames.cend(); it++)
-        ff.push_back(it->second);
-
-    return ff;
+FrozenFramesModel *WobblyProject::getFrozenFramesModel() {
+    return frozen_frames;
 }
 
 
@@ -3184,7 +3177,7 @@ void WobblyProject::freezeFramesToScript(std::string &script) const {
     std::string ff_last = ", last=[";
     std::string ff_replacement = ", replacement=[";
 
-    for (auto it = frozen_frames.cbegin(); it != frozen_frames.cend(); it++) {
+    for (auto it = frozen_frames->cbegin(); it != frozen_frames->cend(); it++) {
         ff_first += std::to_string(it->second.first) + ",";
         ff_last += std::to_string(it->second.last) + ",";
         ff_replacement += std::to_string(it->second.replacement) + ",";
@@ -3359,7 +3352,7 @@ std::string WobblyProject::generateFinalScript() const {
 
     sectionsToScript(script);
 
-    if (frozen_frames.size())
+    if (frozen_frames->size())
         freezeFramesToScript(script);
 
     bool decimation_needed = false;
@@ -3396,7 +3389,7 @@ std::string WobblyProject::generateMainDisplayScript() const {
 
     fieldHintToScript(script);
 
-    if (frozen_frames.size() && freeze_frames_wanted)
+    if (frozen_frames->size() && freeze_frames_wanted)
         freezeFramesToScript(script);
 
     setOutputToScript(script);
