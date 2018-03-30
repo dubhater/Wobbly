@@ -37,6 +37,7 @@ SOFTWARE.
 
 #include "CombedFramesModel.h"
 #include "FrozenFramesModel.h"
+#include "PresetsModel.h"
 #include "WobblyException.h"
 #include "WobblyTypes.h"
 
@@ -104,8 +105,6 @@ class WobblyProject : public QObject {
 
         bool is_wobbly; // XXX Maybe only the json writing function needs to know.
 
-        std::map<std::string, Preset> presets; // Key is Preset::name
-
         std::map<int, Section> sections; // Key is Section::start
 
         std::vector<CustomList> custom_lists;
@@ -116,6 +115,7 @@ class WobblyProject : public QObject {
 
         CombedFramesModel *combed_frames;
         FrozenFramesModel *frozen_frames;
+        PresetsModel *presets;
 
         Resize resize;
         Crop crop;
@@ -156,11 +156,11 @@ class WobblyProject : public QObject {
         void addPreset(const std::string &preset_name, const std::string &preset_contents);
         void renamePreset(const std::string &old_name, const std::string &new_name);
         void deletePreset(const std::string &preset_name);
-        std::vector<std::string> getPresets() const;
         const std::string &getPresetContents(const std::string &preset_name) const;
         void setPresetContents(const std::string &preset_name, const std::string &preset_contents);
         bool isPresetInUse(const std::string &preset_name) const;
         bool presetExists(const std::string &preset_name) const;
+        PresetsModel *getPresetsModel();
 
 
         void addTrim(int trim_start, int trim_end);

@@ -178,6 +178,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, std::map<int, FailedPatternGuessing>() }
     , combed_frames(new CombedFramesModel(this))
     , frozen_frames(new FrozenFramesModel(this))
+    , presets(new PresetsModel(this))
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
@@ -461,7 +462,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
         rj::Value json_presets(rj::kArrayType);
         rj::Value json_frozen_frames(rj::kArrayType);
 
-        for (auto it = presets.cbegin(); it != presets.cend(); it++) {
+        for (auto it = presets->cbegin(); it != presets->cend(); it++) {
             rj::Value json_preset(rj::kObjectType);
             json_preset.AddMember(Keys::Presets::name, it->second.name, a);
             json_preset.AddMember(Keys::Presets::contents, it->second.contents, a);
@@ -1416,12 +1417,13 @@ void WobblyProject::addPreset(const std::string &preset_name, const std::string 
     if (!isNameSafeForPython(preset_name))
         throw WobblyException("Can't add preset '" + preset_name + "': name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
 
+    if (presetExists(preset_name))
+        throw WobblyException("Can't add preset '" + preset_name + "': preset name already in use.");
+
     Preset preset;
     preset.name = preset_name;
     preset.contents = preset_contents;
-    auto ret = presets.insert(std::make_pair(preset_name, preset));
-    if (!ret.second)
-        throw WobblyException("Can't add preset '" + preset_name + "': preset name already in use.");
+    presets->insert(std::make_pair(preset_name, preset));
 
     setModified(true);
 }
@@ -1431,18 +1433,21 @@ void WobblyProject::renamePreset(const std::string &old_name, const std::string 
     if (old_name == new_name)
         return;
 
-    if (!presets.count(old_name))
+    if (!presets->count(old_name))
         throw WobblyException("Can't rename preset '" + old_name + "' to '" + new_name + "': no such preset.");
 
     if (!isNameSafeForPython(new_name))
         throw WobblyException("Can't rename preset '" + old_name + "' to '" + new_name + "': new name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
 
+    if (presetExists(new_name))
+        throw WobblyException("Can't rename preset '" + old_name + "' to '" + new_name + "': preset '" + new_name + "' already exists.");
+
     Preset preset;
     preset.name = new_name;
-    preset.contents = presets.at(old_name).contents;
+    preset.contents = getPresetContents(old_name);
 
-    presets.erase(old_name);
-    presets.insert(std::make_pair(new_name, preset));
+    presets->erase(old_name);
+    presets->insert(std::make_pair(new_name, preset));
 
     for (auto it = sections.begin(); it != sections.end(); it++)
         for (size_t j = 0; j < it->second.presets.size(); j++)
@@ -1458,8 +1463,10 @@ void WobblyProject::renamePreset(const std::string &old_name, const std::string 
 
 
 void WobblyProject::deletePreset(const std::string &preset_name) {
-    if (presets.erase(preset_name) == 0)
+    if (!presetExists(preset_name))
         throw WobblyException("Can't delete preset '" + preset_name + "': no such preset.");
+
+    presets->erase(preset_name);
 
     for (auto it = sections.begin(); it != sections.end(); it++)
         for (size_t j = 0; j < it->second.presets.size(); j++)
@@ -1474,32 +1481,20 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
 }
 
 
-std::vector<std::string> WobblyProject::getPresets() const {
-    std::vector<std::string> preset_list;
-
-    preset_list.reserve(presets.size());
-
-    for (auto it = presets.cbegin(); it != presets.cend(); it++)
-        preset_list.push_back(it->second.name);
-
-    return preset_list;
-}
-
-
 const std::string &WobblyProject::getPresetContents(const std::string &preset_name) const {
-    if (!presets.count(preset_name))
+    if (!presets->count(preset_name))
         throw WobblyException("Can't retrieve the contents of preset '" + preset_name + "': no such preset.");
 
-    const Preset &preset = presets.at(preset_name);
+    const Preset &preset = presets->at(preset_name);
     return preset.contents;
 }
 
 
 void WobblyProject::setPresetContents(const std::string &preset_name, const std::string &preset_contents) {
-    if (!presets.count(preset_name))
+    if (!presets->count(preset_name))
         throw WobblyException("Can't modify the contents of preset '" + preset_name + "': no such preset.");
 
-    Preset &preset = presets.at(preset_name);
+    Preset &preset = presets->at(preset_name);
     preset.contents = preset_contents;
 
     setModified(true);
@@ -1507,7 +1502,7 @@ void WobblyProject::setPresetContents(const std::string &preset_name, const std:
 
 
 bool WobblyProject::isPresetInUse(const std::string &preset_name) const {
-    if (!presets.count(preset_name))
+    if (!presets->count(preset_name))
         throw WobblyException("Can't check if preset '" + preset_name + "' is in use: no such preset.");
 
     for (auto it = sections.begin(); it != sections.end(); it++)
@@ -1524,7 +1519,12 @@ bool WobblyProject::isPresetInUse(const std::string &preset_name) const {
 
 
 bool WobblyProject::presetExists(const std::string &preset_name) const {
-    return (bool)presets.count(preset_name);
+    return (bool)presets->count(preset_name);
+}
+
+
+PresetsModel *WobblyProject::getPresetsModel() {
+    return presets;
 }
 
 
@@ -1796,7 +1796,7 @@ void WobblyProject::setSectionPreset(int section_start, const std::string &prese
     if (!sections.count(section_start))
         throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": no such section.");
 
-    if (!presets.count(preset_name))
+    if (!presets->count(preset_name))
         throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": no such preset.");
 
     // The user may want to assign the same preset twice.
@@ -1926,7 +1926,7 @@ void WobblyProject::addCustomList(const CustomList &list) {
     if (!isNameSafeForPython(list.name))
         throw WobblyException("Can't add custom list '" + list.name + "': name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
 
-    if (list.preset.size() && presets.count(list.preset) == 0)
+    if (list.preset.size() && presets->count(list.preset) == 0)
         throw WobblyException("Can't add custom list '" + list.name + "' with preset '" + list.preset + "': no such preset.");
 
     for (size_t i = 0; i < custom_lists.size(); i++)
@@ -2018,7 +2018,7 @@ void WobblyProject::setCustomListPreset(int list_index, const std::string &prese
     if (list_index < 0 || list_index >= (int)custom_lists.size())
         throw WobblyException("Can't assign preset '" + preset_name + "' to custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    if (!presets.count(preset_name))
+    if (!presets->count(preset_name))
         throw WobblyException("Can't assign preset '" + preset_name + "' to custom list '" + custom_lists[list_index].name + "': no such preset.");
 
     custom_lists[list_index].preset = preset_name;
@@ -3114,7 +3114,7 @@ void WobblyProject::headerToScript(std::string &script) const {
 
 
 void WobblyProject::presetsToScript(std::string &script) const {
-    for (auto it = presets.cbegin(); it != presets.cend(); it++) {
+    for (auto it = presets->cbegin(); it != presets->cend(); it++) {
         if (!isPresetInUse(it->second.name))
             continue;
 
@@ -3446,9 +3446,9 @@ void WobblyProject::importFromOtherProject(const std::string &path, const Import
         }
 
         if (imports.presets || imports.custom_lists) {
-            const auto &p = other->getPresets();
-            for (size_t i = 0; i < p.size(); i++) {
-                std::string preset_name = p[i];
+            const PresetsModel *p = other->getPresetsModel();
+            for (auto it = p->cbegin(); it != p->cend(); it++) {
+                std::string preset_name = it->second.name;
 
                 bool rename_needed = presetExists(preset_name);
                 while (presetExists(preset_name))
@@ -3459,7 +3459,7 @@ void WobblyProject::importFromOtherProject(const std::string &path, const Import
                         preset_name += "_imported";
                 }
 
-                other->renamePreset(p[i], preset_name); // changes to other aren't saved, so it's okay.
+                other->renamePreset(it->second.name, preset_name); // changes to other aren't saved, so it's okay.
                 if (imports.presets)
                     addPreset(preset_name, other->getPresetContents(preset_name));
             }

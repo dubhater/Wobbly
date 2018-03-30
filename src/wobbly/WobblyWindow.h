@@ -117,9 +117,11 @@ private:
     TableWidget *sections_table;
     QGroupBox *short_sections_box;
     QSpinBox *short_sections_spin;
+    QListView *preset_list;
 
     DockWidget *cl_dock;
     TableWidget *cl_table;
+    QComboBox *cl_presets_box;
     QMenu *cl_send_range_menu;
     QMenu *cl_copy_range_menu;
 
@@ -166,8 +168,6 @@ private:
 
 
     // Widget-related
-
-    QStringListModel *presets_model;
 
     QImage splash_image;
     QPixmap splash_thumb;
@@ -249,14 +249,14 @@ private:
     void cleanUpVapourSynth();
     void checkRequiredFilters();
 
-    void updatePresets();
-
     void updateGeometry();
     void updateWindowTitle();
     void initialiseCropAssistant();
     void initialisePresetEditor();
     void updateSectionsEditor();
+    void initialiseSectionsEditor();
     void updateCustomListsEditor();
+    void initialiseCustomListsEditor();
     void updateFrameRatesViewer();
     void initialiseFrameRatesViewer();
     void initialiseFrozenFramesViewer();

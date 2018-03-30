@@ -727,7 +727,6 @@ void WobblyWindow::createCropAssistant() {
 
 void WobblyWindow::createPresetEditor() {
     preset_combo = new QComboBox;
-    preset_combo->setModel(presets_model);
 
     preset_edit = new PresetTextEdit;
     preset_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
@@ -759,21 +758,18 @@ void WobblyWindow::createPresetEditor() {
 
             if (!preset_name.isEmpty()) {
                 try {
-                    project->addPreset(preset_name.toStdString());
-
-                    QStringList presets = presets_model->stringList();
-
-                    // The "selected" preset has nothing to do with what preset is currently displayed in preset_combo.
                     int selected_index = getSelectedPreset();
 
+                    // The "selected" preset has nothing to do with what preset is currently displayed in preset_combo.
                     QString selected;
                     if (selected_index > -1)
-                        selected = presets[selected_index];
+                        selected = preset_combo->itemText(selected_index);
 
-                    updatePresets();
+                    project->addPreset(preset_name.toStdString());
 
                     if (selected_index > -1)
-                        setSelectedPreset(presets.indexOf(selected));
+                        setSelectedPreset(preset_combo->findText(selected));
+
 
                     preset_combo->setCurrentText(preset_name);
 
@@ -805,9 +801,7 @@ void WobblyWindow::createPresetEditor() {
                 try {
                     project->renamePreset(preset_combo->currentText().toStdString(), preset_name.toStdString());
 
-                    updatePresets();
-
-                    int index = presets_model->stringList().indexOf(preset_name);
+                    int index = preset_combo->findText(preset_name);
                     setSelectedPreset(index);
 
                     preset_combo->setCurrentText(preset_name);
@@ -846,8 +840,6 @@ void WobblyWindow::createPresetEditor() {
         }
 
         project->deletePreset(preset);
-
-        updatePresets();
 
         setSelectedPreset(selected_preset);
 
@@ -982,8 +974,7 @@ void WobblyWindow::createSectionsEditor() {
     QPushButton *move_preset_down_button = new QPushButton("Move down");
     QPushButton *remove_preset_button = new QPushButton("Remove");
 
-    QListView *preset_list = new QListView;
-    preset_list->setModel(presets_model);
+    preset_list = new QListView;
     preset_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     preset_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
@@ -1156,7 +1147,7 @@ void WobblyWindow::createSectionsEditor() {
         }
     });
 
-    connect(append_presets_button, &QPushButton::clicked, [this, section_presets_list, preset_list] () {
+    connect(append_presets_button, &QPushButton::clicked, [this, section_presets_list] () {
         if (!project)
             return;
 
@@ -1164,14 +1155,12 @@ void WobblyWindow::createSectionsEditor() {
         auto selected_sections = sections_table->selectedItems();
 
         if (selected_presets.size()) {
-            QStringList presets = presets_model->stringList();
-
             for (auto section = selected_sections.cbegin(); section != selected_sections.cend(); section++)
                 for (auto model_index = selected_presets.cbegin(); model_index != selected_presets.cend(); model_index++) {
                     bool ok;
                     int frame = (*section)->text().toInt(&ok);
                     if (ok) {
-                        const QString &preset = presets[model_index->row()];
+                        const QString &preset = model_index->data().toString();
 
                         project->setSectionPreset(frame, preset.toStdString());
                         section_presets_list->addItem(preset);
@@ -1267,8 +1256,7 @@ void WobblyWindow::createCustomListsEditor() {
     QPushButton *cl_move_down_button = new QPushButton("Move down");
 
 
-    QComboBox *cl_presets_box = new QComboBox;
-    cl_presets_box->setModel(presets_model);
+    cl_presets_box = new QComboBox;
 
 
     QGroupBox *cl_position_box = new QGroupBox("Position in the filter chain");
@@ -1303,7 +1291,7 @@ void WobblyWindow::createCustomListsEditor() {
 
     connect(cl_table, &TableWidget::deletePressed, cl_delete_button, &QPushButton::click);
 
-    connect(cl_table, &TableWidget::currentCellChanged, [this, cl_position_group, cl_presets_box, cl_ranges_list] (int currentRow) {
+    connect(cl_table, &TableWidget::currentCellChanged, [this, cl_position_group, cl_ranges_list] (int currentRow) {
         if (currentRow < 0)
             return;
 
@@ -2651,9 +2639,6 @@ void WobblyWindow::createUI() {
     frame_scroll->setLayout(vbox);
 
 
-    presets_model = new QStringListModel(this);
-
-
     createFrameDetailsViewer();
     createCropAssistant();
     createPresetEditor();
@@ -2842,18 +2827,6 @@ void WobblyWindow::checkRequiredFilters() {
 }
 
 
-void WobblyWindow::updatePresets() {
-    // Presets.
-    const auto &presets = project->getPresets();
-    QStringList preset_list;
-    preset_list.reserve(presets.size());
-    for (size_t i = 0; i < presets.size(); i++) {
-        preset_list.append(QString::fromStdString(presets[i]));
-    }
-    presets_model->setStringList(preset_list);
-}
-
-
 void WobblyWindow::updateGeometry() {
     const std::string &state = project->getUIState();
     if (state.size())
@@ -2924,6 +2897,8 @@ void WobblyWindow::initialiseCropAssistant() {
 
 
 void WobblyWindow::initialisePresetEditor() {
+    preset_combo->setModel(project->getPresetsModel());
+
     if (preset_combo->count()) {
         preset_combo->setCurrentIndex(0);
         presetChanged(preset_combo->currentText());
@@ -2978,6 +2953,15 @@ void WobblyWindow::updateSectionsEditor() {
 }
 
 
+void WobblyWindow::initialiseSectionsEditor() {
+    QItemSelectionModel *m = preset_list->selectionModel();
+    preset_list->setModel(project->getPresetsModel());
+    delete m;
+
+    updateSectionsEditor();
+}
+
+
 void WobblyWindow::updateCustomListsEditor() {
     auto selection = cl_table->selectedRanges();
 
@@ -3029,6 +3013,13 @@ void WobblyWindow::updateCustomListsEditor() {
             cl_table->setRangeSelected(selection[i], true);
     } else if (row_count_after)
         cl_table->selectRow(0);
+}
+
+
+void WobblyWindow::initialiseCustomListsEditor() {
+    cl_presets_box->setModel(project->getPresetsModel());
+
+    updateCustomListsEditor();
 }
 
 
@@ -3262,12 +3253,10 @@ void WobblyWindow::initialiseUIFromProject() {
 
     updateGeometry();
 
-    updatePresets();
-
     initialiseCropAssistant();
     initialisePresetEditor();
-    updateSectionsEditor();
-    updateCustomListsEditor();
+    initialiseSectionsEditor();
+    initialiseCustomListsEditor();
     initialiseFrameRatesViewer();
     initialiseFrozenFramesViewer();
     initialisePatternGuessingWindow();
@@ -4908,14 +4897,18 @@ int WobblyWindow::getSelectedPreset() const {
 
 
 void WobblyWindow::setSelectedPreset(int index) {
-    QStringList presets = presets_model->stringList();
+    PresetsModel *presets_model = project->getPresetsModel();
 
-    if (index >= presets.size())
-        index = presets.size() - 1;
+    if (index >= presets_model->rowCount())
+        index = presets_model->rowCount() - 1;
 
     selected_preset = index;
 
-    selected_preset_label->setText("Selected preset: " + (selected_preset > -1 ? presets[selected_preset] : ""));
+    QString preset_name;
+    if (selected_preset > -1)
+        preset_name = presets_model->data(presets_model->index(selected_preset)).toString();
+
+    selected_preset_label->setText("Selected preset: " + preset_name);
 }
 
 
@@ -4923,20 +4916,20 @@ void WobblyWindow::selectPreviousPreset() {
     if (!project)
         return;
 
-    QStringList presets = presets_model->stringList();
+    int num_presets = project->getPresetsModel()->rowCount();
 
     int index = getSelectedPreset();
 
-    if (presets.size() == 0) {
+    if (num_presets == 0) {
         index = -1;
-    } else if (presets.size() == 1) {
+    } else if (num_presets == 1) {
         index = 0;
     } else {
         if (index == -1) {
-            index = presets.size() - 1;
+            index = num_presets - 1;
         } else {
             if (index == 0)
-                index = presets.size();
+                index = num_presets;
             index--;
         }
     }
@@ -4949,19 +4942,19 @@ void WobblyWindow::selectNextPreset() {
     if (!project)
         return;
 
-    QStringList presets = presets_model->stringList();
+    int num_presets = project->getPresetsModel()->rowCount();
 
     int index = getSelectedPreset();
 
-    if (presets.size() == 0) {
+    if (num_presets == 0) {
         index = -1;
-    } else if (presets.size() == 1) {
+    } else if (num_presets == 1) {
         index = 0;
     } else {
         if (index == -1) {
             index = 0;
         } else {
-            index = (index + 1) % presets.size();
+            index = (index + 1) % num_presets;
         }
     }
 
@@ -5046,10 +5039,10 @@ void WobblyWindow::assignSelectedPresetToCurrentSection() {
     if (selected_preset == -1)
         return;
 
-    QStringList presets = presets_model->stringList();
+    PresetsModel *presets_model = project->getPresetsModel();
 
     int section_start = project->findSection(current_frame)->start;
-    project->setSectionPreset(section_start, presets[selected_preset].toStdString());
+    project->setSectionPreset(section_start, presets_model->data(presets_model->index(selected_preset)).toString().toStdString());
 
     updateFrameDetails();
 
