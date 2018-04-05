@@ -179,6 +179,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , combed_frames(new CombedFramesModel(this))
     , frozen_frames(new FrozenFramesModel(this))
     , presets(new PresetsModel(this))
+    , custom_lists(new CustomListsModel(this))
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
@@ -491,13 +492,15 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
             "post decimate"
         };
 
-        for (size_t i = 0; i < custom_lists.size(); i++) {
+        for (size_t i = 0; i < custom_lists->size(); i++) {
+            const CustomList &cl = custom_lists->at(i);
+
             rj::Value json_custom_list(rj::kObjectType);
-            json_custom_list.AddMember(Keys::CustomLists::name, custom_lists[i].name, a);
-            json_custom_list.AddMember(Keys::CustomLists::preset, custom_lists[i].preset, a);
-            json_custom_list.AddMember(Keys::CustomLists::position, rj::Value(list_positions[custom_lists[i].position], a), a);
+            json_custom_list.AddMember(Keys::CustomLists::name, cl.name, a);
+            json_custom_list.AddMember(Keys::CustomLists::preset, cl.preset, a);
+            json_custom_list.AddMember(Keys::CustomLists::position, rj::Value(list_positions[cl.position], a), a);
             rj::Value json_frames(rj::kArrayType);
-            for (auto it = custom_lists[i].ranges.cbegin(); it != custom_lists[i].ranges.cend(); it++) {
+            for (auto it = cl.ranges->cbegin(); it != cl.ranges->cend(); it++) {
                 rj::Value json_pair(rj::kArrayType);
                 json_pair.PushBack(it->second.first, a);
                 json_pair.PushBack(it->second.last, a);
@@ -1134,7 +1137,7 @@ void WobblyProject::readProject(const std::string &path) {
 
         const rj::Value &json_custom_lists = it->value;
 
-        custom_lists.reserve(json_custom_lists.Size());
+        custom_lists->reserve(json_custom_lists.Size());
 
         std::unordered_map<std::string, int> list_positions = {
             { "post source", PostSource },
@@ -1454,9 +1457,9 @@ void WobblyProject::renamePreset(const std::string &old_name, const std::string 
             if (it->second.presets[j] == old_name)
                 it->second.presets[j] = new_name;
 
-    for (auto it = custom_lists.begin(); it != custom_lists.end(); it++)
-        if (it->preset == old_name)
-            it->preset = new_name;
+    for (size_t i = 0; i < custom_lists->size(); i++)
+        if (custom_lists->at(i).preset == old_name)
+            custom_lists->setCustomListPreset(i, new_name);
 
     setModified(true);
 }
@@ -1473,9 +1476,9 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
             if (it->second.presets[j] == preset_name)
                 it->second.presets.erase(it->second.presets.cbegin() + j);
 
-    for (auto it = custom_lists.begin(); it != custom_lists.end(); it++)
-        if (it->preset == preset_name)
-            it->preset.clear();
+    for (size_t i = 0; i < custom_lists->size(); i++)
+        if (custom_lists->at(i).preset == preset_name)
+            custom_lists->setCustomListPreset(i, "");
 
     setModified(true);
 }
@@ -1510,7 +1513,7 @@ bool WobblyProject::isPresetInUse(const std::string &preset_name) const {
             if (it->second.presets[j] == preset_name)
                 return true;
 
-    for (auto it = custom_lists.begin(); it != custom_lists.end(); it++)
+    for (auto it = custom_lists->cbegin(); it != custom_lists->cend(); it++)
         if (it->preset == preset_name)
             return true;
 
@@ -1908,11 +1911,6 @@ void WobblyProject::resetSectionMatches(int section_start) {
 }
 
 
-const std::vector<CustomList> &WobblyProject::getCustomLists() const {
-    return custom_lists;
-}
-
-
 void WobblyProject::addCustomList(const std::string &list_name) {
     CustomList list(list_name);
     addCustomList(list);
@@ -1929,11 +1927,11 @@ void WobblyProject::addCustomList(const CustomList &list) {
     if (list.preset.size() && presets->count(list.preset) == 0)
         throw WobblyException("Can't add custom list '" + list.name + "' with preset '" + list.preset + "': no such preset.");
 
-    for (size_t i = 0; i < custom_lists.size(); i++)
-        if (custom_lists[i].name == list.name)
+    for (size_t i = 0; i < custom_lists->size(); i++)
+        if (custom_lists->at(i).name == list.name)
             throw WobblyException("Can't add custom list '" + list.name + "': a list with this name already exists.");
 
-    custom_lists.push_back(list);
+    custom_lists->push_back(list);
 
     setModified(true);
 }
@@ -1943,33 +1941,33 @@ void WobblyProject::renameCustomList(const std::string &old_name, const std::str
     if (old_name == new_name)
         return;
 
-    size_t index = custom_lists.size();
+    size_t index = custom_lists->size();
 
-    for (size_t i = 0; i < custom_lists.size(); i++)
-        if (custom_lists[i].name == old_name) {
+    for (size_t i = 0; i < custom_lists->size(); i++)
+        if (custom_lists->at(i).name == old_name) {
             index = i;
             break;
         }
 
-    if (index == custom_lists.size())
+    if (index == custom_lists->size())
         throw WobblyException("Can't rename custom list '" + old_name + "': no such list.");
 
-    for (size_t i = 0; i < custom_lists.size(); i++)
-        if (custom_lists[i].name == new_name)
+    for (size_t i = 0; i < custom_lists->size(); i++)
+        if (custom_lists->at(i).name == new_name)
             throw WobblyException("Can't rename custom list '" + old_name + "' to '" + new_name + "': new name is already in use.");
 
     if (!isNameSafeForPython(new_name))
         throw WobblyException("Can't rename custom list '" + old_name + "' to '" + new_name + "': new name is invalid. Use only letters, numbers, and the underscore character. The first character cannot be a number.");
 
-    custom_lists[index].name = new_name;
+    custom_lists->setCustomListName(index, new_name);
 
     setModified(true);
 }
 
 
 void WobblyProject::deleteCustomList(const std::string &list_name) {
-    for (size_t i = 0; i < custom_lists.size(); i++)
-        if (custom_lists[i].name == list_name) {
+    for (size_t i = 0; i < custom_lists->size(); i++)
+        if (custom_lists->at(i).name == list_name) {
             deleteCustomList(i);
             return;
         }
@@ -1979,76 +1977,82 @@ void WobblyProject::deleteCustomList(const std::string &list_name) {
 
 
 void WobblyProject::deleteCustomList(int list_index) {
-    if (list_index < 0 || list_index >= (int)custom_lists.size())
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't delete custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    custom_lists.erase(custom_lists.cbegin() + list_index);
+    custom_lists->erase(list_index);
 
     setModified(true);
 }
 
 
 void WobblyProject::moveCustomListUp(int list_index) {
-    if (list_index < 0 || list_index >= (int)custom_lists.size())
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't move up custom list with index " + std::to_string(list_index) + ": index out of range.");
 
     if (list_index == 0)
         return;
 
-    std::swap(custom_lists[list_index - 1], custom_lists[list_index]);
+    custom_lists->moveCustomListUp(list_index);
 
     setModified(true);
 }
 
 
 void WobblyProject::moveCustomListDown(int list_index) {
-    if (list_index < 0 || list_index >= (int)custom_lists.size())
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't move down custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    if (list_index == (int)custom_lists.size() - 1)
+    if (list_index == (int)custom_lists->size() - 1)
         return;
 
-    std::swap(custom_lists[list_index], custom_lists[list_index + 1]);
+    custom_lists->moveCustomListDown(list_index);
 
     setModified(true);
 }
 
 
 void WobblyProject::setCustomListPreset(int list_index, const std::string &preset_name) {
-    if (list_index < 0 || list_index >= (int)custom_lists.size())
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't assign preset '" + preset_name + "' to custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    if (!presets->count(preset_name))
-        throw WobblyException("Can't assign preset '" + preset_name + "' to custom list '" + custom_lists[list_index].name + "': no such preset.");
+    const CustomList &cl = custom_lists->at(list_index);
 
-    custom_lists[list_index].preset = preset_name;
+    if (!presets->count(preset_name))
+        throw WobblyException("Can't assign preset '" + preset_name + "' to custom list '" + cl.name + "': no such preset.");
+
+    custom_lists->setCustomListPreset(list_index, preset_name);
 
     setModified(true);
 }
 
 
 void WobblyProject::setCustomListPosition(int list_index, PositionInFilterChain position) {
-    if (list_index < 0 || list_index >= (int)custom_lists.size())
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't set the position of the custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    if (position < 0 || position > 2)
-        throw WobblyException("Can't put custom list '" + custom_lists[list_index].name + "' in position " + std::to_string(position) + ": position out of range.");
+    const CustomList &cl = custom_lists->at(list_index);
 
-    custom_lists[list_index].position = position;
+    if (position < 0 || position > 2)
+        throw WobblyException("Can't put custom list '" + cl.name + "' in position " + std::to_string(position) + ": position out of range.");
+
+    custom_lists->setCustomListPosition(list_index, position);
 
     setModified(true);
 }
 
 
 void WobblyProject::addCustomListRange(int list_index, int first, int last) {
-    if (list_index < 0 || list_index >= (int)custom_lists.size())
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't add a new range to custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    CustomList &cl = custom_lists->at(list_index);
 
     if (first < 0 || first >= getNumFrames(PostSource) ||
         last < 0 || last >= getNumFrames(PostSource))
-        throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + custom_lists[list_index].name + "': values out of range.");
+        throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + cl.name + "': values out of range.");
 
-    auto &ranges = custom_lists[list_index].ranges;
+    auto &ranges = cl.ranges;
 
     if (first > last)
         std::swap(first, last);
@@ -2057,47 +2061,49 @@ void WobblyProject::addCustomListRange(int list_index, int first, int last) {
     if (!overlap)
         overlap = findCustomListRange(list_index, last);
     if (!overlap) {
-        auto it = ranges.upper_bound(first);
-        if (it != ranges.cend() && it->second.first < last)
+        auto it = ranges->upper_bound(first);
+        if (it != ranges->cend() && it->second.first < last)
             overlap = &it->second;
     }
 
     if (overlap)
-        throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + custom_lists[list_index].name + "': overlaps range (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + ").");
+        throw WobblyException("Can't add range (" + std::to_string(first) + "," + std::to_string(last) + ") to custom list '" + cl.name + "': overlaps range (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + ").");
 
-    ranges.insert({ first, { first, last } });
+    ranges->insert({ first, { first, last } });
 
     setModified(true);
 }
 
 
 void WobblyProject::deleteCustomListRange(int list_index, int first) {
-    if (list_index < 0 || list_index >= (int)custom_lists.size())
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't delete a range from custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    auto &ranges = custom_lists[list_index].ranges;
+    CustomList &cl = custom_lists->at(list_index);
 
-    if (!ranges.count(first))
-        throw WobblyException("Can't delete range starting at frame " + std::to_string(first) + " from custom list '" + custom_lists[list_index].name + "': no such range.");
+    auto &ranges = cl.ranges;
 
-    custom_lists[list_index].ranges.erase(first);
+    if (!ranges->count(first))
+        throw WobblyException("Can't delete range starting at frame " + std::to_string(first) + " from custom list '" + cl.name + "': no such range.");
+
+    ranges->erase(first);
 
     setModified(true);
 }
 
 
 const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) const {
-    if (list_index < 0 || list_index >= (int)custom_lists.size())
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't find a range in custom list with index " + std::to_string(list_index) + ": index out of range.");
 
-    const auto &ranges = custom_lists[list_index].ranges;
+    const auto &ranges = custom_lists->at(list_index).ranges;
 
-    if (!ranges.size())
+    if (!ranges->size())
         return nullptr;
 
-    auto it = ranges.upper_bound(frame);
+    auto it = ranges->upper_bound(frame);
 
-    if (it == ranges.cbegin())
+    if (it == ranges->cbegin())
         return nullptr;
 
     it--;
@@ -2110,11 +2116,16 @@ const FrameRange *WobblyProject::findCustomListRange(int list_index, int frame) 
 
 
 bool WobblyProject::customListExists(const std::string &list_name) const {
-    for (size_t i = 0; i < custom_lists.size(); i++)
-        if (custom_lists[i].name == list_name)
+    for (size_t i = 0; i < custom_lists->size(); i++)
+        if (custom_lists->at(i).name == list_name)
             return true;
 
     return false;
+}
+
+
+CustomListsModel *WobblyProject::getCustomListsModel() {
+    return custom_lists;
 }
 
 
@@ -3044,28 +3055,30 @@ int WobblyProject::maybeTranslate(int frame, bool is_end, PositionInFilterChain 
 
 
 void WobblyProject::customListsToScript(std::string &script, PositionInFilterChain position) const {
-    for (size_t i = 0; i < custom_lists.size(); i++) {
+    for (size_t i = 0; i < custom_lists->size(); i++) {
+        const CustomList &cl = custom_lists->at(i);
+
         // Ignore lists that are in a different position in the filter chain.
-        if (custom_lists[i].position != position)
+        if (cl.position != position)
             continue;
 
         // Ignore lists with no frame ranges.
-        if (!custom_lists[i].ranges.size())
+        if (!cl.ranges->size())
             continue;
 
         // Complain if the custom list doesn't have a preset assigned.
-        if (!custom_lists[i].preset.size())
-            throw WobblyException("Custom list '" + custom_lists[i].name + "' has no preset assigned.");
+        if (!cl.preset.size())
+            throw WobblyException("Custom list '" + cl.name + "' has no preset assigned.");
 
 
         std::string list_name = "cl_";
-        list_name += custom_lists[i].name;
+        list_name += cl.name;
 
-        script += list_name + " = " + custom_lists[i].preset + "(src)\n";
+        script += list_name + " = " + cl.preset + "(src)\n";
 
         std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
 
-        auto it = custom_lists[i].ranges.cbegin();
+        auto it = cl.ranges->cbegin();
         auto it_prev = it;
 
         if (it->second.first > 0) {
@@ -3076,7 +3089,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
         splice += list_name + "[" + std::to_string(maybeTranslate(it->second.first, false, position)) + ":" + std::to_string(maybeTranslate(it->second.last, true, position) + 1) + "],";
 
         it++;
-        for ( ; it != custom_lists[i].ranges.cend(); it++, it_prev++) {
+        for ( ; it != cl.ranges->cend(); it++, it_prev++) {
             int previous_last = maybeTranslate(it_prev->second.last, true, position);
             int current_first = maybeTranslate(it->second.first, false, position);
             int current_last = maybeTranslate(it->second.last, true, position);
@@ -3466,12 +3479,12 @@ void WobblyProject::importFromOtherProject(const std::string &path, const Import
         }
 
         if (imports.custom_lists) {
-            const auto &lists = other->getCustomLists();
-            for (size_t i = 0; i < lists.size(); i++) {
-                if (lists[i].preset.size() && !presetExists(lists[i].preset))
-                    addPreset(lists[i].preset, other->getPresetContents(lists[i].preset));
+            const CustomListsModel *lists = other->getCustomListsModel();
+            for (size_t i = 0; i < lists->size(); i++) {
+                if (lists->at(i).preset.size() && !presetExists(lists->at(i).preset))
+                    addPreset(lists->at(i).preset, other->getPresetContents(lists->at(i).preset));
 
-                CustomList list = lists[i];
+                CustomList list = lists->at(i);
                 while (customListExists(list.name))
                     list.name += "_imported";
                 addCustomList(list);

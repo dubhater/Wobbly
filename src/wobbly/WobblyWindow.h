@@ -120,10 +120,10 @@ private:
     QListView *preset_list;
 
     DockWidget *cl_dock;
-    TableWidget *cl_table;
+    TableView *cl_view;
     QComboBox *cl_presets_box;
-    QMenu *cl_send_range_menu;
-    QMenu *cl_copy_range_menu;
+    QButtonGroup *cl_position_group;
+    TableView *cl_ranges_view;
 
     QButtonGroup *frame_rates_buttons;
     DockWidget *frame_rates_dock;
@@ -255,7 +255,6 @@ private:
     void initialisePresetEditor();
     void updateSectionsEditor();
     void initialiseSectionsEditor();
-    void updateCustomListsEditor();
     void initialiseCustomListsEditor();
     void updateFrameRatesViewer();
     void initialiseFrameRatesViewer();

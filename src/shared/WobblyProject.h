@@ -36,6 +36,7 @@ SOFTWARE.
 #include <QObject>
 
 #include "CombedFramesModel.h"
+#include "CustomListsModel.h"
 #include "FrozenFramesModel.h"
 #include "PresetsModel.h"
 #include "WobblyException.h"
@@ -107,8 +108,6 @@ class WobblyProject : public QObject {
 
         std::map<int, Section> sections; // Key is Section::start
 
-        std::vector<CustomList> custom_lists;
-
         PatternGuessing pattern_guessing;
 
         std::map<int, InterlacedFade> interlaced_fades; // Key is InterlacedFade::frame
@@ -116,6 +115,7 @@ class WobblyProject : public QObject {
         CombedFramesModel *combed_frames;
         FrozenFramesModel *frozen_frames;
         PresetsModel *presets;
+        CustomListsModel *custom_lists;
 
         Resize resize;
         Crop crop;
@@ -205,7 +205,6 @@ class WobblyProject : public QObject {
         void resetRangeMatches(int start, int end);
 
 
-        const std::vector<CustomList> &getCustomLists() const;
         void addCustomList(const std::string &list_name);
         void addCustomList(const CustomList &list);
         void renameCustomList(const std::string &old_name, const std::string &new_name);
@@ -219,6 +218,7 @@ class WobblyProject : public QObject {
         void deleteCustomListRange(int list_index, int first);
         const FrameRange *findCustomListRange(int list_index, int frame) const;
         bool customListExists(const std::string &list_name) const;
+        CustomListsModel *getCustomListsModel();
 
 
         int getDecimateMetric(int frame) const;

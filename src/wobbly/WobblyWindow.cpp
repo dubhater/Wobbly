@@ -806,8 +806,6 @@ void WobblyWindow::createPresetEditor() {
 
                     preset_combo->setCurrentText(preset_name);
 
-                    updateCustomListsEditor();
-
                     updateSectionsEditor();
 
                     updateFrameDetails();
@@ -849,11 +847,8 @@ void WobblyWindow::createPresetEditor() {
         }
         presetChanged(preset_combo->currentText());
 
-        if (preset_in_use) {
+        if (preset_in_use)
             updateSectionsEditor();
-
-            updateCustomListsEditor();
-        }
     });
 
 
@@ -1245,8 +1240,7 @@ void WobblyWindow::createSectionsEditor() {
 
 
 void WobblyWindow::createCustomListsEditor() {
-    cl_table = new TableWidget(0, 3, this);
-    cl_table->setHorizontalHeaderLabels({ "Name", "Preset", "Position" });
+    cl_view = new TableView;
 
 
     QPushButton *cl_new_button = new QPushButton("New");
@@ -1267,56 +1261,29 @@ void WobblyWindow::createCustomListsEditor() {
         "Post decimate"
     };
 
-    QButtonGroup *cl_position_group = new QButtonGroup(this);
+    cl_position_group = new QButtonGroup(this);
     for (int i = 0; i < 3; i++)
         cl_position_group->addButton(new QRadioButton(positions[i]), i);
     cl_position_group->button(PostSource)->setChecked(true);
 
 
-    ListWidget *cl_ranges_list = new ListWidget;
-    cl_ranges_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    cl_ranges_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    cl_ranges_view = new TableView;
 
 
     QPushButton *cl_delete_range_button = new QPushButton("Delete");
 
     QPushButton *cl_send_range_button = new QPushButton("Send to list");
-    cl_send_range_menu = new QMenu(this);
+    QMenu *cl_send_range_menu = new QMenu(this);
     cl_send_range_button->setMenu(cl_send_range_menu);
 
     QPushButton *cl_copy_range_button = new QPushButton("Copy to list");
-    cl_copy_range_menu = new QMenu(this);
+    QMenu *cl_copy_range_menu = new QMenu(this);
     cl_copy_range_button->setMenu(cl_copy_range_menu);
 
 
-    connect(cl_table, &TableWidget::deletePressed, cl_delete_button, &QPushButton::click);
+    connect(cl_view, &TableView::deletePressed, cl_delete_button, &QPushButton::click);
 
-    connect(cl_table, &TableWidget::currentCellChanged, [this, cl_position_group, cl_ranges_list] (int currentRow) {
-        if (currentRow < 0)
-            return;
-
-        auto cl = project->getCustomLists();
-
-        if (!cl.size())
-            return;
-
-        // When deleting a custom list, currentRow has the wrong value somehow.
-        if (currentRow >= (int)cl.size())
-            currentRow = cl.size() - 1;
-
-        cl_position_group->button(cl[currentRow].position)->setChecked(true);
-
-        cl_presets_box->setCurrentText(QString::fromStdString(cl[currentRow].preset));
-
-        cl_ranges_list->clear();
-        for (auto it = cl[currentRow].ranges.cbegin(); it != cl[currentRow].ranges.cend(); it++) {
-            QListWidgetItem *item = new QListWidgetItem(QStringLiteral("%1,%2").arg(it->second.first).arg(it->second.last));
-            item->setData(Qt::UserRole, it->second.first);
-            cl_ranges_list->addItem(item);
-        }
-    });
-
-    connect(cl_new_button, &QPushButton::clicked, [this, positions] () {
+    connect(cl_new_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
@@ -1335,8 +1302,6 @@ void WobblyWindow::createCustomListsEditor() {
                 try {
                     project->addCustomList(cl_name.toStdString());
 
-                    updateCustomListsEditor();
-
                     ok = true;
                 } catch (WobblyException &e) {
                     errorPopup(e.what());
@@ -1350,11 +1315,15 @@ void WobblyWindow::createCustomListsEditor() {
         if (!project)
             return;
 
-        int cl_index = cl_table->currentRow();
-        if (cl_index < 0)
+        QModelIndex current_index = cl_view->selectionModel()->currentIndex();
+        if (!current_index.isValid())
             return;
 
-        QString old_name = cl_table->item(cl_index, 0)->text();
+        const CustomListsModel *cl = project->getCustomListsModel();
+
+        int cl_index = current_index.row();
+
+        QString old_name = QString::fromStdString(cl->at(cl_index).name);
 
         bool ok = false;
         QString new_name = old_name;
@@ -1374,8 +1343,6 @@ void WobblyWindow::createCustomListsEditor() {
                     if (cl_index == getSelectedCustomList())
                         setSelectedCustomList(cl_index);
 
-                    updateCustomListsEditor();
-
                     updateFrameDetails();
 
                     ok = true;
@@ -1387,30 +1354,32 @@ void WobblyWindow::createCustomListsEditor() {
         }
     });
 
-    connect(cl_delete_button, &QPushButton::clicked, [this, cl_ranges_list] () {
+    connect(cl_delete_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        auto selection = cl_table->selectedRanges();
+        QModelIndexList selection = cl_view->selectionModel()->selectedRows();
 
-        for (int i = selection.size() - 1; i >= 0; i--) {
-            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
-                project->deleteCustomList(j);
+        // Can't use the model indexes after modifying the model.
+        std::vector<int> indexes;
+        indexes.reserve(selection.size());
 
-                if (j == selected_custom_list)
-                    setSelectedCustomList(selected_custom_list);
-                else if (j < selected_custom_list)
-                    selected_custom_list--;
-            }
+        for (int i = 0; i < selection.size(); i++)
+            indexes.push_back(selection[i].row());
+
+        std::sort(indexes.begin(), indexes.end());
+
+        for (int i = indexes.size() - 1; i >= 0; i--) {
+            project->deleteCustomList(indexes[i]);
+
+            if (indexes[i] == selected_custom_list)
+                setSelectedCustomList(selected_custom_list);
+            else if (indexes[i] < selected_custom_list)
+                selected_custom_list--;
         }
 
-        updateCustomListsEditor();
-
-        if (cl_table->rowCount())
-            cl_table->selectRow(cl_table->currentRow());
-
-        if (!cl_table->rowCount())
-            cl_ranges_list->clear();
+        if (cl_view->model()->rowCount())
+            cl_view->selectRow(cl_view->currentIndex().row());
 
         updateFrameDetails();
     });
@@ -1419,27 +1388,25 @@ void WobblyWindow::createCustomListsEditor() {
         if (!project)
             return;
 
-        auto selection = cl_table->selectedRanges();
-        if (selection.isEmpty())
+        QModelIndexList selection = cl_view->selectionModel()->selectedRows();
+
+        // Can't use the model indexes after modifying the model.
+        std::vector<int> indexes;
+        indexes.reserve(selection.size());
+
+        for (int i = 0; i < selection.size(); i++)
+            indexes.push_back(selection[i].row());
+
+        std::sort(indexes.begin(), indexes.end());
+
+        if (!indexes.size() || indexes[0] == 0)
             return;
 
-        if (selection.first().topRow() == 0)
-            return;
+        for (size_t i = 0; i < indexes.size(); i++) {
+            project->moveCustomListUp(indexes[i]);
 
-        for (int i = 0; i < selection.size(); i++) {
-            for (int j = selection[i].topRow(); j <= selection[i].bottomRow(); j++) {
-                project->moveCustomListUp(j);
-
-                if (j == selected_custom_list + 1)
-                    selected_custom_list++;
-            }
-        }
-
-        updateCustomListsEditor();
-
-        for (int i = 0; i < selection.size(); i++) {
-            QTableWidgetSelectionRange range(selection[i].topRow() - 1, 0, selection[i].bottomRow() - 1, 2);
-            cl_table->setRangeSelected(range, true);
+            if (indexes[i] == selected_custom_list + 1)
+                selected_custom_list++;
         }
 
         updateFrameDetails();
@@ -1449,27 +1416,25 @@ void WobblyWindow::createCustomListsEditor() {
         if (!project)
             return;
 
-        auto selection = cl_table->selectedRanges();
-        if (selection.isEmpty())
+        QModelIndexList selection = cl_view->selectionModel()->selectedRows();
+
+        // Can't use the model indexes after modifying the model.
+        std::vector<int> indexes;
+        indexes.reserve(selection.size());
+
+        for (int i = 0; i < selection.size(); i++)
+            indexes.push_back(selection[i].row());
+
+        std::sort(indexes.begin(), indexes.end());
+
+        if (!indexes.size() || indexes.back() == cl_view->model()->rowCount() - 1)
             return;
 
-        if (selection.last().bottomRow() == cl_table->rowCount() - 1)
-            return;
+        for (int i = indexes.size() - 1; i >= 0; i--) {
+            project->moveCustomListDown(indexes[i]);
 
-        for (int i = selection.size() - 1; i >= 0; i--) {
-            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
-                project->moveCustomListDown(j);
-
-                if (j == selected_custom_list - 1)
-                    selected_custom_list--;
-            }
-        }
-
-        updateCustomListsEditor();
-
-        for (int i = 0; i < selection.size(); i++) {
-            QTableWidgetSelectionRange range(selection[i].topRow() + 1, 0, selection[i].bottomRow() + 1, 2);
-            cl_table->setRangeSelected(range, true);
+            if (indexes[i] == selected_custom_list - 1)
+                selected_custom_list--;
         }
 
         updateFrameDetails();
@@ -1479,97 +1444,141 @@ void WobblyWindow::createCustomListsEditor() {
         if (!project)
             return;
 
-        int cl_index = cl_table->currentRow();
-        if (cl_index < 0)
+        QModelIndex current_index = cl_view->selectionModel()->currentIndex();
+        if (!current_index.isValid())
             return;
+
+        int cl_index = current_index.row();
 
         project->setCustomListPreset(cl_index, text.toStdString());
-
-        cl_table->item(cl_index, 1)->setText(text);
     });
 
-    connect(cl_position_group, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this, positions] (int id) {
+    connect(cl_position_group, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this] (int id) {
         if (!project)
             return;
 
-        int cl_index = cl_table->currentRow();
-        if (cl_index < 0)
+        QModelIndex current_index = cl_view->selectionModel()->currentIndex();
+        if (!current_index.isValid())
             return;
+
+        int cl_index = current_index.row();
 
         project->setCustomListPosition(cl_index, (PositionInFilterChain)id);
-
-        cl_table->item(cl_index, 2)->setText(positions[id]);
     });
 
-    connect(cl_ranges_list, &ListWidget::deletePressed, cl_delete_range_button, &QPushButton::click);
+    connect(cl_ranges_view, &TableView::deletePressed, cl_delete_range_button, &QPushButton::click);
 
-    connect(cl_ranges_list, &ListWidget::itemDoubleClicked, [this] (QListWidgetItem *item) {
+    connect(cl_ranges_view, &TableView::doubleClicked, [this] (const QModelIndex &index) {
         if (!project)
             return;
 
-        requestFrames(item->data(Qt::UserRole).toInt());
+        bool ok;
+        int frame = index.data().toInt(&ok);
+        if (ok)
+            requestFrames(frame);
     });
 
-    connect(cl_delete_range_button, &QPushButton::clicked, [this, cl_ranges_list] () {
+    connect(cl_delete_range_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        int cl_index = cl_table->currentRow();
-        if (cl_index < 0)
+        QModelIndex current_index = cl_view->selectionModel()->currentIndex();
+        if (!current_index.isValid())
             return;
 
-        auto selected_ranges = cl_ranges_list->selectedItems();
-        for (int i = 0; i < selected_ranges.size(); i++) {
-            project->deleteCustomListRange(cl_index, selected_ranges[i]->data(Qt::UserRole).toInt());
-            delete selected_ranges[i];
+        int cl_index = current_index.row();
+
+        QModelIndexList selection = cl_ranges_view->selectionModel()->selectedRows();
+
+        // Can't use the model indexes after modifying the model.
+        std::vector<int> frames;
+        frames.reserve(selection.size());
+
+        for (int i = 0; i < selection.size(); i++) {
+            bool ok;
+            int frame = selection[i].data().toInt(&ok);
+            if (ok)
+                frames.push_back(frame);
         }
+
+        for (size_t i = 0; i < frames.size(); i++)
+            project->deleteCustomListRange(cl_index, frames[i]);
+
+        if (cl_ranges_view->model()->rowCount())
+            cl_ranges_view->selectRow(cl_ranges_view->currentIndex().row());
 
         updateFrameDetails();
     });
 
-    connect(cl_send_range_menu, &QMenu::triggered, [this, cl_ranges_list, cl_delete_range_button] (QAction *action) {
+    connect(cl_send_range_menu, &QMenu::aboutToShow, [this, cl_send_range_menu, cl_copy_range_menu] () {
         if (!project)
             return;
 
-        int cl_src_index = cl_table->currentRow();
-        if (cl_src_index < 0)
+        cl_send_range_menu->clear();
+        cl_copy_range_menu->clear();
+
+        const CustomListsModel *custom_lists = project->getCustomListsModel();
+
+        for (size_t i = 0; i < custom_lists->size(); i++) {
+            QString cl_name = QString::fromStdString(custom_lists->at(i).name);
+            QAction *send_action = cl_send_range_menu->addAction(cl_name);
+            QAction *copy_action = cl_copy_range_menu->addAction(cl_name);
+            send_action->setData((int)i);
+            copy_action->setData((int)i);
+        }
+    });
+
+    connect(cl_copy_range_menu, &QMenu::aboutToShow, cl_send_range_menu, &QMenu::aboutToShow);
+
+    connect(cl_send_range_menu, &QMenu::triggered, [this, cl_delete_range_button] (QAction *action) {
+        if (!project)
             return;
+
+        QModelIndex current_index = cl_view->selectionModel()->currentIndex();
+        if (!current_index.isValid())
+            return;
+
+        int cl_src_index = current_index.row();
 
         int cl_dst_index = action->data().toInt();
         if (cl_src_index == cl_dst_index)
             return;
 
-        auto selected_ranges = cl_ranges_list->selectedItems();
-        for (int i = 0; i < selected_ranges.size(); i++) {
-            auto range = project->findCustomListRange(cl_src_index, selected_ranges[i]->data(Qt::UserRole).toInt());
+        QModelIndexList selection = cl_ranges_view->selectionModel()->selectedRows();
+
+        for (int i = 0; i < selection.size(); i++) {
+            const FrameRange *range = project->findCustomListRange(cl_src_index, selection[i].data().toInt());
             project->addCustomListRange(cl_dst_index, range->first, range->last);
         }
 
         cl_delete_range_button->click();
     });
 
-    connect(cl_copy_range_menu, &QMenu::triggered, [this, cl_ranges_list] (QAction *action) {
+    connect(cl_copy_range_menu, &QMenu::triggered, [this] (QAction *action) {
         if (!project)
             return;
 
-        int cl_src_index = cl_table->currentRow();
-        if (cl_src_index < 0)
+        QModelIndex current_index = cl_view->selectionModel()->currentIndex();
+        if (!current_index.isValid())
             return;
+
+        int cl_src_index = current_index.row();
 
         int cl_dst_index = action->data().toInt();
         if (cl_src_index == cl_dst_index)
             return;
 
-        auto selected_ranges = cl_ranges_list->selectedItems();
-        for (int i = 0; i < selected_ranges.size(); i++) {
-            auto range = project->findCustomListRange(cl_src_index, selected_ranges[i]->data(Qt::UserRole).toInt());
+        QModelIndexList selection = cl_ranges_view->selectionModel()->selectedRows();
+
+        for (int i = 0; i < selection.size(); i++) {
+            const FrameRange *range = project->findCustomListRange(cl_src_index, selection[i].data().toInt());
             project->addCustomListRange(cl_dst_index, range->first, range->last);
         }
     });
 
 
     QVBoxLayout *vbox = new QVBoxLayout;
-    vbox->addWidget(cl_table);
+    vbox->addWidget(cl_view);
 
     QVBoxLayout *vbox2 = new QVBoxLayout;
     vbox2->addWidget(cl_new_button);
@@ -1598,7 +1607,7 @@ void WobblyWindow::createCustomListsEditor() {
     hbox2->addLayout(vbox);
 
     vbox = new QVBoxLayout;
-    vbox->addWidget(cl_ranges_list);
+    vbox->addWidget(cl_ranges_view);
 
     hbox = new QHBoxLayout;
     hbox->addWidget(cl_delete_range_button);
@@ -2962,64 +2971,31 @@ void WobblyWindow::initialiseSectionsEditor() {
 }
 
 
-void WobblyWindow::updateCustomListsEditor() {
-    auto selection = cl_table->selectedRanges();
-
-    int row_count_before = cl_table->rowCount();
-
-    int current_row = cl_table->currentRow();
-
-    cl_table->setRowCount(0);
-
-    cl_copy_range_menu->clear();
-    cl_send_range_menu->clear();
-
-    auto cl = project->getCustomLists();
-
-    cl_table->setRowCount(cl.size());
-
-    for (size_t i = 0; i < cl.size(); i++) {
-        QString cl_name = QString::fromStdString(cl[i].name);
-
-        QTableWidgetItem *item = new QTableWidgetItem(cl_name);
-        cl_table->setItem(i, 0, item);
-
-        item = new QTableWidgetItem(QString::fromStdString(cl[i].preset));
-        cl_table->setItem(i, 1, item);
-
-        const char *positions[] = {
-            "Post source",
-            "Post field match",
-            "Post decimate"
-        };
-        item = new QTableWidgetItem(positions[cl[i].position]);
-        cl_table->setItem(i, 2, item);
-
-        QAction *copy_action = cl_copy_range_menu->addAction(cl_name);
-        QAction *send_action = cl_send_range_menu->addAction(cl_name);
-        copy_action->setData((int)i);
-        send_action->setData((int)i);
-    }
-
-    cl_table->resizeColumnsToContents();
-
-    int row_count_after = cl_table->rowCount();
-
-    if (row_count_before == row_count_after) {
-        if (current_row > -1)
-            cl_table->setCurrentCell(current_row, 0);
-
-        for (int i = 0; i < selection.size(); i++)
-            cl_table->setRangeSelected(selection[i], true);
-    } else if (row_count_after)
-        cl_table->selectRow(0);
-}
-
-
 void WobblyWindow::initialiseCustomListsEditor() {
+    cl_view->setModel(project->getCustomListsModel());
     cl_presets_box->setModel(project->getPresetsModel());
 
-    updateCustomListsEditor();
+    cl_view->resizeColumnsToContents();
+
+    connect(cl_view->selectionModel(), &QItemSelectionModel::currentRowChanged, [this] (const QModelIndex &current, const QModelIndex &previous) {
+        (void)previous;
+
+        const CustomListsModel *cl = project->getCustomListsModel();
+
+        if (!cl->size())
+            return;
+
+        if (!current.isValid())
+            return;
+
+        const CustomList &list = cl->at(current.row());
+
+        cl_position_group->button(list.position)->setChecked(true);
+
+        cl_presets_box->setCurrentText(QString::fromStdString(list.preset));
+
+        cl_ranges_view->setModel(list.ranges.get());
+    });
 }
 
 
@@ -4105,13 +4081,13 @@ void WobblyWindow::updateFrameDetails() {
 
 
     QString custom_lists;
-    const std::vector<CustomList> &lists = project->getCustomLists();
-    for (size_t i =  0; i < lists.size(); i++) {
+    const CustomListsModel *lists = project->getCustomListsModel();
+    for (size_t i = 0; i < lists->size(); i++) {
         const FrameRange *range = project->findCustomListRange(i, current_frame);
         if (range) {
             if (!custom_lists.isEmpty())
                 custom_lists += "\n";
-            custom_lists += QStringLiteral("%1: [%2,%3]").arg(QString::fromStdString(lists[i].name)).arg(range->first).arg(range->last);
+            custom_lists += QStringLiteral("%1: [%2,%3]").arg(QString::fromStdString(lists->at(i).name)).arg(range->first).arg(range->last);
         }
     }
 
@@ -4971,14 +4947,14 @@ void WobblyWindow::setSelectedCustomList(int index) {
     if (!project)
         return;
 
-    auto cl = project->getCustomLists();
+    const CustomListsModel *cl = project->getCustomListsModel();
 
-    if (index >= (int)cl.size())
-        index = cl.size() - 1;
+    if (index >= (int)cl->size())
+        index = cl->size() - 1;
 
     selected_custom_list = index;
 
-    selected_custom_list_label->setText(QStringLiteral("Selected custom list: ") + (selected_custom_list > -1 ? cl[selected_custom_list].name.c_str() : ""));
+    selected_custom_list_label->setText(QStringLiteral("Selected custom list: ") + (selected_custom_list > -1 ? cl->at(selected_custom_list).name.c_str() : ""));
 }
 
 
@@ -4986,20 +4962,20 @@ void WobblyWindow::selectPreviousCustomList() {
     if (!project)
         return;
 
-    const auto &cl = project->getCustomLists();
+    const CustomListsModel *cl = project->getCustomListsModel();
 
     int index = getSelectedCustomList();
 
-    if (cl.size() == 0) {
+    if (cl->size() == 0) {
         index = -1;
-    } else if (cl.size() == 1) {
+    } else if (cl->size() == 1) {
         index = 0;
     } else {
         if (index == -1) {
-            index = cl.size() - 1;
+            index = cl->size() - 1;
         } else {
             if (index == 0)
-                index = cl.size();
+                index = cl->size();
             index--;
         }
     }
@@ -5012,19 +4988,19 @@ void WobblyWindow::selectNextCustomList() {
     if (!project)
         return;
 
-    const auto &cl = project->getCustomLists();
+    const CustomListsModel *cl = project->getCustomListsModel();
 
     int index = getSelectedCustomList();
 
-    if (cl.size() == 0) {
+    if (cl->size() == 0) {
         index = -1;
-    } else if (cl.size() == 1) {
+    } else if (cl->size() == 1) {
         index = 0;
     } else {
         if (index == -1) {
             index = 0;
         } else {
-            index = (index + 1) % cl.size();
+            index = (index + 1) % cl->size();
         }
     }
 
@@ -5075,8 +5051,6 @@ void WobblyWindow::addRangeToSelectedCustomList() {
         project->addCustomListRange(selected_custom_list, start, end);
 
         updateFrameDetails();
-
-        updateCustomListsEditor();
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }

@@ -22,9 +22,12 @@ SOFTWARE.
 #define WOBBLYTYPES_H
 
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
+
+#include "FrameRangesModel.h"
 
 
 struct FreezeFrame {
@@ -50,22 +53,17 @@ struct Section {
 };
 
 
-struct FrameRange {
-    int first;
-    int last;
-};
-
-
 struct CustomList {
     std::string name;
     std::string preset; // Preset name.
     int position;
-    std::map<int, FrameRange> ranges; // Key is FrameRange::first
+    std::shared_ptr<FrameRangesModel> ranges;
 
     CustomList(const std::string &_name, const std::string &_preset = "", int _position = 0)
         : name(_name)
         , preset(_preset)
         , position(_position)
+        , ranges(std::make_shared<FrameRangesModel>())
     { }
 };
 
