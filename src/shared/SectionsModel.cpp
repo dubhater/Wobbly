@@ -84,8 +84,8 @@ QVariant SectionsModel::headerData(int section, Qt::Orientation orientation, int
 }
 
 
-void SectionsModel::insert(const std::pair<int, Section> &section) {
-    std::map<int, Section>::const_iterator it = lower_bound(section.first);
+void SectionsModel::insert(const value_type &section) {
+    SectionMap::const_iterator it = lower_bound(section.first);
 
     if (it != cend() && it->first == section.first)
         return;
@@ -96,14 +96,14 @@ void SectionsModel::insert(const std::pair<int, Section> &section) {
 
     beginInsertRows(QModelIndex(), new_row, new_row);
 
-    std::map<int, Section>::insert(it, section);
+    SectionMap::insert(it, section);
 
     endInsertRows();
 }
 
 
 void SectionsModel::erase(int section_start) {
-    std::map<int, Section>::const_iterator it = find(section_start);
+    SectionMap::const_iterator it = find(section_start);
 
     if (it == cend())
         return;
@@ -112,14 +112,14 @@ void SectionsModel::erase(int section_start) {
 
     beginRemoveRows(QModelIndex(), row, row);
 
-    std::map<int, Section>::erase(it);
+    SectionMap::erase(it);
 
     endRemoveRows();
 }
 
 
 void SectionsModel::setSectionPresetName(int section_start, size_t preset_index, const std::string &preset_name) {
-    std::map<int, Section>::iterator it = find(section_start);
+    SectionMap::iterator it = find(section_start);
 
     it->second.presets[preset_index] = preset_name;
 
@@ -131,7 +131,7 @@ void SectionsModel::setSectionPresetName(int section_start, size_t preset_index,
 
 
 void SectionsModel::appendSectionPreset(int section_start, const std::string &preset_name) {
-    std::map<int, Section>::iterator it = find(section_start);
+    SectionMap::iterator it = find(section_start);
 
     it->second.presets.push_back(preset_name);
 
@@ -143,7 +143,7 @@ void SectionsModel::appendSectionPreset(int section_start, const std::string &pr
 
 
 void SectionsModel::deleteSectionPreset(int section_start, size_t preset_index) {
-    std::map<int, Section>::iterator it = find(section_start);
+    SectionMap::iterator it = find(section_start);
 
     it->second.presets.erase(it->second.presets.cbegin() + preset_index);
 
@@ -158,7 +158,7 @@ void SectionsModel::moveSectionPresetUp(int section_start, size_t preset_index) 
     if (preset_index == 0)
         return;
 
-    std::map<int, Section>::iterator it = find(section_start);
+    SectionMap::iterator it = find(section_start);
 
     std::swap(it->second.presets[preset_index - 1], it->second.presets[preset_index]);
 
@@ -170,7 +170,7 @@ void SectionsModel::moveSectionPresetUp(int section_start, size_t preset_index) 
 
 
 void SectionsModel::moveSectionPresetDown(int section_start, size_t preset_index) {
-    std::map<int, Section>::iterator it = find(section_start);
+    SectionMap::iterator it = find(section_start);
 
     if (preset_index == it->second.presets.size() - 1)
         return;

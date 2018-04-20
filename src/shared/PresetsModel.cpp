@@ -59,8 +59,8 @@ QVariant PresetsModel::headerData(int section, Qt::Orientation orientation, int 
 }
 
 
-void PresetsModel::insert(const std::pair<std::string, Preset> &preset) {
-    std::map<std::string, Preset>::const_iterator it = lower_bound(preset.first);
+void PresetsModel::insert(const value_type &preset) {
+    PresetMap::const_iterator it = lower_bound(preset.first);
 
     if (it != cend() && it->first == preset.first)
         return;
@@ -71,14 +71,14 @@ void PresetsModel::insert(const std::pair<std::string, Preset> &preset) {
 
     beginInsertRows(QModelIndex(), new_row, new_row);
 
-    std::map<std::string, Preset>::insert(it, preset);
+    PresetMap::insert(it, preset);
 
     endInsertRows();
 }
 
 
 void PresetsModel::erase(const std::string &preset_name) {
-    std::map<std::string, Preset>::const_iterator it = find(preset_name);
+    PresetMap::const_iterator it = find(preset_name);
 
     if (it == cend())
         return;
@@ -87,7 +87,7 @@ void PresetsModel::erase(const std::string &preset_name) {
 
     beginRemoveRows(QModelIndex(), row, row);
 
-    std::map<std::string, Preset>::erase(it);
+    PresetMap::erase(it);
 
     endRemoveRows();
 }

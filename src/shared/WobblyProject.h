@@ -109,7 +109,7 @@ class WobblyProject : public QObject {
 
         PatternGuessing pattern_guessing;
 
-        std::map<int, InterlacedFade> interlaced_fades; // Key is InterlacedFade::frame
+        InterlacedFadeMap interlaced_fades; // Key is InterlacedFade::frame
 
         CombedFramesModel *combed_frames;
         FrozenFramesModel *frozen_frames;
@@ -235,8 +235,8 @@ class WobblyProject : public QObject {
         void clearDecimatedFramesFromCycle(int frame);
 
 
-        std::vector<DecimationRange> getDecimationRanges() const;
-        std::vector<DecimationPatternRange> getDecimationPatternRanges() const;
+        DecimationRangeVector getDecimationRanges() const;
+        DecimationPatternRangeVector getDecimationPatternRanges() const;
 
 
         std::map<size_t, size_t> getCMatchSequences(int minimum) const;
@@ -323,7 +323,7 @@ class WobblyProject : public QObject {
 
 
         void addInterlacedFade(int frame, double field_difference);
-        const std::map<int, InterlacedFade> &getInterlacedFades() const;
+        const InterlacedFadeMap &getInterlacedFades() const;
 
 
         void sectionsToScript(std::string &script) const;

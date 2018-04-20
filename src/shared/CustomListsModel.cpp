@@ -90,7 +90,7 @@ QVariant CustomListsModel::headerData(int section, Qt::Orientation orientation, 
 void CustomListsModel::push_back(const CustomList &cl) {
     beginInsertRows(QModelIndex(), size(), size());
 
-    std::vector<CustomList>::push_back(cl);
+    CustomListVector::push_back(cl);
 
     endInsertRows();
 }
@@ -99,7 +99,7 @@ void CustomListsModel::push_back(const CustomList &cl) {
 void CustomListsModel::erase(int list_index) {
     beginRemoveRows(QModelIndex(), list_index, list_index);
 
-    std::vector<CustomList>::erase(cbegin() + list_index);
+    CustomListVector::erase(cbegin() + list_index);
 
     endRemoveRows();
 }

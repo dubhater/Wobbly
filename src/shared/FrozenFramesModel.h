@@ -28,7 +28,7 @@ SOFTWARE.
 #include "WobblyTypes.h"
 
 
-class FrozenFramesModel : public QAbstractTableModel, private std::map<int, FreezeFrame> {
+class FrozenFramesModel : public QAbstractTableModel, private FreezeFrameMap {
     Q_OBJECT
 
     enum Columns {
@@ -49,12 +49,12 @@ public:
 
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-    using std::map<int, FreezeFrame>::size;
-    using std::map<int, FreezeFrame>::cbegin;
-    using std::map<int, FreezeFrame>::cend;
-    using std::map<int, FreezeFrame>::upper_bound;
+    using FreezeFrameMap::size;
+    using FreezeFrameMap::cbegin;
+    using FreezeFrameMap::cend;
+    using FreezeFrameMap::upper_bound;
 
-    void insert(const std::pair<int, FreezeFrame> &freeze_frame);
+    void insert(const value_type &freeze_frame);
 
     void erase(int freeze_frame);
 };

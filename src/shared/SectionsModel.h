@@ -26,7 +26,7 @@ SOFTWARE.
 #include "WobblyTypes.h"
 
 
-class SectionsModel : public QAbstractTableModel, private std::map<int, Section> {
+class SectionsModel : public QAbstractTableModel, private SectionMap {
     Q_OBJECT
 
 public:
@@ -46,12 +46,12 @@ public:
 
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-    using std::map<int, Section>::cbegin;
-    using std::map<int, Section>::cend;
-    using std::map<int, Section>::upper_bound;
-    using std::map<int, Section>::count;
+    using SectionMap::cbegin;
+    using SectionMap::cend;
+    using SectionMap::upper_bound;
+    using SectionMap::count;
 
-    void insert(const std::pair<int, Section> &section);
+    void insert(const value_type &section);
 
     void erase(int section_start);
 

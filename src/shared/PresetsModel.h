@@ -26,7 +26,7 @@ SOFTWARE.
 #include "WobblyTypes.h"
 
 
-class PresetsModel : public QAbstractListModel, private std::map<std::string, Preset> {
+class PresetsModel : public QAbstractListModel, private PresetMap {
     Q_OBJECT
 
 public:
@@ -38,12 +38,12 @@ public:
 
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-    using std::map<std::string, Preset>::cbegin;
-    using std::map<std::string, Preset>::cend;
-    using std::map<std::string, Preset>::count;
-    using std::map<std::string, Preset>::at;
+    using PresetMap::cbegin;
+    using PresetMap::cend;
+    using PresetMap::count;
+    using PresetMap::at;
 
-    void insert(const std::pair<std::string, Preset> &preset);
+    void insert(const value_type &preset);
 
     void erase(const std::string &preset_name);
 };

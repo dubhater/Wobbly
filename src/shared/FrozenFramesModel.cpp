@@ -79,8 +79,8 @@ QVariant FrozenFramesModel::headerData(int section, Qt::Orientation orientation,
 }
 
 
-void FrozenFramesModel::insert(const std::pair<int, FreezeFrame> &freeze_frame) {
-    std::map<int, FreezeFrame>::const_iterator it = lower_bound(freeze_frame.first);
+void FrozenFramesModel::insert(const value_type &freeze_frame) {
+    FreezeFrameMap::const_iterator it = lower_bound(freeze_frame.first);
 
     if (it != cend() && it->first == freeze_frame.first)
         return;
@@ -91,14 +91,14 @@ void FrozenFramesModel::insert(const std::pair<int, FreezeFrame> &freeze_frame) 
 
     beginInsertRows(QModelIndex(), new_row, new_row);
 
-    std::map<int, FreezeFrame>::insert(it, freeze_frame);
+    FreezeFrameMap::insert(it, freeze_frame);
 
     endInsertRows();
 }
 
 
 void FrozenFramesModel::erase(int freeze_frame) {
-    std::map<int, FreezeFrame>::const_iterator it = find(freeze_frame);
+    FreezeFrameMap::const_iterator it = find(freeze_frame);
 
     if (it == cend())
         return;
@@ -107,7 +107,7 @@ void FrozenFramesModel::erase(int freeze_frame) {
 
     beginRemoveRows(QModelIndex(), row, row);
 
-    std::map<int, FreezeFrame>::erase(it);
+    FreezeFrameMap::erase(it);
 
     endRemoveRows();
 }

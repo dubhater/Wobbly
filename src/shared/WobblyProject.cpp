@@ -175,7 +175,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , mic_search_minimum(20)
     , c_match_sequences_minimum(20)
     , is_wobbly(_is_wobbly)
-    , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, std::map<int, FailedPatternGuessing>() }
+    , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, FailedPatternGuessingMap() }
     , combed_frames(new CombedFramesModel(this))
     , frozen_frames(new FrozenFramesModel(this))
     , presets(new PresetsModel(this))
@@ -2250,8 +2250,8 @@ void WobblyProject::clearDecimatedFramesFromCycle(int frame) {
 }
 
 
-std::vector<DecimationRange> WobblyProject::getDecimationRanges() const {
-    std::vector<DecimationRange> ranges;
+DecimationRangeVector WobblyProject::getDecimationRanges() const {
+    DecimationRangeVector ranges;
 
     DecimationRange current_range;
     current_range.num_dropped = -1;
@@ -2280,8 +2280,8 @@ static bool areDecimationPatternsEqual(const std::set<int8_t> &a, const std::set
 }
 
 
-std::vector<DecimationPatternRange> WobblyProject::getDecimationPatternRanges() const {
-    std::vector<DecimationPatternRange> ranges;
+DecimationPatternRangeVector WobblyProject::getDecimationPatternRanges() const {
+    DecimationPatternRangeVector ranges;
 
     DecimationPatternRange current_range;
     current_range.dropped_offsets.insert(-1);
@@ -3030,7 +3030,7 @@ void WobblyProject::addInterlacedFade(int frame, double field_difference) {
 }
 
 
-const std::map<int, InterlacedFade> &WobblyProject::getInterlacedFades() const {
+const InterlacedFadeMap &WobblyProject::getInterlacedFades() const {
     return interlaced_fades;
 }
 
@@ -3047,7 +3047,7 @@ void WobblyProject::sectionsToScript(std::string &script) const {
         return true;
     };
 
-    std::map<int, Section> merged_sections;
+    SectionMap merged_sections;
     merged_sections.insert({ 0, sections->cbegin()->second });
 
     for (auto it = ++(sections->cbegin()); it != sections->cend(); it++)
@@ -3257,7 +3257,7 @@ void WobblyProject::freezeFramesToScript(std::string &script) const {
 void WobblyProject::decimatedFramesToScript(std::string &script) const {
     std::string delete_frames;
 
-    const std::vector<DecimationRange> &decimation_ranges = getDecimationRanges();
+    const DecimationRangeVector &decimation_ranges = getDecimationRanges();
 
     std::array<int, 5> frame_rate_counts = { 0, 0, 0, 0, 0 };
 
@@ -3297,7 +3297,7 @@ void WobblyProject::decimatedFramesToScript(std::string &script) const {
 
     std::string select_every;
 
-    const std::vector<DecimationPatternRange> &decimation_pattern_ranges = getDecimationPatternRanges();
+    const DecimationPatternRangeVector &decimation_pattern_ranges = getDecimationPatternRanges();
 
     std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
 
@@ -3466,7 +3466,7 @@ std::string WobblyProject::generateTimecodesV1() const {
 
     tc += buf;
 
-    const std::vector<DecimationRange> &ranges = getDecimationRanges();
+    const DecimationRangeVector &ranges = getDecimationRanges();
 
     int numerators[] = { 30000, 24000, 18000, 12000, 6000 };
 

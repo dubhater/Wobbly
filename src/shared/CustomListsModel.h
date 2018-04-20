@@ -26,7 +26,7 @@ SOFTWARE.
 #include "WobblyTypes.h"
 
 
-class CustomListsModel : public QAbstractTableModel, private std::vector<CustomList> {
+class CustomListsModel : public QAbstractTableModel, private CustomListVector {
     Q_OBJECT
 
     enum Columns {
@@ -51,11 +51,11 @@ public:
 
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-    using std::vector<CustomList>::at;
-    using std::vector<CustomList>::size;
-    using std::vector<CustomList>::cbegin;
-    using std::vector<CustomList>::cend;
-    using std::vector<CustomList>::reserve;
+    using CustomListVector::at;
+    using CustomListVector::size;
+    using CustomListVector::cbegin;
+    using CustomListVector::cend;
+    using CustomListVector::reserve;
 
     void push_back(const CustomList &cl);
 

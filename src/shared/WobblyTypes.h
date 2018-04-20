@@ -36,11 +36,15 @@ struct FreezeFrame {
     int replacement;
 };
 
+typedef std::map<int, FreezeFrame> FreezeFrameMap;
+
 
 struct Preset {
     std::string name; // Must be suitable for use as Python function name.
     std::string contents;
 };
+
+typedef std::map<std::string, Preset> PresetMap;
 
 
 struct Section {
@@ -51,6 +55,8 @@ struct Section {
         : start(_start)
     { }
 };
+
+typedef std::map<int, Section> SectionMap;
 
 
 struct CustomList {
@@ -66,6 +72,8 @@ struct CustomList {
         , ranges(std::make_shared<FrameRangesModel>())
     { }
 };
+
+typedef std::vector<CustomList> CustomListVector;
 
 
 struct Resize {
@@ -99,11 +107,15 @@ struct DecimationRange {
     int num_dropped;
 };
 
+typedef std::vector<DecimationRange> DecimationRangeVector;
+
 
 struct DecimationPatternRange {
     int start;
     std::set<int8_t> dropped_offsets;
 };
+
+typedef std::vector<DecimationPatternRange> DecimationPatternRangeVector;
 
 
 enum PositionInFilterChain {
@@ -140,6 +152,8 @@ struct FailedPatternGuessing {
     int reason;
 };
 
+typedef std::map<int, FailedPatternGuessing> FailedPatternGuessingMap;
+
 
 enum PatternGuessingFailureReason {
     SectionTooShort = 0,
@@ -159,7 +173,7 @@ struct PatternGuessing {
     int third_n_match;
     int decimation;
     int use_patterns;
-    std::map<int, FailedPatternGuessing> failures; // Key is FailedPatternGuessing::start
+    FailedPatternGuessingMap failures; // Key is FailedPatternGuessing::start
 };
 
 
@@ -167,6 +181,8 @@ struct InterlacedFade {
     int frame;
     double field_difference;
 };
+
+typedef std::map<int, InterlacedFade> InterlacedFadeMap;
 
 
 struct ImportedThings {
