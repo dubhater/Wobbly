@@ -39,6 +39,7 @@ SOFTWARE.
 #include "CustomListsModel.h"
 #include "FrozenFramesModel.h"
 #include "PresetsModel.h"
+#include "SectionsModel.h"
 #include "WobblyException.h"
 #include "WobblyTypes.h"
 
@@ -106,8 +107,6 @@ class WobblyProject : public QObject {
 
         bool is_wobbly; // XXX Maybe only the json writing function needs to know.
 
-        std::map<int, Section> sections; // Key is Section::start
-
         PatternGuessing pattern_guessing;
 
         std::map<int, InterlacedFade> interlaced_fades; // Key is InterlacedFade::frame
@@ -116,6 +115,7 @@ class WobblyProject : public QObject {
         FrozenFramesModel *frozen_frames;
         PresetsModel *presets;
         CustomListsModel *custom_lists;
+        SectionsModel *sections;
 
         Resize resize;
         Crop crop;
@@ -189,12 +189,16 @@ class WobblyProject : public QObject {
         void addSection(int section_start);
         void addSection(const Section &section);
         void deleteSection(int section_start);
-        Section *findSection(int frame);
-        Section *findNextSection(int frame);
-        int getSectionEnd(int frame);
+        const Section *findSection(int frame) const;
+        const Section *findNextSection(int frame) const;
+        int getSectionEnd(int frame) const;
         void setSectionPreset(int section_start, const std::string &preset_name);
+        void deleteSectionPreset(int section_start, size_t preset_index);
+        void moveSectionPresetUp(int section_start, size_t preset_index);
+        void moveSectionPresetDown(int section_start, size_t preset_index);
         void setSectionMatchesFromPattern(int section_start, const std::string &pattern);
         void setSectionDecimationFromPattern(int section_start, const std::string &pattern);
+        SectionsModel *getSectionsModel();
 
 
         void setRangeMatchesFromPattern(int range_start, int range_end, const std::string &pattern);

@@ -26,6 +26,7 @@ shared_moc_files = src/shared/moc_CombedFramesModel.cpp \
 				   src/shared/moc_ListWidget.cpp \
 				   src/shared/moc_PresetsModel.cpp \
 				   src/shared/moc_ScrollArea.cpp \
+				   src/shared/moc_SectionsModel.cpp \
 				   src/shared/moc_WobblyProject.cpp
 
 wibbly_moc_files = src/wibbly/moc_WibblyWindow.cpp
@@ -35,6 +36,7 @@ wobbly_moc_files = src/wobbly/moc_CombedFramesCollector.cpp \
 				   src/wobbly/moc_ImportWindow.cpp \
 				   src/wobbly/moc_OverlayLabel.cpp \
 				   src/wobbly/moc_PresetTextEdit.cpp \
+				   src/wobbly/moc_SectionsProxyModel.cpp \
 				   src/wobbly/moc_SpinBox.cpp \
 				   src/wobbly/moc_TableView.cpp \
 				   src/wobbly/moc_TableWidget.cpp \
@@ -92,6 +94,8 @@ shared_sources = $(rapidjson_sources) \
 				 src/shared/PresetsModel.h \
 				 src/shared/ScrollArea.cpp \
 				 src/shared/ScrollArea.h \
+				 src/shared/SectionsModel.cpp \
+				 src/shared/SectionsModel.h \
 				 src/shared/WobblyProject.cpp \
 				 src/shared/WobblyProject.h \
 				 src/shared/WobblyException.h \
@@ -108,6 +112,8 @@ wobbly_SOURCES = $(shared_sources) \
 				 src/wobbly/OverlayLabel.h \
 				 src/wobbly/PresetTextEdit.cpp \
 				 src/wobbly/PresetTextEdit.h \
+				 src/wobbly/SectionsProxyModel.cpp \
+				 src/wobbly/SectionsProxyModel.h \
 				 src/wobbly/SpinBox.cpp \
 				 src/wobbly/SpinBox.h \
 				 src/wobbly/TableView.cpp \

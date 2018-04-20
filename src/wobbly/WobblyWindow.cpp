@@ -806,8 +806,6 @@ void WobblyWindow::createPresetEditor() {
 
                     preset_combo->setCurrentText(preset_name);
 
-                    updateSectionsEditor();
-
                     updateFrameDetails();
 
                     ok = true;
@@ -846,9 +844,6 @@ void WobblyWindow::createPresetEditor() {
             preset_combo->setCurrentIndex(index);
         }
         presetChanged(preset_combo->currentText());
-
-        if (preset_in_use)
-            updateSectionsEditor();
     });
 
 
@@ -947,8 +942,9 @@ void WobblyWindow::createPatternEditor() {
 
 
 void WobblyWindow::createSectionsEditor() {
-    sections_table = new TableWidget(0, 2, this);
-    sections_table->setHorizontalHeaderLabels({ "Start", "Presets" });
+    sections_view = new TableView;
+    sections_proxy_model = new SectionsProxyModel(this);
+    sections_view->setModel(sections_proxy_model);
 
     QPushButton *delete_sections_button = new QPushButton("Delete");
 
@@ -961,7 +957,7 @@ void WobblyWindow::createSectionsEditor() {
     short_sections_spin->setPrefix(QStringLiteral("Maximum: "));
     short_sections_spin->setSuffix(QStringLiteral(" frames"));
 
-    ListWidget *section_presets_list = new ListWidget;
+    section_presets_list = new ListWidget;
     section_presets_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     section_presets_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
@@ -976,50 +972,36 @@ void WobblyWindow::createSectionsEditor() {
     QPushButton *append_presets_button = new QPushButton("Append");
 
 
-    connect(sections_table, &TableWidget::cellDoubleClicked, [this] (int row, int column) {
-        (void)column;
-        QTableWidgetItem *item = sections_table->item(row, 0);
+    connect(sections_view, &TableView::doubleClicked, [this] (const QModelIndex &index) {
         bool ok;
-        int frame = item->text().toInt(&ok);
+        int frame = sections_view->model()->data(sections_view->model()->index(index.row(), 0)).toInt(&ok);
         if (ok)
             requestFrames(frame);
     });
 
-    connect(sections_table, &TableWidget::currentCellChanged, [this, section_presets_list] (int currentRow) {
-        if (currentRow < 0)
-            return;
-
-        section_presets_list->clear();
-        bool ok;
-        int frame = sections_table->item(currentRow, 0)->text().toInt(&ok);
-        if (ok) {
-            const Section *section = project->findSection(frame);
-            for (auto it = section->presets.cbegin(); it != section->presets.cend(); it++)
-                section_presets_list->addItem(QString::fromStdString(*it));
-        }
-    });
-
-    connect(sections_table, &TableWidget::deletePressed, delete_sections_button, &QPushButton::click);
+    connect(sections_view, &TableView::deletePressed, delete_sections_button, &QPushButton::click);
 
     connect(delete_sections_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        auto selection = sections_table->selectedRanges();
+        QModelIndexList selection = sections_view->selectionModel()->selectedRows();
 
-        for (int i = selection.size() - 1; i >= 0; i--) {
-            for (int j = selection[i].bottomRow(); j >= selection[i].topRow(); j--) {
-                bool ok;
-                int frame = sections_table->item(j, 0)->text().toInt(&ok);
-                if (ok && frame != 0) {
-                    project->deleteSection(frame);
-                    sections_table->removeRow(j);
-                }
-            }
-        }
+        // Can't use the model indexes after modifying the model.
+        std::vector<int> frames;
+        frames.reserve(selection.size());
 
-        if (sections_table->rowCount())
-            sections_table->selectRow(sections_table->currentRow());
+        for (int i = 0; i < selection.size(); i++)
+            frames.push_back(selection[i].data().toInt());
+
+        std::sort(frames.begin(), frames.end());
+
+        for (int i = frames.size() - 1; i >= 0; i--)
+            if (frames[i] != 0)
+                project->deleteSection(frames[i]);
+
+        if (sections_view->model()->rowCount())
+            sections_view->selectRow(sections_view->currentIndex().row());
 
         if (selection.size())
             updateFrameDetails();
@@ -1029,148 +1011,144 @@ void WobblyWindow::createSectionsEditor() {
         if (!project)
             return;
 
-        (void)checked;
+        short_sections_spin->valueChanged(short_sections_spin->value());
 
-        updateSectionsEditor();
+        sections_proxy_model->setHideSections(checked);
     });
 
     connect(short_sections_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
         if (!project)
             return;
 
-        (void)value;
+        std::unordered_set<int> long_sections;
 
-        updateSectionsEditor();
+        const Section *section = project->findSection(0);
+        while (section) {
+            int section_length = project->getSectionEnd(section->start) - section->start;
+
+            if (section_length > value)
+                long_sections.insert(section->start);
+
+            section = project->findNextSection(section->start);
+        }
+
+        sections_proxy_model->setHiddenSections(long_sections);
     });
 
     connect(section_presets_list, &ListWidget::deletePressed, remove_preset_button, &QPushButton::click);
 
-    connect(move_preset_up_button, &QPushButton::clicked, [this, section_presets_list] () {
+    connect(move_preset_up_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        int sections_row = sections_table->currentRow();
-        auto selected_presets = section_presets_list->selectedItems();
+        QList<QListWidgetItem *> selected_presets = section_presets_list->selectedItems();
+
+        if (!selected_presets.size())
+            return;
+
+        int sections_row = sections_view->currentIndex().row();
         bool ok;
-        int frame = sections_table->item(sections_row, 0)->text().toInt(&ok);
-        if (ok && selected_presets.size()) {
-            for (int i = 0; i < selected_presets.size(); i++) {
-                int preset_row = section_presets_list->row(selected_presets[i]);
-                if (preset_row == 0)
-                    break;
-                section_presets_list->insertItem(preset_row - 1, section_presets_list->takeItem(preset_row));
-                section_presets_list->item(preset_row)->setSelected(false);
-                section_presets_list->item(preset_row - 1)->setSelected(true);
-            }
+        int section_start = sections_view->model()->data(sections_view->model()->index(sections_row, 0)).toInt(&ok);
 
-            Section *section = project->findSection(frame);
-            QString presets;
-            for (size_t i = 0; i < section->presets.size(); i++) {
-                section->presets[i] = section_presets_list->item(i)->text().toStdString();
+        if (!ok)
+            return;
 
-                if (i > 0)
-                    presets += ",";
-                presets += QString::fromStdString(section->presets[i]);
-            }
-            QTableWidgetItem *item = new QTableWidgetItem(presets);
-            sections_table->setItem(sections_row, 1, item);
+        std::vector<int> preset_indexes;
+        preset_indexes.reserve(selected_presets.size());
 
-            updateFrameDetails();
-        }
+        for (int i = 0; i < selected_presets.size(); i++)
+            preset_indexes.push_back(section_presets_list->row(selected_presets[i]));
+
+        if (preset_indexes[0] == 0)
+            return;
+
+        for (size_t i = 0; i < preset_indexes.size(); i++)
+            project->moveSectionPresetUp(section_start, preset_indexes[i]);
+
+        for (size_t i = 0; i < preset_indexes.size(); i++)
+            section_presets_list->item(preset_indexes[i] - 1)->setSelected(true);
+
+        updateFrameDetails();
     });
 
-    connect(move_preset_down_button, &QPushButton::clicked, [this, section_presets_list] () {
+    connect(move_preset_down_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        int sections_row = sections_table->currentRow();
-        auto selected_presets = section_presets_list->selectedItems();
+        QList<QListWidgetItem *> selected_presets = section_presets_list->selectedItems();
+
+        if (!selected_presets.size())
+            return;
+
+        int sections_row = sections_view->currentIndex().row();
         bool ok;
-        int frame = sections_table->item(sections_row, 0)->text().toInt(&ok);
-        if (ok && selected_presets.size()) {
-            for (int i = selected_presets.size() - 1; i >= 0; i--) {
-                int preset_row = section_presets_list->row(selected_presets[i]);
-                if (preset_row == section_presets_list->count() - 1)
-                    break;
-                section_presets_list->insertItem(preset_row + 1, section_presets_list->takeItem(preset_row));
-                section_presets_list->item(preset_row)->setSelected(false);
-                section_presets_list->item(preset_row + 1)->setSelected(true);
-            }
+        int section_start = sections_view->model()->data(sections_view->model()->index(sections_row, 0)).toInt(&ok);
 
-            Section *section = project->findSection(frame);
-            QString presets;
-            for (size_t i = 0; i < section->presets.size(); i++) {
-                section->presets[i] = section_presets_list->item(i)->text().toStdString();
+        if (!ok)
+            return;
 
-                if (i > 0)
-                    presets += ",";
-                presets += QString::fromStdString(section->presets[i]);
-            }
-            QTableWidgetItem *item = new QTableWidgetItem(presets);
-            sections_table->setItem(sections_row, 1, item);
+        std::vector<int> preset_indexes;
+        preset_indexes.reserve(selected_presets.size());
 
-            updateFrameDetails();
-        }
+        for (int i = 0; i < selected_presets.size(); i++)
+            preset_indexes.push_back(section_presets_list->row(selected_presets[i]));
+
+        if (preset_indexes.back() == section_presets_list->count() - 1)
+            return;
+
+        for (int i = preset_indexes.size() - 1; i >= 0; i--)
+            project->moveSectionPresetDown(section_start, preset_indexes[i]);
+
+        for (size_t i = 0; i < preset_indexes.size(); i++)
+            section_presets_list->item(preset_indexes[i] + 1)->setSelected(true);
+
+        updateFrameDetails();
     });
 
-    connect(remove_preset_button, &QPushButton::clicked, [this, section_presets_list] () {
+    connect(remove_preset_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        int sections_row = sections_table->currentRow();
-        auto selected_presets = section_presets_list->selectedItems();
+        QList<QListWidgetItem *> selected_presets = section_presets_list->selectedItems();
+
+        if (!selected_presets.size())
+            return;
+
+        int sections_row = sections_view->currentIndex().row();
         bool ok;
-        int frame = sections_table->item(sections_row, 0)->text().toInt(&ok);
-        if (ok && selected_presets.size()) {
-            Section *section = project->findSection(frame);
-            for (int i = selected_presets.size() - 1; i >= 0; i--) {
-                section->presets.erase(section->presets.cbegin() + section_presets_list->row(selected_presets[i]));
-            }
-            section_presets_list->clear();
+        int section_start = sections_view->model()->data(sections_view->model()->index(sections_row, 0)).toInt(&ok);
 
-            QString presets;
-            for (size_t i = 0; i < section->presets.size(); i++) {
-                section_presets_list->addItem(QString::fromStdString(section->presets[i]));
-                if (i > 0)
-                    presets += ",";
-                presets += QString::fromStdString(section->presets[i]);
-            }
-            QTableWidgetItem *item = new QTableWidgetItem(presets);
-            sections_table->setItem(sections_row, 1, item);
+        if (!ok)
+            return;
 
-            updateFrameDetails();
-        }
+        std::vector<int> preset_indexes;
+        preset_indexes.reserve(selected_presets.size());
+
+        for (int i = 0; i < selected_presets.size(); i++)
+            preset_indexes.push_back(section_presets_list->row(selected_presets[i]));
+
+        for (int i = preset_indexes.size() - 1; i >= 0; i--)
+            project->deleteSectionPreset(section_start, preset_indexes[i]);
+
+        updateFrameDetails();
     });
 
-    connect(append_presets_button, &QPushButton::clicked, [this, section_presets_list] () {
+    connect(append_presets_button, &QPushButton::clicked, [this] () {
         if (!project)
             return;
 
-        auto selected_presets = preset_list->selectionModel()->selectedRows();
-        auto selected_sections = sections_table->selectedItems();
+        QModelIndexList selected_presets = preset_list->selectionModel()->selectedRows();
+        QModelIndexList selected_sections = sections_view->selectionModel()->selectedRows();
 
         if (selected_presets.size()) {
             for (auto section = selected_sections.cbegin(); section != selected_sections.cend(); section++)
-                for (auto model_index = selected_presets.cbegin(); model_index != selected_presets.cend(); model_index++) {
+                for (auto preset = selected_presets.cbegin(); preset != selected_presets.cend(); preset++) {
                     bool ok;
-                    int frame = (*section)->text().toInt(&ok);
-                    if (ok) {
-                        const QString &preset = model_index->data().toString();
-
-                        project->setSectionPreset(frame, preset.toStdString());
-                        section_presets_list->addItem(preset);
-
-                        QTableWidgetItem *presets_item = sections_table->item((*section)->row(), 1);
-                        if (!presets_item) {
-                            presets_item = new QTableWidgetItem;
-                            sections_table->setItem((*section)->row(), 1, presets_item);
-                        }
-                        QString presets_text = presets_item->text();
-                        if (presets_text.size())
-                            presets_text += ",";
-                        presets_item->setText(presets_text + preset);
-                    }
+                    int section_start = section->data().toInt(&ok);
+                    if (ok)
+                        project->setSectionPreset(section_start, preset->data().toString().toStdString());
                 }
+
             if (selected_sections.size())
                 updateFrameDetails();
         }
@@ -1179,7 +1157,7 @@ void WobblyWindow::createSectionsEditor() {
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(new QLabel("Sections:"));
-    vbox->addWidget(sections_table, 1);
+    vbox->addWidget(sections_view, 1);
 
     QVBoxLayout *vbox2 = new QVBoxLayout;
     vbox2->addWidget(delete_sections_button);
@@ -2915,59 +2893,49 @@ void WobblyWindow::initialisePresetEditor() {
 }
 
 
-void WobblyWindow::updateSectionsEditor() {
-    auto selection = sections_table->selectedRanges();
-
-    int row_count_before = sections_table->rowCount();
-
-    int current_row = sections_table->currentRow();
-
-    sections_table->setRowCount(0);
-    int rows = 0;
-    const Section *section = project->findSection(0);
-    while (section) {
-        if (!short_sections_box->isChecked() || project->getSectionEnd(section->start) - section->start <= short_sections_spin->value()) {
-            QTableWidgetItem *item;
-
-            rows++;
-            sections_table->setRowCount(rows);
-
-            item = new QTableWidgetItem(QString::number(section->start));
-            sections_table->setItem(rows - 1, 0, item);
-
-            if (section->presets.size()) {
-                QString presets = QString::fromStdString(section->presets[0]);
-                for (size_t i = 1; i < section->presets.size(); i++)
-                    presets += "," + QString::fromStdString(section->presets[i]);
-                item = new QTableWidgetItem(presets);
-                sections_table->setItem(rows - 1, 1, item);
-            }
-        }
-
-        section = project->findNextSection(section->start);
-    }
-
-    sections_table->resizeColumnsToContents();
-
-    int row_count_after = sections_table->rowCount();
-
-    if (row_count_before == row_count_after) {
-        if (current_row > -1)
-            sections_table->setCurrentCell(current_row, 0);
-
-        for (int i = 0; i < selection.size(); i++)
-            sections_table->setRangeSelected(selection[i], true);
-    } else if (row_count_after)
-        sections_table->selectRow(0);
-}
-
-
 void WobblyWindow::initialiseSectionsEditor() {
     QItemSelectionModel *m = preset_list->selectionModel();
     preset_list->setModel(project->getPresetsModel());
     delete m;
 
-    updateSectionsEditor();
+    sections_proxy_model->setSourceModel(project->getSectionsModel());
+
+    connect(sections_view->selectionModel(), &QItemSelectionModel::currentRowChanged, [this] (const QModelIndex &current, const QModelIndex &previous) {
+        (void)previous;
+
+        section_presets_list->clear();
+
+        if (!current.isValid())
+            return;
+
+        bool ok;
+        int frame = sections_view->model()->data(sections_view->model()->index(current.row(), 0)).toInt(&ok);
+        if (ok) {
+            const Section *section = project->findSection(frame);
+            for (auto it = section->presets.cbegin(); it != section->presets.cend(); it++)
+                section_presets_list->addItem(QString::fromStdString(*it));
+        }
+    });
+
+    connect(project->getSectionsModel(), &SectionsModel::dataChanged, [this] (const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+        QModelIndex current_index = sections_view->currentIndex();
+
+        if (!current_index.isValid())
+            return;
+
+        if (current_index.row() < topLeft.row() || current_index.row() > bottomRight.row() ||
+            SectionsModel::PresetsColumn < topLeft.column() || SectionsModel::PresetsColumn > bottomRight.column())
+            return;
+
+        section_presets_list->clear();
+        bool ok;
+        int frame = sections_view->model()->data(sections_view->model()->index(current_index.row(), 0)).toInt(&ok);
+        if (ok) {
+            const Section *section = project->findSection(frame);
+            for (auto it = section->presets.cbegin(); it != section->presets.cend(); it++)
+                section_presets_list->addItem(QString::fromStdString(*it));
+        }
+    });
 }
 
 
@@ -4454,8 +4422,6 @@ void WobblyWindow::addSection() {
     if (section->start != current_frame) {
         project->addSection(current_frame);
 
-        updateSectionsEditor();
-
         updateFrameDetails();
     }
 }
@@ -4468,10 +4434,6 @@ void WobblyWindow::deleteSection() {
     const Section *section = project->findSection(current_frame);
     if (section->start != 0) {
         project->deleteSection(section->start);
-
-        auto items = sections_table->findItems(QString::number(section->start), Qt::MatchFixedString);
-        if (items.size() == 1)
-            sections_table->removeRow(items[0]->row());
 
         updateFrameDetails();
     }
@@ -5021,8 +4983,6 @@ void WobblyWindow::assignSelectedPresetToCurrentSection() {
     project->setSectionPreset(section_start, presets_model->data(presets_model->index(selected_preset)).toString().toStdString());
 
     updateFrameDetails();
-
-    updateSectionsEditor();
 }
 
 

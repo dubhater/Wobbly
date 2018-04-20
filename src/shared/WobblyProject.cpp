@@ -180,6 +180,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , frozen_frames(new FrozenFramesModel(this))
     , presets(new PresetsModel(this))
     , custom_lists(new CustomListsModel(this))
+    , sections(new SectionsModel(this))
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
@@ -429,7 +430,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
 
     rj::Value json_sections(rj::kArrayType);
 
-    for (auto it = sections.cbegin(); it != sections.cend(); it++) {
+    for (auto it = sections->cbegin(); it != sections->cend(); it++) {
         rj::Value json_section(rj::kObjectType);
         json_section.AddMember(Keys::Sections::start, it->second.start, a);
         rj::Value json_presets(rj::kArrayType);
@@ -1452,10 +1453,10 @@ void WobblyProject::renamePreset(const std::string &old_name, const std::string 
     presets->erase(old_name);
     presets->insert(std::make_pair(new_name, preset));
 
-    for (auto it = sections.begin(); it != sections.end(); it++)
+    for (auto it = sections->cbegin(); it != sections->cend(); it++)
         for (size_t j = 0; j < it->second.presets.size(); j++)
             if (it->second.presets[j] == old_name)
-                it->second.presets[j] = new_name;
+                sections->setSectionPresetName(it->second.start, j, new_name);
 
     for (size_t i = 0; i < custom_lists->size(); i++)
         if (custom_lists->at(i).preset == old_name)
@@ -1471,10 +1472,10 @@ void WobblyProject::deletePreset(const std::string &preset_name) {
 
     presets->erase(preset_name);
 
-    for (auto it = sections.begin(); it != sections.end(); it++)
+    for (auto it = sections->cbegin(); it != sections->cend(); it++)
         for (size_t j = 0; j < it->second.presets.size(); j++)
             if (it->second.presets[j] == preset_name)
-                it->second.presets.erase(it->second.presets.cbegin() + j);
+                sections->deleteSectionPreset(it->second.start, j);
 
     for (size_t i = 0; i < custom_lists->size(); i++)
         if (custom_lists->at(i).preset == preset_name)
@@ -1508,7 +1509,7 @@ bool WobblyProject::isPresetInUse(const std::string &preset_name) const {
     if (!presets->count(preset_name))
         throw WobblyException("Can't check if preset '" + preset_name + "' is in use: no such preset.");
 
-    for (auto it = sections.begin(); it != sections.end(); it++)
+    for (auto it = sections->cbegin(); it != sections->cend(); it++)
         for (size_t j = 0; j < it->second.presets.size(); j++)
             if (it->second.presets[j] == preset_name)
                 return true;
@@ -1736,7 +1737,7 @@ void WobblyProject::addSection(const Section &section) {
     if (section.start < 0 || section.start >= getNumFrames(PostSource))
         throw WobblyException("Can't add section starting at " + std::to_string(section.start) + ": value out of range.");
 
-    sections.insert(std::make_pair(section.start, section));
+    sections->insert(std::make_pair(section.start, section));
 
     setModified(true);
 }
@@ -1746,41 +1747,41 @@ void WobblyProject::deleteSection(int section_start) {
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't delete section starting at " + std::to_string(section_start) + ": value out of range.");
 
-    if (!sections.count(section_start))
+    if (!sections->count(section_start))
         throw WobblyException("Can't delete section starting at " + std::to_string(section_start) + ": no such section.");
 
     // Never delete the very first section.
     if (section_start > 0)
-        sections.erase(section_start);
+        sections->erase(section_start);
 
     setModified(true);
 }
 
 
-Section *WobblyProject::findSection(int frame) {
+const Section *WobblyProject::findSection(int frame) const {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't find the section frame " + std::to_string(frame) + " belongs to: frame number out of range.");
 
-    auto it = sections.upper_bound(frame);
+    auto it = sections->upper_bound(frame);
     it--;
     return &it->second;
 }
 
 
-Section *WobblyProject::findNextSection(int frame) {
+const Section *WobblyProject::findNextSection(int frame) const {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't find the section after frame " + std::to_string(frame) + ": frame number out of range.");
 
-    auto it = sections.upper_bound(frame);
+    auto it = sections->upper_bound(frame);
 
-    if (it != sections.cend())
+    if (it != sections->cend())
         return &it->second;
 
     return nullptr;
 }
 
 
-int WobblyProject::getSectionEnd(int frame) {
+int WobblyProject::getSectionEnd(int frame) const {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't find the end of the section frame " + std::to_string(frame) + " belongs to: frame number out of range.");
 
@@ -1796,14 +1797,53 @@ void WobblyProject::setSectionPreset(int section_start, const std::string &prese
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": frame number out of range.");
 
-    if (!sections.count(section_start))
+    if (!sections->count(section_start))
         throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": no such section.");
 
     if (!presets->count(preset_name))
         throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": no such preset.");
 
     // The user may want to assign the same preset twice.
-    sections.at(section_start).presets.push_back(preset_name);
+    sections->appendSectionPreset(section_start, preset_name);
+
+    setModified(true);
+}
+
+
+void WobblyProject::deleteSectionPreset(int section_start, size_t preset_index) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't delete preset number " + std::to_string(preset_index) + " from section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections->count(section_start))
+        throw WobblyException("Can't delete preset number " + std::to_string(preset_index) + " from section starting at " + std::to_string(section_start) + ": no such section.");
+
+    sections->deleteSectionPreset(section_start, preset_index);
+
+    setModified(true);
+}
+
+
+void WobblyProject::moveSectionPresetUp(int section_start, size_t preset_index) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't move up preset number " + std::to_string(preset_index) + " from section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections->count(section_start))
+        throw WobblyException("Can't move up preset number " + std::to_string(preset_index) + " from section starting at " + std::to_string(section_start) + ": no such section.");
+
+    sections->moveSectionPresetUp(section_start, preset_index);
+
+    setModified(true);
+}
+
+
+void WobblyProject::moveSectionPresetDown(int section_start, size_t preset_index) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't move down preset number " + std::to_string(preset_index) + " from section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections->count(section_start))
+        throw WobblyException("Can't move down preset number " + std::to_string(preset_index) + " from section starting at " + std::to_string(section_start) + ": no such section.");
+
+    sections->moveSectionPresetDown(section_start, preset_index);
 
     setModified(true);
 }
@@ -1813,7 +1853,7 @@ void WobblyProject::setSectionMatchesFromPattern(int section_start, const std::s
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't apply match pattern to section starting at " + std::to_string(section_start) + ": frame number out of range.");
 
-    if (!sections.count(section_start))
+    if (!sections->count(section_start))
         throw WobblyException("Can't apply match pattern to section starting at " + std::to_string(section_start) + ": no such section.");
 
     int section_end = getSectionEnd(section_start);
@@ -1828,7 +1868,7 @@ void WobblyProject::setSectionDecimationFromPattern(int section_start, const std
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't apply decimation pattern to section starting at " + std::to_string(section_start) + ": frame number out of range.");
 
-    if (!sections.count(section_start))
+    if (!sections->count(section_start))
         throw WobblyException("Can't apply decimation pattern to section starting at " + std::to_string(section_start) + ": no such section.");
 
     int section_end = getSectionEnd(section_start);
@@ -1836,6 +1876,11 @@ void WobblyProject::setSectionDecimationFromPattern(int section_start, const std
     setRangeDecimationFromPattern(section_start, section_end - 1, pattern);
 
     setModified(true);
+}
+
+
+SectionsModel *WobblyProject::getSectionsModel() {
+    return sections;
 }
 
 
@@ -1900,7 +1945,7 @@ void WobblyProject::resetSectionMatches(int section_start) {
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't reset the matches for section starting at " + std::to_string(section_start) + ": frame number out of range.");
 
-    if (!sections.count(section_start))
+    if (!sections->count(section_start))
         throw WobblyException("Can't reset the matches for section starting at " + std::to_string(section_start) + ": no such section.");
 
     int section_end = getSectionEnd(section_start);
@@ -2713,7 +2758,7 @@ bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't guess patterns from mics for section starting at " + std::to_string(section_start) + ": frame number out of range.");
 
-    if (!sections.count(section_start))
+    if (!sections->count(section_start))
         throw WobblyException("Can't guess patterns from mics for section starting at " + std::to_string(section_start) + ": no such section.");
 
 
@@ -2827,7 +2872,7 @@ bool WobblyProject::guessSectionPatternsFromMics(int section_start, int minimum_
 void WobblyProject::guessProjectPatternsFromMics(int minimum_length, int use_patterns, int drop_duplicate) {
     pattern_guessing.failures.clear();
 
-    for (auto it = sections.cbegin(); it != sections.cend(); it++)
+    for (auto it = sections->cbegin(); it != sections->cend(); it++)
         guessSectionPatternsFromMics(it->second.start, minimum_length, use_patterns, drop_duplicate);
 
     pattern_guessing.method = PatternGuessingFromMics;
@@ -2843,7 +2888,7 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't guess patterns from matches for section starting at " + std::to_string(section_start) + ": frame number out of range.");
 
-    if (!sections.count(section_start))
+    if (!sections->count(section_start))
         throw WobblyException("Can't reset patterns from matches for section starting at " + std::to_string(section_start) + ": no such section.");
 
     int section_end = getSectionEnd(section_start);
@@ -2960,7 +3005,7 @@ bool WobblyProject::guessSectionPatternsFromMatches(int section_start, int minim
 void WobblyProject::guessProjectPatternsFromMatches(int minimum_length, int use_third_n_match, int drop_duplicate) {
     pattern_guessing.failures.clear();
 
-    for (auto it = sections.cbegin(); it != sections.cend(); it++)
+    for (auto it = sections->cbegin(); it != sections->cend(); it++)
         guessSectionPatternsFromMatches(it->second.start, minimum_length, use_third_n_match, drop_duplicate);
 
     pattern_guessing.method = PatternGuessingFromMatches;
@@ -3003,9 +3048,9 @@ void WobblyProject::sectionsToScript(std::string &script) const {
     };
 
     std::map<int, Section> merged_sections;
-    merged_sections.insert({ 0, sections.cbegin()->second });
+    merged_sections.insert({ 0, sections->cbegin()->second });
 
-    for (auto it = ++(sections.cbegin()); it != sections.cend(); it++)
+    for (auto it = ++(sections->cbegin()); it != sections->cend(); it++)
         if (!samePresets(it->second.presets, merged_sections.crbegin()->second.presets))
             merged_sections.insert({ it->first, it->second });
 

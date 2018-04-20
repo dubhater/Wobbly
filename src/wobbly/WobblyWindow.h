@@ -46,6 +46,7 @@ SOFTWARE.
 #include "ListWidget.h"
 #include "OverlayLabel.h"
 #include "PresetTextEdit.h"
+#include "SectionsProxyModel.h"
 #include "SpinBox.h"
 #include "TableView.h"
 #include "TableWidget.h"
@@ -114,9 +115,11 @@ private:
     QLineEdit *decimation_pattern_edit;
 
     DockWidget *sections_dock;
-    TableWidget *sections_table;
+    TableView *sections_view;
+    SectionsProxyModel *sections_proxy_model;
     QGroupBox *short_sections_box;
     QSpinBox *short_sections_spin;
+    ListWidget *section_presets_list;
     QListView *preset_list;
 
     DockWidget *cl_dock;
@@ -253,7 +256,6 @@ private:
     void updateWindowTitle();
     void initialiseCropAssistant();
     void initialisePresetEditor();
-    void updateSectionsEditor();
     void initialiseSectionsEditor();
     void initialiseCustomListsEditor();
     void updateFrameRatesViewer();
