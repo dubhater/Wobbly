@@ -1446,7 +1446,7 @@ void WibblyWindow::startNextJob() {
     if (!(steps & StepFieldMatch || steps & StepInterlacedFades || steps & StepDecimation || steps & StepSceneChanges)) {
         // No metrics to collect. Just create the project file and move on.
         try {
-            current_project->writeProject(job.getOutputFile(), false);
+            current_project->writeProject(job.getOutputFile(), settings_compact_projects_check->isChecked());
 
             delete current_project;
             current_project = nullptr;
@@ -1576,7 +1576,7 @@ void WibblyWindow::frameDone(void *frame_v, int n, const QString &error_msg) {
                     current_project->resetRangeMatches(0, vsvi->numFrames - 1);
 
                     // If the project was successfully saved earlier, this will probably work.
-                    current_project->writeProject(jobs[current_job].getOutputFile(), false);
+                    current_project->writeProject(jobs[current_job].getOutputFile(), settings_compact_projects_check->isChecked());
 
                     delete current_project;
                     current_project = nullptr;
