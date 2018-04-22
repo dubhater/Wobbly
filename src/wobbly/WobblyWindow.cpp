@@ -50,6 +50,13 @@ SOFTWARE.
 #include "WobblyWindow.h"
 
 
+// QImageCleanupFunction is expected to be a cdecl function, but VSAPI::freeFrame uses stdcall.
+// Thus a wrapper is needed.
+void vsapiFreeFrameCdecl(void *frame) {
+    vsscript_getVSApi()->freeFrame((const VSFrameRef *)frame);
+}
+
+
 WobblyWindow::WobblyWindow()
     : QMainWindow()
     , import_window(nullptr)
@@ -3927,7 +3934,7 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QImage image = QImage(ptr, width, height, stride, QImage::Format_RGB32, (QImageCleanupFunction)vsapi->freeFrame, (void *)frame).mirrored(false, true);
+    QImage image = QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame).mirrored(false, true);
 
     int offset;
     if (node == vsnode[0])

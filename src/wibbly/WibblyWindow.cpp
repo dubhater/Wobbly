@@ -48,6 +48,13 @@ std::mutex requests_mutex;
 std::condition_variable requests_condition;
 
 
+// QImageCleanupFunction is expected to be a cdecl function, but VSAPI::freeFrame uses stdcall.
+// Thus a wrapper is needed.
+void vsapiFreeFrameCdecl(void *frame) {
+    vsscript_getVSApi()->freeFrame((const VSFrameRef *)frame);
+}
+
+
 WibblyWindow::WibblyWindow()
     : QMainWindow()
     , vsapi(nullptr)
@@ -1323,7 +1330,7 @@ void WibblyWindow::displayFrame(int n) {
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32, (QImageCleanupFunction)vsapi->freeFrame, (void *)frame).mirrored(false, true));
+    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame).mirrored(false, true));
 
     video_frame_label->setPixmap(pixmap);
 
