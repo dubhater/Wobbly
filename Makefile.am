@@ -25,6 +25,7 @@ shared_moc_files = src/shared/moc_CombedFramesModel.cpp \
 				   src/shared/moc_FrozenFramesModel.cpp \
 				   src/shared/moc_ListWidget.cpp \
 				   src/shared/moc_PresetsModel.cpp \
+				   src/shared/moc_ProgressDialog.cpp \
 				   src/shared/moc_ScrollArea.cpp \
 				   src/shared/moc_SectionsModel.cpp \
 				   src/shared/moc_WobblyProject.cpp
@@ -92,6 +93,8 @@ shared_sources = $(rapidjson_sources) \
 				 src/shared/ListWidget.h \
 				 src/shared/PresetsModel.cpp \
 				 src/shared/PresetsModel.h \
+				 src/shared/ProgressDialog.cpp \
+				 src/shared/ProgressDialog.h \
 				 src/shared/ScrollArea.cpp \
 				 src/shared/ScrollArea.h \
 				 src/shared/SectionsModel.cpp \

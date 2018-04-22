@@ -27,7 +27,6 @@ SOFTWARE.
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeData>
-#include <QProgressDialog>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegExpValidator>
@@ -45,6 +44,7 @@ SOFTWARE.
 #include <VSScript.h>
 
 #include "CombedFramesCollector.h"
+#include "ProgressDialog.h"
 #include "ScrollArea.h"
 #include "WobblyException.h"
 #include "WobblyWindow.h"
@@ -2187,7 +2187,7 @@ void WobblyWindow::createCombedFramesWindow() {
 
         CombedFramesCollector *collector = new CombedFramesCollector(vsapi, vscore, vsscript);
 
-        QProgressDialog *progress_dialog = new QProgressDialog;
+        ProgressDialog *progress_dialog = new ProgressDialog;
         progress_dialog->setModal(true);
         progress_dialog->setWindowTitle(QStringLiteral("Detecting combed frames..."));
         progress_dialog->setLabel(new QLabel);
@@ -2217,10 +2217,19 @@ void WobblyWindow::createCombedFramesWindow() {
             collector->deleteLater();
             progress_dialog->deleteLater();
 
+            QApplication::alert(this, 0);
+
             setEnabled(true);
         });
 
-        connect(progress_dialog, &QProgressDialog::canceled, collector, &CombedFramesCollector::stop);
+        connect(progress_dialog, &ProgressDialog::canceled, collector, &CombedFramesCollector::stop);
+
+        connect(progress_dialog, &ProgressDialog::minimiseChanged, [this] (bool minimised) {
+            if (minimised)
+                setWindowState(windowState() | Qt::WindowMinimized);
+            else
+                setWindowState(windowState() & ~Qt::WindowMinimized);
+        });
 
         collector->start(script, (project_path.isEmpty() ? video_path : project_path).toUtf8().constData());
     });

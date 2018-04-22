@@ -418,7 +418,7 @@ void WibblyWindow::createMainWindow() {
         main_steps_buttons->button(it->first)->setChecked(true);
     }
 
-    main_progress_dialog = new QProgressDialog;
+    main_progress_dialog = new ProgressDialog;
     main_progress_dialog->setModal(true);
     main_progress_dialog->setWindowTitle(QStringLiteral("Gathering metrics..."));
     main_progress_dialog->setLabel(new QLabel);
@@ -667,7 +667,7 @@ void WibblyWindow::createMainWindow() {
         startNextJob();
     });
 
-    connect(main_progress_dialog, &QProgressDialog::canceled, [this] () {
+    connect(main_progress_dialog, &ProgressDialog::canceled, [this] () {
         aborted = true;
 
         delete current_project;
@@ -680,6 +680,13 @@ void WibblyWindow::createMainWindow() {
         main_jobs_list->setCurrentRow(current_row, QItemSelectionModel::NoUpdate);
 
         setEnabled(true);
+    });
+
+    connect(main_progress_dialog, &ProgressDialog::minimiseChanged, [this] (bool minimised) {
+        if (minimised)
+            setWindowState(windowState() | Qt::WindowMinimized);
+        else
+            setWindowState(windowState() & ~Qt::WindowMinimized);
     });
 
 
@@ -1381,6 +1388,8 @@ void WibblyWindow::startNextJob() {
         int current_row = main_jobs_list->currentRow();
         main_jobs_list->setCurrentRow(-1, QItemSelectionModel::NoUpdate);
         main_jobs_list->setCurrentRow(current_row, QItemSelectionModel::NoUpdate);
+
+        QApplication::alert(this, 0);
 
         // Re-enable the user interface.
         setEnabled(true);

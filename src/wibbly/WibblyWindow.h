@@ -30,7 +30,6 @@ SOFTWARE.
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
-#include <QProgressDialog>
 #include <QSettings>
 #include <QSlider>
 #include <QSpinBox>
@@ -40,6 +39,7 @@ SOFTWARE.
 
 #include "DockWidget.h"
 #include "ListWidget.h"
+#include "ProgressDialog.h"
 
 #include "WibblyJob.h"
 
@@ -71,7 +71,7 @@ class WibblyWindow : public QMainWindow
     // Widgets.
     ListWidget *main_jobs_list;
     QLineEdit *main_destination_edit;
-    QProgressDialog *main_progress_dialog;
+    ProgressDialog *main_progress_dialog;
 
     DockWidget *video_dock;
     QLabel *video_frame_label;
