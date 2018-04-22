@@ -144,6 +144,8 @@ void WobblyWindow::readSettings() {
 
     settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
 
+    settings_use_relative_paths_check->setChecked(settings.value("projects/use_relative_paths", false).toBool());
+
     /// Why is it that the default values for some of these settings are kept in this function,
     /// but for others they are kept in createSettingsWindow ?
     if (settings.contains("user_interface/colormatrix"))
@@ -2263,6 +2265,8 @@ void WobblyWindow::createCombedFramesWindow() {
 void WobblyWindow::createSettingsWindow() {
     settings_compact_projects_check = new QCheckBox("Create compact project files");
 
+    settings_use_relative_paths_check = new QCheckBox(QStringLiteral("Use relative paths in project files"));
+
     settings_print_details_check = new QCheckBox(QStringLiteral("Print frame details on top of the video"));
 
     settings_font_spin = new QSpinBox;
@@ -2303,6 +2307,10 @@ void WobblyWindow::createSettingsWindow() {
 
     connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
         settings.setValue("projects/compact_project_files", checked);
+    });
+
+    connect(settings_use_relative_paths_check, &QCheckBox::clicked, [this] (bool checked) {
+        settings.setValue("projects/use_relative_paths", checked);
     });
 
     connect(settings_print_details_check, &QCheckBox::toggled, [this] (bool checked) {
@@ -2441,6 +2449,7 @@ void WobblyWindow::createSettingsWindow() {
 
     QFormLayout *form = new QFormLayout;
     form->addRow(settings_compact_projects_check);
+    form->addRow(settings_use_relative_paths_check);
     form->addRow(settings_print_details_check);
     form->addRow(QStringLiteral("Font size"), settings_font_spin);
     form->addRow(QStringLiteral("Colormatrix"), settings_colormatrix_combo);
@@ -3331,7 +3340,11 @@ void WobblyWindow::realOpenVideo(const QString &path) {
         if (project)
             delete project;
 
-        project = new WobblyProject(true, path.toStdString(), source_filter.toStdString(), vi.fpsNum, vi.fpsDen, vi.width, vi.height, vi.numFrames);
+        video_path = path;
+        if (settings_use_relative_paths_check->isChecked())
+            video_path = QFileInfo(path).fileName();
+
+        project = new WobblyProject(true, video_path.toStdString(), source_filter.toStdString(), vi.fpsNum, vi.fpsDen, vi.width, vi.height, vi.numFrames);
         project->addTrim(0, vi.numFrames - 1);
 
         video_path = path;

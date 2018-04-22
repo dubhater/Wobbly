@@ -1114,6 +1114,8 @@ void WibblyWindow::createSettingsWindow() {
 
     settings_compact_projects_check = new QCheckBox("Create compact project files");
 
+    settings_use_relative_paths_check = new QCheckBox(QStringLiteral("Use relative paths in project files"));
+
     settings_cache_spin = new QSpinBox;
     settings_cache_spin->setRange(1, 99999);
     settings_cache_spin->setValue(200);
@@ -1131,6 +1133,10 @@ void WibblyWindow::createSettingsWindow() {
 
     connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
         settings.setValue("projects/compact_project_files", checked);
+    });
+
+    connect(settings_use_relative_paths_check, &QCheckBox::clicked, [this] (bool checked) {
+        settings.setValue("projects/use_relative_paths", checked);
     });
 
     connect(settings_cache_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
@@ -1408,7 +1414,11 @@ void WibblyWindow::startNextJob() {
         return;
     }
 
-    current_project = new WobblyProject(false, job.getInputFile(), job.getSourceFilter(), vsvi->fpsNum, vsvi->fpsDen, vsvi->width, vsvi->height, vsvi->numFrames);
+    QString input_file = QString::fromStdString(job.getInputFile());
+    if (settings_use_relative_paths_check->isChecked())
+        input_file = QFileInfo(input_file).fileName();
+
+    current_project = new WobblyProject(false, input_file.toStdString(), job.getSourceFilter(), vsvi->fpsNum, vsvi->fpsDen, vsvi->width, vsvi->height, vsvi->numFrames);
 
     auto trims = job.getTrims();
     for (auto it = trims.cbegin(); it != trims.cend(); it++)
@@ -1622,6 +1632,8 @@ void WibblyWindow::readSettings() {
     settings_font_spin->setValue(settings.value("user_interface/font_size", QApplication::font().pointSize()).toInt());
 
     settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
+
+    settings_use_relative_paths_check->setChecked(settings.value("projects/use_relative_paths", false).toBool());
 
     if (settings.contains("user_interface/maximum_cache_size"))
         settings_cache_spin->setValue(settings.value("user_interface/maximum_cache_size").toInt());
