@@ -3834,7 +3834,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
             // Remove at some point after R31.
             "src = c.std.SetFrameProp(clip=src, prop='_FieldBased', delete=True)\n";
 
-    if (crop_dock->isVisible() && project->isCropEnabled()) {
+    if (crop_dock->isVisible() && project->isCropEnabled() && !final_script) {
         script += "src = c.std.CropRel(clip=src, left=";
         script += std::to_string(crop_spin[0]->value()) + ", top=";
         script += std::to_string(crop_spin[1]->value()) + ", right=";
