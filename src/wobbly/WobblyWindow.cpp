@@ -738,16 +738,6 @@ void WobblyWindow::createCropAssistant() {
     addDockWidget(Qt::RightDockWidgetArea, crop_dock);
     tools_menu->addAction(crop_dock->toggleViewAction());
     connect(crop_dock, &DockWidget::visibilityChanged, crop_dock, &DockWidget::setEnabled);
-    connect(crop_dock, &DockWidget::visibilityChanged, [this] {
-        if (!project)
-            return;
-
-        try {
-            evaluateMainDisplayScript();
-        } catch (WobblyException &) {
-
-        }
-    });
 }
 
 
@@ -2922,6 +2912,18 @@ void WobblyWindow::initialiseCropAssistant() {
     }
     depth_bits_combo->setCurrentIndex(bits_to_index[(int)depth.float_samples][depth.bits]);
     depth_dither_combo->setCurrentIndex(dither_to_index[depth.dither]);
+
+
+    connect(crop_dock, &DockWidget::visibilityChanged, [this] {
+        if (!project)
+            return;
+
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &) {
+
+        }
+    });
 }
 
 
