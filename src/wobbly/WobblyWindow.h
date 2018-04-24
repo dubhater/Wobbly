@@ -401,7 +401,7 @@ public slots:
     void zoomOut();
 
     void vsLogPopup(int msgType, const QString &msg);
-    void frameDone(void *framev, int n, void *nodev, const QString &errorMsg);
+    void frameDone(void *framev, int n, bool preview_node, const QString &errorMsg);
 };
 
 #endif // WOBBLYWINDOW_H

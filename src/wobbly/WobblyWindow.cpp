@@ -50,6 +50,23 @@ SOFTWARE.
 #include "WobblyWindow.h"
 
 
+struct CallbackData {
+    WobblyWindow *window;
+    VSNodeRef *node;
+    bool preview_node;
+    const VSAPI *vsapi;
+
+    CallbackData(WobblyWindow *_window, VSNodeRef *_node, bool _preview_node, const VSAPI *_vsapi)
+        : window(_window)
+        , node(_node)
+        , preview_node(_preview_node)
+        , vsapi(_vsapi)
+    {
+
+    }
+};
+
+
 // QImageCleanupFunction is expected to be a cdecl function, but VSAPI::freeFrame uses stdcall.
 // Thus a wrapper is needed.
 void vsapiFreeFrameCdecl(void *frame) {
@@ -3875,17 +3892,21 @@ void WobblyWindow::evaluateFinalScript() {
 }
 
 
-void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *node, const char *errorMsg) {
-    WobblyWindow *window = (WobblyWindow *)userData;
+void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
+    CallbackData *callback_data = (CallbackData *)userData;
+
+    callback_data->vsapi->freeNode(callback_data->node);
 
     // Qt::DirectConnection = frameDone runs in the worker threads
     // Qt::QueuedConnection = frameDone runs in the GUI thread
-    QMetaObject::invokeMethod(window, "frameDone", Qt::QueuedConnection,
+    QMetaObject::invokeMethod(callback_data->window, "frameDone", Qt::QueuedConnection,
                               Q_ARG(void *, (void *)f),
                               Q_ARG(int, n),
-                              Q_ARG(void *, (void *)node),
+                              Q_ARG(bool, callback_data->preview_node),
                               Q_ARG(QString, QString(errorMsg)));
     // Pass a copy of the error message because the pointer won't be valid after this function returns.
+
+    delete callback_data;
 }
 
 
@@ -3928,7 +3949,8 @@ void WobblyWindow::requestFrames(int n) {
 
     for (int i = std::max(0, frame_num - num_thumbnails / 2); i < std::min(frame_num + num_thumbnails / 2 + 1, last_frame + 1); i++) {
         pending_requests++;
-        vsapi->getFrameAsync(i, vsnode[(int)preview], frameDoneCallback, (void *)this);
+        CallbackData *callback_data = new CallbackData(this, vsapi->cloneNodeRef(vsnode[(int)preview]), preview, vsapi);
+        vsapi->getFrameAsync(i, vsnode[(int)preview], frameDoneCallback, (void *)callback_data);
     }
 
     // restoreOverrideCursor called in frameDone
@@ -3937,9 +3959,8 @@ void WobblyWindow::requestFrames(int n) {
 
 
 // Runs in the GUI thread.
-void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &errorMsg) {
+void WobblyWindow::frameDone(void *framev, int n, bool preview_node, const QString &errorMsg) {
     const VSFrameRef *frame = (const VSFrameRef *)framev;
-    VSNodeRef *node = (VSNodeRef *)nodev;
 
     pending_requests--;
 
@@ -3959,10 +3980,10 @@ void WobblyWindow::frameDone(void *framev, int n, void *nodev, const QString &er
     QImage image = QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame).mirrored(false, true);
 
     int offset;
-    if (node == vsnode[0])
-        offset = n - pending_frame;
-    else
+    if (preview_node)
         offset = n - project->frameNumberAfterDecimation(pending_frame);
+    else
+        offset = n - pending_frame;
 
     if (offset == 0) {
         int zoom = project->getZoom();
