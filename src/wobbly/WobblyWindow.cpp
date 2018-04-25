@@ -4803,7 +4803,9 @@ void WobblyWindow::togglePreview() {
 
     try {
         if (preview) {
-            presetEdited();
+            // Yucky.
+            if (preset_edit->hasFocus())
+                presetEdited();
 
             evaluateFinalScript();
         } else {

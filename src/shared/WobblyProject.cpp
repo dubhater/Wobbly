@@ -1499,9 +1499,11 @@ void WobblyProject::setPresetContents(const std::string &preset_name, const std:
         throw WobblyException("Can't modify the contents of preset '" + preset_name + "': no such preset.");
 
     Preset &preset = presets->at(preset_name);
-    preset.contents = preset_contents;
+    if (preset.contents != preset_contents) {
+        preset.contents = preset_contents;
 
-    setModified(true);
+        setModified(true);
+    }
 }
 
 
