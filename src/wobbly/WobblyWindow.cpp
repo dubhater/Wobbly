@@ -2606,7 +2606,6 @@ void WobblyWindow::createUI() {
 
     ScrollArea *frame_scroll = new ScrollArea;
     frame_scroll->resize(720, 480);
-    frame_scroll->setFrameShape(QFrame::NoFrame);
     frame_scroll->setFocusPolicy(Qt::ClickFocus);
     frame_scroll->setAlignment(Qt::AlignCenter);
     frame_scroll->setWidgetResizable(true);
