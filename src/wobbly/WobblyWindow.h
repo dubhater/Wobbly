@@ -190,6 +190,7 @@ private:
     int current_frame;
     int pending_frame;
     int pending_requests;
+    VSNodeRef *pending_requests_node; // Don't free, it's just a copy.
 
     QString match_pattern;
     QString decimation_pattern;

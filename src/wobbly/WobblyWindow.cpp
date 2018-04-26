@@ -83,6 +83,7 @@ WobblyWindow::WobblyWindow()
     , current_frame(0)
     , pending_frame(0)
     , pending_requests(0)
+    , pending_requests_node(nullptr)
     , match_pattern("ccnnc")
     , decimation_pattern("kkkkd")
     , preview(false)
@@ -3926,7 +3927,7 @@ void WobblyWindow::requestFrames(int n) {
 
     updateFrameDetails();
 
-    if (pending_requests)
+    if (pending_requests && pending_requests_node == vsnode[(int)preview])
         return;
 
     pending_frame = n;
@@ -3947,6 +3948,8 @@ void WobblyWindow::requestFrames(int n) {
 
     for (int i = 0; i < num_thumbnails / 2 - (last_frame - frame_num); i++)
         thumb_labels[last_visible - i]->setPixmap(splash_thumb);
+
+    pending_requests_node = vsnode[(int)preview];
 
     for (int i = std::max(0, frame_num - num_thumbnails / 2); i < std::min(frame_num + num_thumbnails / 2 + 1, last_frame + 1); i++) {
         pending_requests++;
