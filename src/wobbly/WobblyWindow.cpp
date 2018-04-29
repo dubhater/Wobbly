@@ -3626,8 +3626,6 @@ void WobblyWindow::realOpenVideo(const QString &path) {
         connect(project, &WobblyProject::modifiedChanged, this, &WobblyWindow::updateWindowTitle);
     } catch(WobblyException &e) {
         errorPopup(e.what());
-
-        project = nullptr;
     }
 }
 
