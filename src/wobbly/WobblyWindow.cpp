@@ -2606,6 +2606,9 @@ void WobblyWindow::createSettingsWindow() {
                 thumb_labels[i]->setPixmap(splash_thumb);
         }
 
+        if (!project)
+            return;
+
         requestFrames(current_frame);
     });
 
@@ -2832,7 +2835,6 @@ void WobblyWindow::createUI() {
 
     frame_label = new FrameLabel;
     frame_label->setAlignment(Qt::AlignCenter);
-    frame_label->setPixmap(QPixmap::fromImage(splash_image));
 
     for (int i = 0; i < MAX_THUMBNAILS; i++) {
         thumb_labels[i] = new QLabel;
@@ -2909,6 +2911,8 @@ void WobblyWindow::createUI() {
     createCombedFramesWindow();
     createSettingsWindow();
 
+
+    frame_label->setPixmap(QPixmap::fromImage(splash_image));
 
     splash_thumb = getThumbnail(splash_image);
 
@@ -3516,17 +3520,23 @@ void WobblyWindow::realOpenProject(const QString &path) {
 
         vsscript_clearOutput(vsscript, 1);
 
-        evaluateMainDisplayScript();
-
         connect(project, &WobblyProject::modifiedChanged, this, &WobblyWindow::updateWindowTitle);
+
+        evaluateMainDisplayScript();
     } catch (WobblyException &e) {
         QApplication::restoreOverrideCursor();
 
         errorPopup(e.what());
 
-        if (project == tmp)
-            project = nullptr;
-        delete tmp;
+        if (tmp != project) {
+            // If readProject failed then we don't need tmp.
+            // We carry on with whatever project was open previously (if any).
+            delete tmp;
+        } else {
+            // If it was evaluateMainDisplayScript that failed, then just request the current frame.
+            // Obviously it won't display anything, but it will update the user interface.
+            requestFrames(current_frame);
+        }
     }
 }
 
@@ -4149,9 +4159,6 @@ void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeR
 
 
 void WobblyWindow::requestFrames(int n) {
-    if (!vsnode[(int)preview])
-        return;
-
     n = std::max(0, std::min(n, project->getNumFrames(PostSource) - 1));
 
     current_frame = n;
@@ -4162,6 +4169,9 @@ void WobblyWindow::requestFrames(int n) {
     }
 
     updateFrameDetails();
+
+    if (!vsnode[(int)preview])
+        return;
 
     if (pending_requests && pending_requests_node == vsnode[(int)preview])
         return;
