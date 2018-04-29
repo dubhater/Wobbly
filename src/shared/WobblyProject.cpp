@@ -1236,6 +1236,8 @@ void WobblyProject::readProject(const std::string &path) {
         resize.filter = it->value.GetString();
     } else {
         resize.enabled = false;
+        resize.width = width;
+        resize.height = height;
     }
 
     it = json_project.FindMember(Keys::crop);
