@@ -3093,7 +3093,7 @@ void WobblyProject::sectionsToScript(std::string &script) const {
 
         for (size_t i = 0; i < it->second.presets.size(); i++) {
             script += "\n";
-            script += section_name + " = ";
+            script += section_name + " = preset_";
             script += it->second.presets[i] + "(";
             script += section_name + ")";
         }
@@ -3149,7 +3149,7 @@ void WobblyProject::customListsToScript(std::string &script, PositionInFilterCha
         std::string list_name = "cl_";
         list_name += cl.name;
 
-        script += list_name + " = " + cl.preset + "(src)\n";
+        script += list_name + " = preset_" + cl.preset + "(src)\n";
 
         std::string splice = "src = c.std.Splice(mismatch=True, clips=[";
 
@@ -3206,7 +3206,7 @@ void WobblyProject::presetsToScript(std::string &script) const {
         if (!isPresetInUse(it->second.name))
             continue;
 
-        script += "def " + it->second.name + "(clip):\n";
+        script += "def preset_" + it->second.name + "(clip):\n";
         size_t start = 0, end;
         do {
             end = it->second.contents.find('\n', start);
