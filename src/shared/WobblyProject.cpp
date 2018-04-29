@@ -3222,7 +3222,10 @@ void WobblyProject::presetsToScript(std::string &script) const {
 }
 
 
-void WobblyProject::sourceToScript(std::string &script) const {
+void WobblyProject::sourceToScript(std::string &script, bool save_node) const {
+    std::string src = "src = c." + source_filter + "(r'" + input_file + "')\n";
+
+    if (save_node) {
     script +=
             "try:\n"
             "    src = vs.get_output(index=1)\n"
@@ -3230,9 +3233,13 @@ void WobblyProject::sourceToScript(std::string &script) const {
             "    if isinstance(src, tuple):\n"
             "        src = src[0]\n"
             "except KeyError:\n"
-            "    src = c." + source_filter + "(r'" + input_file + "')\n"
+            "    " + src +
             "    src.set_output(index=1)\n"
             "\n";
+    } else {
+        script += src;
+        script += "\n";
+    }
 }
 
 
@@ -3420,7 +3427,7 @@ void WobblyProject::setOutputToScript(std::string &script) const {
 }
 
 
-std::string WobblyProject::generateFinalScript() const {
+std::string WobblyProject::generateFinalScript(bool save_source_node) const {
     // XXX Insert comments before and after each part.
     std::string script;
 
@@ -3428,7 +3435,7 @@ std::string WobblyProject::generateFinalScript() const {
 
     presetsToScript(script);
 
-    sourceToScript(script);
+    sourceToScript(script, save_source_node);
 
     if (crop.early && crop.enabled)
         cropToScript(script);
@@ -3474,7 +3481,7 @@ std::string WobblyProject::generateMainDisplayScript() const {
 
     headerToScript(script);
 
-    sourceToScript(script);
+    sourceToScript(script, true);
 
     trimToScript(script);
 

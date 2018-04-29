@@ -3716,7 +3716,7 @@ void WobblyWindow::realSaveScript(const QString &path) {
     // The currently selected preset might not have been stored in the project yet.
     presetEdited();
 
-    std::string script = project->generateFinalScript();
+    std::string script = project->generateFinalScript(false);
 
     QFile file(path);
 

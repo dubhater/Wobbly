@@ -333,7 +333,7 @@ class WobblyProject : public QObject {
         void customListsToScript(std::string &script, PositionInFilterChain position) const;
         void headerToScript(std::string &script) const;
         void presetsToScript(std::string &script) const;
-        void sourceToScript(std::string &script) const;
+        void sourceToScript(std::string &script, bool save_node) const;
         void trimToScript(std::string &script) const;
         void fieldHintToScript(std::string &script) const;
         void freezeFramesToScript(std::string &script) const;
@@ -342,7 +342,7 @@ class WobblyProject : public QObject {
         void resizeAndBitDepthToScript(std::string &script, bool resize_enabled, bool depth_enabled) const;
         void setOutputToScript(std::string &script) const;
 
-        std::string generateFinalScript() const;
+        std::string generateFinalScript(bool save_source_node = true) const;
         std::string generateMainDisplayScript() const;
 
         std::string generateTimecodesV1() const;
