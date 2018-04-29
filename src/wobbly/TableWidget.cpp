@@ -76,6 +76,31 @@ void TableWidget::keyPressEvent(QKeyEvent *event) {
 
     if (mod == Qt::NoModifier && key == Qt::Key_Delete) {
         emit deletePressed();
-    } else
+    } else if (mod == Qt::NoModifier && key == Qt::Key_Home) {
+        if (selectionModel() && model())
+            selectionModel()->setCurrentIndex(model()->index(0, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    } else if (mod == Qt::NoModifier && key == Qt::Key_End) {
+        if (selectionModel() && model())
+            selectionModel()->setCurrentIndex(model()->index(model()->rowCount() - 1, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    } else if (mod == Qt::ShiftModifier && key == Qt::Key_Home) {
+        if (selectionModel() && model()) {
+            QModelIndex old_current_index = selectionModel()->currentIndex();
+            QModelIndex new_current_index = model()->index(0, 0);
+
+            selectionModel()->setCurrentIndex(new_current_index, QItemSelectionModel::NoUpdate);
+
+            selectionModel()->select(QItemSelection(new_current_index, old_current_index), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        }
+    } else if (mod == Qt::ShiftModifier && key == Qt::Key_End) {
+        if (selectionModel() && model()) {
+            QModelIndex old_current_index = selectionModel()->currentIndex();
+            QModelIndex new_current_index = model()->index(model()->rowCount() - 1, 0);
+
+            selectionModel()->setCurrentIndex(new_current_index, QItemSelectionModel::NoUpdate);
+
+            selectionModel()->select(QItemSelection(old_current_index, new_current_index), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        }
+    } else {
         QTableWidget::keyPressEvent(event);
+    }
 }
