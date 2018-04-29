@@ -2734,7 +2734,7 @@ void WobblyWindow::vsLogPopup(int msgType, const QString &msg) {
 
 void WobblyWindow::initialiseVapourSynth() {
     if (!vsscript_init())
-        throw WobblyException("Fatal error: failed to initialise VSScript. Your VapourSynth installation is probably broken.");
+        throw WobblyException("Fatal error: failed to initialise VSScript. Your VapourSynth installation is probably broken. Python probably couldn't 'import vapoursynth'.");
     
     
     vsapi = vsscript_getVSApi();
