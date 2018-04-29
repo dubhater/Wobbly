@@ -545,7 +545,7 @@ void WobblyWindow::createCropAssistant() {
 
     for (int i = 0; i < 2; i++) {
         resize_spin[i] = new QSpinBox;
-        resize_spin[i]->setRange(1, 999999);
+        resize_spin[i]->setRange(16, 999999);
         resize_spin[i]->setPrefix(resize_prefixes[i]);
         resize_spin[i]->setSuffix(QStringLiteral(" px"));
     }
