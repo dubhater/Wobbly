@@ -2059,6 +2059,14 @@ void WobblyProject::moveCustomListDown(int list_index) {
 }
 
 
+const std::string &WobblyProject::getCustomListPreset(int list_index) const {
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
+        throw WobblyException("Can't get the preset for the custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    return custom_lists->at(list_index).preset;
+}
+
+
 void WobblyProject::setCustomListPreset(int list_index, const std::string &preset_name) {
     if (list_index < 0 || list_index >= (int)custom_lists->size())
         throw WobblyException("Can't assign preset '" + preset_name + "' to custom list with index " + std::to_string(list_index) + ": index out of range.");
@@ -2071,6 +2079,14 @@ void WobblyProject::setCustomListPreset(int list_index, const std::string &prese
     custom_lists->setCustomListPreset(list_index, preset_name);
 
     setModified(true);
+}
+
+
+PositionInFilterChain WobblyProject::getCustomListPosition(int list_index) const {
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
+        throw WobblyException("Can't get the position for the custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    return (PositionInFilterChain)custom_lists->at(list_index).position;
 }
 
 
@@ -2168,6 +2184,16 @@ bool WobblyProject::customListExists(const std::string &list_name) const {
             return true;
 
     return false;
+}
+
+
+bool WobblyProject::isCustomListInUse(int list_index) {
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
+        throw WobblyException("Can't determine if custom list with index " + std::to_string(list_index) + "is in use: index out of range.");
+
+    const CustomList &list = custom_lists->at(list_index);
+
+    return list.preset.size() && list.ranges->size();
 }
 
 

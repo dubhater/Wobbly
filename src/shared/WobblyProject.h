@@ -216,12 +216,15 @@ class WobblyProject : public QObject {
         void deleteCustomList(int list_index);
         void moveCustomListUp(int list_index);
         void moveCustomListDown(int list_index);
+        const std::string &getCustomListPreset(int list_index) const;
         void setCustomListPreset(int list_index, const std::string &preset_name);
+        PositionInFilterChain getCustomListPosition(int list_index) const;
         void setCustomListPosition(int list_index, PositionInFilterChain position);
         void addCustomListRange(int list_index, int first, int last);
         void deleteCustomListRange(int list_index, int first);
         const FrameRange *findCustomListRange(int list_index, int frame) const;
         bool customListExists(const std::string &list_name) const;
+        bool isCustomListInUse(int list_index);
         CustomListsModel *getCustomListsModel();
 
 

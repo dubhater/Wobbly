@@ -596,7 +596,7 @@ void WobblyWindow::createCropAssistant() {
         project->setCropEnabled(checked);
 
         try {
-            evaluateMainDisplayScript();
+            evaluateScript(preview);
         } catch (WobblyException &) {
 
         }
@@ -609,7 +609,7 @@ void WobblyWindow::createCropAssistant() {
         project->setCrop(crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value());
 
         try {
-            evaluateMainDisplayScript();
+            evaluateScript(preview);
         } catch (WobblyException &) {
 
         }
@@ -622,6 +622,14 @@ void WobblyWindow::createCropAssistant() {
             return;
 
         project->setCropEarly(checked);
+
+        if (preview) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &) {
+
+            }
+        }
     });
 
     // Resize.
@@ -630,6 +638,14 @@ void WobblyWindow::createCropAssistant() {
             return;
 
         project->setResizeEnabled(checked);
+
+        if (preview && resize_spin[0]->value() % 2 == 0 && resize_spin[1]->value() % 2 == 0) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &) {
+
+            }
+        }
     });
 
     auto resizeChanged = [this] () {
@@ -637,6 +653,14 @@ void WobblyWindow::createCropAssistant() {
             return;
 
         project->setResize(resize_spin[0]->value(), resize_spin[1]->value(), resize_filter_combo->currentText().toLower().toStdString());
+
+        if (preview && resize_spin[0]->value() % 2 == 0 && resize_spin[1]->value() % 2 == 0) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &) {
+
+            }
+        }
     };
     for (int i = 0; i < 2; i++)
         connect(resize_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), resizeChanged);
@@ -646,6 +670,14 @@ void WobblyWindow::createCropAssistant() {
             return;
 
         project->setResize(resize_spin[0]->value(), resize_spin[1]->value(), text.toLower().toStdString());
+
+        if (preview && resize_spin[0]->value() % 2 == 0 && resize_spin[1]->value() % 2 == 0) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &) {
+
+            }
+        }
     });
 
     // Bit depth.
@@ -662,6 +694,14 @@ void WobblyWindow::createCropAssistant() {
 
         project->setBitDepth(index_to_bits[bits_index], index_to_float_samples[bits_index], index_to_dither[dither_index]);
         project->setBitDepthEnabled(checked);
+
+        if (preview) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &) {
+
+            }
+        }
     });
 
     connect(depth_bits_combo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [this, index_to_bits, index_to_float_samples, index_to_dither] (int index) {
@@ -671,6 +711,14 @@ void WobblyWindow::createCropAssistant() {
         int dither_index = depth_dither_combo->currentIndex();
 
         project->setBitDepth(index_to_bits[index], index_to_float_samples[index], index_to_dither[dither_index]);
+
+        if (preview) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &) {
+
+            }
+        }
     });
 
     connect(depth_dither_combo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [this, index_to_bits, index_to_float_samples, index_to_dither] (int index) {
@@ -680,6 +728,14 @@ void WobblyWindow::createCropAssistant() {
         int bits_index = depth_bits_combo->currentIndex();
 
         project->setBitDepth(index_to_bits[bits_index], index_to_float_samples[bits_index], index_to_dither[index]);
+
+        if (preview) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &) {
+
+            }
+        }
     });
 
 
@@ -1004,24 +1060,43 @@ void WobblyWindow::createSectionsEditor() {
 
         QModelIndexList selection = sections_view->selectionModel()->selectedRows();
 
+        if (!selection.size())
+            return;
+
         // Can't use the model indexes after modifying the model.
-        std::vector<int> frames;
-        frames.reserve(selection.size());
+        std::vector<Section> sections;
+        sections.reserve(selection.size());
 
         for (int i = 0; i < selection.size(); i++)
-            frames.push_back(selection[i].data().toInt());
+            sections.push_back(Section(*project->findSection(selection[i].data().toInt())));
 
-        std::sort(frames.begin(), frames.end());
+        for (size_t i = 0; i < sections.size(); i++)
+            if (sections[i].start != 0)
+                project->deleteSection(sections[i].start);
 
-        for (int i = frames.size() - 1; i >= 0; i--)
-            if (frames[i] != 0)
-                project->deleteSection(frames[i]);
+        bool update_needed = false;
+
+        for (size_t i = 0; i < sections.size(); i++) {
+            if (project->findSection(sections[i].start)->presets != sections[i].presets) {
+                update_needed = true;
+                break;
+            }
+        }
 
         if (sections_view->model()->rowCount())
             sections_view->selectRow(sections_view->currentIndex().row());
 
-        if (selection.size())
-            updateFrameDetails();
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
+
+        updateFrameDetails();
     });
 
     connect(short_sections_box, &QGroupBox::clicked, [this] (bool checked) {
@@ -1085,6 +1160,16 @@ void WobblyWindow::createSectionsEditor() {
         for (size_t i = 0; i < preset_indexes.size(); i++)
             section_presets_list->item(preset_indexes[i] - 1)->setSelected(true);
 
+        if (preview) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
+
         updateFrameDetails();
     });
 
@@ -1119,6 +1204,16 @@ void WobblyWindow::createSectionsEditor() {
         for (size_t i = 0; i < preset_indexes.size(); i++)
             section_presets_list->item(preset_indexes[i] + 1)->setSelected(true);
 
+        if (preview) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
+
         updateFrameDetails();
     });
 
@@ -1147,6 +1242,16 @@ void WobblyWindow::createSectionsEditor() {
         for (int i = preset_indexes.size() - 1; i >= 0; i--)
             project->deleteSectionPreset(section_start, preset_indexes[i]);
 
+        if (preview) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
+
         updateFrameDetails();
     });
 
@@ -1166,8 +1271,19 @@ void WobblyWindow::createSectionsEditor() {
                         project->setSectionPreset(section_start, preset->data().toString().toStdString());
                 }
 
-            if (selected_sections.size())
+            if (selected_sections.size()) {
+                if (preview) {
+                    try {
+                        evaluateFinalScript();
+                    } catch (WobblyException &e) {
+                        errorPopup(e.what());
+
+                        togglePreview();
+                    }
+                }
+
                 updateFrameDetails();
+            }
         }
     });
 
@@ -1364,7 +1480,12 @@ void WobblyWindow::createCustomListsEditor() {
 
         std::sort(indexes.begin(), indexes.end());
 
+        bool update_needed = false;
+
         for (int i = indexes.size() - 1; i >= 0; i--) {
+            if (project->isCustomListInUse(indexes[i]))
+                update_needed = true;
+
             project->deleteCustomList(indexes[i]);
 
             if (indexes[i] == selected_custom_list)
@@ -1375,6 +1496,16 @@ void WobblyWindow::createCustomListsEditor() {
 
         if (cl_view->model()->rowCount())
             cl_view->selectRow(cl_view->currentIndex().row());
+
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
 
         updateFrameDetails();
     });
@@ -1397,11 +1528,26 @@ void WobblyWindow::createCustomListsEditor() {
         if (!indexes.size() || indexes[0] == 0)
             return;
 
+        bool update_needed = false;
+
         for (size_t i = 0; i < indexes.size(); i++) {
+            if (project->isCustomListInUse(indexes[i]))
+                update_needed = true;
+
             project->moveCustomListUp(indexes[i]);
 
             if (indexes[i] == selected_custom_list + 1)
                 selected_custom_list++;
+        }
+
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
         }
 
         updateFrameDetails();
@@ -1425,11 +1571,26 @@ void WobblyWindow::createCustomListsEditor() {
         if (!indexes.size() || indexes.back() == cl_view->model()->rowCount() - 1)
             return;
 
+        bool update_needed = false;
+
         for (int i = indexes.size() - 1; i >= 0; i--) {
+            if (project->isCustomListInUse(indexes[i]))
+                update_needed = true;
+
             project->moveCustomListDown(indexes[i]);
 
             if (indexes[i] == selected_custom_list - 1)
                 selected_custom_list--;
+        }
+
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
         }
 
         updateFrameDetails();
@@ -1445,7 +1606,19 @@ void WobblyWindow::createCustomListsEditor() {
 
         int cl_index = current_index.row();
 
+        bool update_needed = project->isCustomListInUse(cl_index) && project->getCustomListPreset(cl_index) != text.toStdString();
+
         project->setCustomListPreset(cl_index, text.toStdString());
+
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
     });
 
     connect(cl_position_group, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this] (int id) {
@@ -1458,7 +1631,21 @@ void WobblyWindow::createCustomListsEditor() {
 
         int cl_index = current_index.row();
 
-        project->setCustomListPosition(cl_index, (PositionInFilterChain)id);
+        PositionInFilterChain new_position = (PositionInFilterChain)id;
+
+        bool update_needed = project->isCustomListInUse(cl_index) && new_position != project->getCustomListPosition(cl_index);
+
+        project->setCustomListPosition(cl_index, new_position);
+
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
     });
 
     connect(cl_ranges_view, &TableView::deletePressed, cl_delete_range_button, &QPushButton::click);
@@ -1485,6 +1672,9 @@ void WobblyWindow::createCustomListsEditor() {
 
         QModelIndexList selection = cl_ranges_view->selectionModel()->selectedRows();
 
+        if (!selection.size())
+            return;
+
         // Can't use the model indexes after modifying the model.
         std::vector<int> frames;
         frames.reserve(selection.size());
@@ -1496,11 +1686,23 @@ void WobblyWindow::createCustomListsEditor() {
                 frames.push_back(frame);
         }
 
+        bool update_needed = project->isCustomListInUse(cl_index);
+
         for (size_t i = 0; i < frames.size(); i++)
             project->deleteCustomListRange(cl_index, frames[i]);
 
         if (cl_ranges_view->model()->rowCount())
             cl_ranges_view->selectRow(cl_ranges_view->currentIndex().row());
+
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
 
         updateFrameDetails();
     });
@@ -1541,12 +1743,31 @@ void WobblyWindow::createCustomListsEditor() {
 
         QModelIndexList selection = cl_ranges_view->selectionModel()->selectedRows();
 
+        if (!selection.size())
+            return;
+
         for (int i = 0; i < selection.size(); i++) {
             const FrameRange *range = project->findCustomListRange(cl_src_index, selection[i].data().toInt());
             project->addCustomListRange(cl_dst_index, range->first, range->last);
         }
 
+        // An update is only needed if the source custom list wasn't in use before deleting the ranges
+        // and the destination custom list is in use after adding the ranges.
+        // cl_delete_range_button->click() takes care of updating in the case where the source custom list
+        // *was* in use before deleting the ranges.
+        bool update_needed = !project->isCustomListInUse(cl_src_index) && project->isCustomListInUse(cl_dst_index);
+
         cl_delete_range_button->click();
+
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
     });
 
     connect(cl_copy_range_menu, &QMenu::triggered, [this] (QAction *action) {
@@ -1565,9 +1786,24 @@ void WobblyWindow::createCustomListsEditor() {
 
         QModelIndexList selection = cl_ranges_view->selectionModel()->selectedRows();
 
+        if (!selection.size())
+            return;
+
         for (int i = 0; i < selection.size(); i++) {
             const FrameRange *range = project->findCustomListRange(cl_src_index, selection[i].data().toInt());
             project->addCustomListRange(cl_dst_index, range->first, range->last);
+        }
+
+        bool update_needed = project->isCustomListInUse(cl_dst_index);
+
+        if (preview && update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
         }
     });
 
@@ -4310,7 +4546,7 @@ void WobblyWindow::cycleMatchBCN() {
     updateCMatchSequencesWindow();
 
     try {
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -4327,7 +4563,7 @@ void WobblyWindow::freezeForward() {
     try {
         project->addFreezeFrame(current_frame, current_frame, current_frame + 1);
 
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
         //statusBar()->showMessage(QStringLiteral("Couldn't freeze forward."), 5000);
@@ -4345,7 +4581,7 @@ void WobblyWindow::freezeBackward() {
     try {
         project->addFreezeFrame(current_frame, current_frame, current_frame - 1);
 
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
         //statusBar()->showMessage(QStringLiteral("Couldn't freeze backward."), 5000);
@@ -4378,7 +4614,7 @@ void WobblyWindow::freezeRange() {
         try {
             project->addFreezeFrame(ff.first, ff.last, ff.replacement);
 
-            evaluateMainDisplayScript();
+            evaluateScript(preview);
         } catch (WobblyException &e) {
             updateFrameDetails();
 
@@ -4400,7 +4636,7 @@ void WobblyWindow::deleteFreezeFrame() {
         project->deleteFreezeFrame(ff->first);
 
         try {
-            evaluateMainDisplayScript();
+            evaluateScript(preview);
         } catch (WobblyException &e) {
             errorPopup(e.what());
         }
@@ -4433,6 +4669,19 @@ void WobblyWindow::toggleDecimation() {
     else
         project->addDecimatedFrame(current_frame);
 
+    if (preview) {
+        try {
+            evaluateFinalScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+
+            togglePreview();
+        }
+    }
+
+    // Handles updating current_frame and stuff so the right frame numbers will be displayed.
+    jumpRelative(0);
+
     updateFrameDetails();
 
     updateFrameRatesViewer();
@@ -4464,6 +4713,17 @@ void WobblyWindow::toggleCombed() {
         for (int i = start; i <= end; i++)
             project->addCombedFrame(i);
 
+    /// Uncomment if combed frames ever get filtered
+//    if (preview) {
+//        try {
+//            evaluateFinalScript();
+//        } catch (WobblyException &e) {
+//            errorPopup(e.what());
+
+//            togglePreview();
+//        }
+//    }
+
     updateFrameDetails();
 }
 
@@ -4476,6 +4736,16 @@ void WobblyWindow::addSection() {
     if (section->start != current_frame) {
         project->addSection(current_frame);
 
+        if (preview && section->presets.size()) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
+
         updateFrameDetails();
     }
 }
@@ -4487,7 +4757,26 @@ void WobblyWindow::deleteSection() {
 
     const Section *section = project->findSection(current_frame);
     if (section->start != 0) {
+        bool update_needed = false;
+
+        if (preview) {
+            const Section *previous_section = project->findSection(section->start - 1);
+
+            if (section->presets != previous_section->presets)
+                update_needed = true;
+        }
+
         project->deleteSection(section->start);
+
+        if (update_needed) {
+            try {
+                evaluateFinalScript();
+            } catch (WobblyException &e) {
+                errorPopup(e.what());
+
+                togglePreview();
+            }
+        }
 
         updateFrameDetails();
     }
@@ -4540,7 +4829,7 @@ void WobblyWindow::resetMatch() {
     updateCMatchSequencesWindow();
 
     try {
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -4558,7 +4847,7 @@ void WobblyWindow::resetSection() {
     updateCMatchSequencesWindow();
 
     try {
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -4589,7 +4878,7 @@ void WobblyWindow::rotateAndSetPatterns() {
     updateCMatchSequencesWindow();
 
     try {
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -4612,7 +4901,7 @@ void WobblyWindow::setMatchPattern() {
     updateCMatchSequencesWindow();
 
     try {
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -4635,7 +4924,7 @@ void WobblyWindow::setDecimationPattern() {
     updateFrameRatesViewer();
 
     try {
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -4661,7 +4950,7 @@ void WobblyWindow::setMatchAndDecimationPatterns() {
     updateCMatchSequencesWindow();
 
     try {
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -4704,7 +4993,7 @@ void WobblyWindow::guessCurrentSectionPatternsFromMics() {
         updateCMatchSequencesWindow();
 
         try {
-            evaluateMainDisplayScript();
+            evaluateScript(preview);
         } catch (WobblyException &e) {
             errorPopup(e.what());
         }
@@ -4736,7 +5025,7 @@ void WobblyWindow::guessProjectPatternsFromMics() {
 
         updateCMatchSequencesWindow();
 
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         QApplication::restoreOverrideCursor();
 
@@ -4765,7 +5054,7 @@ void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
         updateCMatchSequencesWindow();
 
         try {
-            evaluateMainDisplayScript();
+            evaluateScript(preview);
         } catch (WobblyException &e) {
             errorPopup(e.what());
         }
@@ -4790,7 +5079,7 @@ void WobblyWindow::guessProjectPatternsFromMatches() {
     QApplication::restoreOverrideCursor();
 
     try {
-        evaluateMainDisplayScript();
+        evaluateScript(preview);
     } catch (WobblyException &e) {
         errorPopup(e.what());
     }
@@ -5038,6 +5327,16 @@ void WobblyWindow::assignSelectedPresetToCurrentSection() {
     int section_start = project->findSection(current_frame)->start;
     project->setSectionPreset(section_start, presets_model->data(presets_model->index(selected_preset)).toString().toStdString());
 
+    if (preview) {
+        try {
+            evaluateFinalScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+
+            togglePreview();
+        }
+    }
+
     updateFrameDetails();
 }
 
@@ -5069,6 +5368,16 @@ void WobblyWindow::addRangeToSelectedCustomList() {
         updateFrameDetails();
     } catch (WobblyException &e) {
         errorPopup(e.what());
+    }
+
+    if (preview) {
+        try {
+            evaluateFinalScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
+
+            togglePreview();
+        }
     }
 }
 
