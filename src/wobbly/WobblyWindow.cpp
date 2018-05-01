@@ -273,6 +273,10 @@ void WobblyWindow::keyPressEvent(QKeyEvent *event) {
     auto mod = event->modifiers();
     int key = event->key();
 
+    // Shift+[ returns key() == Key_LeftBrace instead of Key_LeftBracket
+    if (key < Qt::Key_A || key > Qt::Key_Z)
+        mod &= ~Qt::ShiftModifier;
+
     QKeySequence sequence(mod | key);
     QString sequence_string = sequence.toString(QKeySequence::PortableText);
     //fprintf(stderr, "Sequence: '%s'\n", sequence_string.toUtf8().constData());
