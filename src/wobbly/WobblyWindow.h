@@ -89,6 +89,7 @@ private:
     QLabel *decimate_metric_label;
     QLabel *mic_label;
     QLabel *combed_label;
+    QLabel *bookmark_label;
 
     QLabel *selected_preset_label;
     QLabel *selected_custom_list_label;
@@ -157,6 +158,9 @@ private:
     DockWidget *combed_dock;
     TableView *combed_view;
 
+    DockWidget *bookmarks_dock;
+    TableView *bookmarks_view;
+
     DockWidget *settings_dock;
     QSpinBox *settings_font_spin;
     QCheckBox *settings_compact_projects_check;
@@ -164,6 +168,7 @@ private:
     QComboBox *settings_colormatrix_combo;
     QSpinBox *settings_cache_spin;
     QCheckBox *settings_print_details_check;
+    QCheckBox *settings_bookmark_description_check;
     SpinBox *settings_num_thumbnails_spin;
     QDoubleSpinBox *settings_thumbnail_size_dspin;
     TableWidget *settings_shortcuts_table;
@@ -241,6 +246,7 @@ private:
     void createCMatchSequencesWindow();
     void createFadesWindow();
     void createCombedFramesWindow();
+    void createBookmarksWindow();
     void createSettingsWindow();
     void drawColorBars();
     void createUI();
@@ -270,6 +276,7 @@ private:
     void initialiseCMatchSequencesWindow();
     void updateFadesWindow();
     void initialiseCombedFramesWindow();
+    void initialiseBookmarksWindow();
     void initialiseUIFromProject();
 
     void evaluateScript(bool final_script);
@@ -335,6 +342,9 @@ public slots:
     void jumpToPreviousMic();
     void jumpToNextMic();
 
+    void jumpToPreviousBookmark();
+    void jumpToNextBookmark();
+
     void jumpToFrame();
 
     void freezeForward();
@@ -349,6 +359,8 @@ public slots:
     void toggleDecimation();
 
     void toggleCombed();
+
+    void toggleBookmark();
 
     void addSection();
     void deleteSection();
@@ -377,6 +389,7 @@ public slots:
     void showHideCMatchSequencesWindow();
     void showHideFadesWindow();
     void showHideCombedFramesWindow();
+    void showHideBookmarksWindow();
 
     void showHideFrameDetailsOnVideo();
 

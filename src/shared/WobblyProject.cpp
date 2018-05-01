@@ -82,6 +82,11 @@ namespace Keys {
                 K(reason);
             }
         }
+        K(bookmarks);
+        namespace Bookmarks {
+            K(frame);
+            K(description);
+        }
     }
     K(vfm, parameters);
     namespace VFMParameters {
@@ -181,13 +186,16 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , presets(new PresetsModel(this))
     , custom_lists(new CustomListsModel(this))
     , sections(new SectionsModel(this))
+    , bookmarks(new BookmarksModel(this))
     , resize{ false, 0, 0, "spline16" }
     , crop{ false, false, 0, 0, 0, 0 }
     , depth{ false, 8, false, "random" }
     , freeze_frames_wanted(true)
     , is_modified(false)
 {
-
+    connect(bookmarks, &BookmarksModel::dataChanged, [this] () {
+        setModified(true);
+    });
 }
 
 
@@ -336,6 +344,19 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
             json_pattern_guessing.AddMember(Keys::UserInterface::PatternGuessing::failures, json_failures, a);
 
             json_ui.AddMember(Keys::UserInterface::pattern_guessing, json_pattern_guessing, a);
+        }
+
+        if (bookmarks->size()) {
+            rj::Value json_bookmarks(rj::kArrayType);
+
+            for (auto it = bookmarks->cbegin(); it != bookmarks->cend(); it++) {
+                rj::Value json_bookmark(rj::kObjectType);
+                json_bookmark.AddMember(Keys::UserInterface::Bookmarks::frame, it->second.frame, a);
+                json_bookmark.AddMember(Keys::UserInterface::Bookmarks::description, rj::Value(it->second.description, a), a);
+                json_bookmarks.PushBack(json_bookmark, a);
+            }
+
+            json_ui.AddMember(Keys::UserInterface::bookmarks, json_bookmarks, a);
         }
 
         json_project.AddMember(Keys::user_interface, json_ui, a);
@@ -860,6 +881,34 @@ void WobblyProject::readProject(const std::string &path) {
 
                     pattern_guessing.failures.insert({ fail.start, fail });
                 }
+            }
+        }
+
+        it = json_ui.FindMember(Keys::UserInterface::bookmarks);
+        if (it != json_ui.MemberEnd()) {
+            CHECK_ARRAY;
+
+            const rj::Value &json_bookmarks = it->value;
+
+            for (rj::SizeType i = 0; i < json_bookmarks.Size(); i++) {
+                const rj::Value &json_bookmark = json_bookmarks[i];
+
+                if (!json_bookmark.IsObject())
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::UserInterface::bookmarks + "' must be an object.");
+
+                it = json_bookmark.FindMember(Keys::UserInterface::Bookmarks::frame);
+                if (it == json_bookmark.MemberEnd() || !it->value.IsInt())
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::UserInterface::bookmarks + "' must contain the key '" + Keys::UserInterface::Bookmarks::frame + "', which must be an integer.");
+
+                int bookmark_frame = it->value.GetInt();
+
+                it = json_bookmark.FindMember(Keys::UserInterface::Bookmarks::description);
+                if (it == json_bookmark.MemberEnd() || !it->value.IsString())
+                    throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::UserInterface::bookmarks + "' must contain the key '" + Keys::UserInterface::Bookmarks::description + "', which must be a string.");
+
+                std::string bookmark_description(it->value.GetString(), it->value.GetStringLength());
+
+                addBookmark(bookmark_frame, bookmark_description);
             }
         }
     }
@@ -3062,6 +3111,66 @@ void WobblyProject::addInterlacedFade(int frame, double field_difference) {
 
 const InterlacedFadeMap &WobblyProject::getInterlacedFades() const {
     return interlaced_fades;
+}
+
+
+void WobblyProject::addBookmark(int frame, const std::string &description) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't add bookmark at frame " + std::to_string(frame) + ": frame number out of range.");
+
+    bookmarks->insert({ frame, { frame, description } });
+
+    setModified(true);
+}
+
+
+void WobblyProject::deleteBookmark(int frame) {
+    if (!bookmarks->count(frame))
+        throw WobblyException("Can't delete bookmark at frame " + std::to_string(frame) + ": no such bookmark.");
+
+    bookmarks->erase(frame);
+}
+
+
+bool WobblyProject::isBookmark(int frame) const {
+    return (bool)bookmarks->count(frame);
+}
+
+
+int WobblyProject::findPreviousBookmark(int frame) const {
+    BookmarksModel::const_iterator it = bookmarks->lower_bound(frame);
+
+    if (it != bookmarks->cbegin()) {
+        it--;
+
+        return it->second.frame;
+    }
+
+    return frame;
+}
+
+
+int WobblyProject::findNextBookmark(int frame) const {
+    BookmarksModel::const_iterator it = bookmarks->upper_bound(frame);
+
+    if (it != bookmarks->cend())
+        return it->second.frame;
+
+    return frame;
+}
+
+
+const Bookmark *WobblyProject::getBookmark(int frame) const {
+    try {
+        return &bookmarks->at(frame);
+    } catch (std::out_of_range &) {
+        return nullptr;
+    }
+}
+
+
+BookmarksModel *WobblyProject::getBookmarksModel() {
+    return bookmarks;
 }
 
 

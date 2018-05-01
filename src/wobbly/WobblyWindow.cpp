@@ -164,6 +164,8 @@ void WobblyWindow::readSettings() {
 
     settings_use_relative_paths_check->setChecked(settings.value("projects/use_relative_paths", false).toBool());
 
+    settings_bookmark_description_check->setChecked(settings.value("user_interface/ask_for_bookmark_description", true).toBool());
+
     /// Why is it that the default values for some of these settings are kept in this function,
     /// but for others they are kept in createSettingsWindow ?
     if (settings.contains("user_interface/colormatrix"))
@@ -411,6 +413,7 @@ void WobblyWindow::createShortcuts() {
         { "", "",                   "Show or hide C match sequences window", &WobblyWindow::showHideCMatchSequencesWindow },
         { "", "",                   "Show or hide interlaced fades window", &WobblyWindow::showHideFadesWindow },
         { "", "",                   "Show or hide combed frames window", &WobblyWindow::showHideCombedFramesWindow },
+        { "", "",                   "Show or hide bookmarks window", &WobblyWindow::showHideBookmarksWindow },
 
         { "", "",                   "Show or hide frame details printed on the video", &WobblyWindow::showHideFrameDetailsOnVideo },
 
@@ -428,6 +431,8 @@ void WobblyWindow::createShortcuts() {
         { "", "Ctrl+Down",          "Jump to previous section start", &WobblyWindow::jumpToPreviousSectionStart },
         { "", "Up",                 "Jump to next frame with high mic", &WobblyWindow::jumpToNextMic },
         { "", "Down",               "Jump to previous frame with high mic", &WobblyWindow::jumpToPreviousMic },
+        { "", "<",                  "Jump to previous bookmark", &WobblyWindow::jumpToPreviousBookmark },
+        { "", ">",                  "Jump to next bookmark", &WobblyWindow::jumpToNextBookmark },
         { "", "G",                  "Jump to specific frame", &WobblyWindow::jumpToFrame },
         { "", "S",                  "Cycle the current frame's match", &WobblyWindow::cycleMatchBCN },
         { "", "Ctrl+F",             "Replace current frame with next", &WobblyWindow::freezeForward },
@@ -439,6 +444,7 @@ void WobblyWindow::createShortcuts() {
         { "", "I",                  "Start new section at current frame", &WobblyWindow::addSection },
         { "", "Ctrl+Q",             "Delete current section", &WobblyWindow::deleteSection },
         { "", "P",                  "Toggle postprocessing for the current frame or a range", &WobblyWindow::toggleCombed },
+        { "", "B",                  "Toggle bookmark", &WobblyWindow::toggleBookmark },
         { "", "R",                  "Reset the match(es) for the current frame or a range", &WobblyWindow::resetMatch },
         { "", "Ctrl+R",             "Reset the matches for the current section", &WobblyWindow::resetSection },
         { "", "Ctrl+S",             "Rotate the patterns and apply them to the current section", &WobblyWindow::rotateAndSetPatterns },
@@ -488,6 +494,8 @@ void WobblyWindow::createFrameDetailsViewer() {
     mic_label = new QLabel;
     mic_label->setTextFormat(Qt::RichText);
     combed_label = new QLabel;
+    bookmark_label = new QLabel;
+    bookmark_label->setWordWrap(true);
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(frame_num_label);
@@ -499,6 +507,7 @@ void WobblyWindow::createFrameDetailsViewer() {
     vbox->addWidget(decimate_metric_label);
     vbox->addWidget(mic_label);
     vbox->addWidget(combed_label);
+    vbox->addWidget(bookmark_label);
     vbox->addStretch(1);
 
     QWidget *details_widget = new QWidget;
@@ -2510,12 +2519,83 @@ void WobblyWindow::createCombedFramesWindow() {
 }
 
 
+void WobblyWindow::createBookmarksWindow() {
+    bookmarks_view = new TableView;
+    bookmarks_view->setEditTriggers(QAbstractItemView::DoubleClicked);
+
+    QPushButton *delete_button = new QPushButton(QStringLiteral("Delete"));
+
+
+    connect(bookmarks_view, &TableView::doubleClicked, [this] (const QModelIndex &index) {
+        if (index.column() == BookmarksModel::FrameColumn) {
+            bool ok;
+            int frame = combed_view->model()->data(index).toInt(&ok);
+            if (ok)
+                requestFrames(frame);
+        }
+    });
+
+    connect(bookmarks_view, &TableView::deletePressed, delete_button, &QPushButton::click);
+
+    connect(delete_button, &QPushButton::clicked, [this] () {
+        if (!project)
+            return;
+
+        QModelIndexList selection = bookmarks_view->selectionModel()->selectedRows();
+
+        // Can't use the model indexes after modifying the model.
+        std::vector<int> frames;
+        frames.reserve(selection.size());
+
+        for (int i = 0; i < selection.size(); i++) {
+            bool ok;
+            int frame = bookmarks_view->model()->data(selection[i]).toInt(&ok);
+            if (ok)
+                frames.push_back(frame);
+        }
+
+        for (size_t i = 0 ; i < frames.size(); i++)
+            project->deleteBookmark(frames[i]);
+
+        if (bookmarks_view->model()->rowCount())
+            bookmarks_view->selectRow(bookmarks_view->currentIndex().row());
+
+        updateFrameDetails();
+    });
+
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(bookmarks_view);
+
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->addWidget(delete_button);
+    hbox->addStretch(1);
+    vbox->addLayout(hbox);
+
+
+    QWidget *bookmarks_widget = new QWidget;
+    bookmarks_widget->setLayout(vbox);
+
+
+    bookmarks_dock = new DockWidget(QStringLiteral("Bookmarks"), this);
+    bookmarks_dock->setObjectName(QStringLiteral("bookmarks window"));
+    bookmarks_dock->setVisible(false);
+    bookmarks_dock->setFloating(true);
+    bookmarks_dock->setWidget(bookmarks_widget);
+    addDockWidget(Qt::RightDockWidgetArea, bookmarks_dock);
+    tools_menu->addAction(bookmarks_dock->toggleViewAction());
+    connect(bookmarks_dock, &DockWidget::visibilityChanged, bookmarks_dock, &DockWidget::setEnabled);
+}
+
+
 void WobblyWindow::createSettingsWindow() {
     settings_compact_projects_check = new QCheckBox("Create compact project files");
 
     settings_use_relative_paths_check = new QCheckBox(QStringLiteral("Use relative paths in project files"));
 
     settings_print_details_check = new QCheckBox(QStringLiteral("Print frame details on top of the video"));
+
+    settings_bookmark_description_check = new QCheckBox(QStringLiteral("Ask for bookmark description"));
 
     settings_font_spin = new QSpinBox;
     settings_font_spin->setRange(4, 99);
@@ -2565,6 +2645,10 @@ void WobblyWindow::createSettingsWindow() {
         settings.setValue("user_interface/print_details_on_video", checked);
 
         updateFrameDetails();
+    });
+
+    connect(settings_bookmark_description_check, &QCheckBox::toggled, [this] (bool checked) {
+        settings.setValue("user_interface/ask_for_bookmark_description", checked);
     });
 
     connect(settings_font_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
@@ -2702,6 +2786,7 @@ void WobblyWindow::createSettingsWindow() {
     form->addRow(settings_compact_projects_check);
     form->addRow(settings_use_relative_paths_check);
     form->addRow(settings_print_details_check);
+    form->addRow(settings_bookmark_description_check);
     form->addRow(QStringLiteral("Font size"), settings_font_spin);
     form->addRow(QStringLiteral("Colormatrix"), settings_colormatrix_combo);
     form->addRow(QStringLiteral("Maximum cache size"), settings_cache_spin);
@@ -2913,6 +2998,7 @@ void WobblyWindow::createUI() {
     createCMatchSequencesWindow();
     createFadesWindow();
     createCombedFramesWindow();
+    createBookmarksWindow();
     createSettingsWindow();
 
 
@@ -3472,6 +3558,20 @@ void WobblyWindow::initialiseCombedFramesWindow() {
 }
 
 
+void WobblyWindow::initialiseBookmarksWindow() {
+    bookmarks_view->setModel(project->getBookmarksModel());
+
+    connect(project->getBookmarksModel(), &BookmarksModel::dataChanged, [this] (const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+        if (topLeft == bottomRight) {
+            int frame = bookmarks_view->model()->index(topLeft.row(), BookmarksModel::FrameColumn).data().toInt();
+
+            if (frame == current_frame)
+                updateFrameDetails();
+        }
+    });
+}
+
+
 void WobblyWindow::initialiseUIFromProject() {
     updateWindowTitle();
 
@@ -3496,6 +3596,7 @@ void WobblyWindow::initialiseUIFromProject() {
     initialiseCMatchSequencesWindow();
     updateFadesWindow();
     initialiseCombedFramesWindow();
+    initialiseBookmarksWindow();
 }
 
 
@@ -4032,6 +4133,11 @@ void WobblyWindow::showHideCombedFramesWindow() {
 }
 
 
+void WobblyWindow::showHideBookmarksWindow() {
+    bookmarks_dock->setVisible(!bookmarks_dock->isVisible());
+}
+
+
 void WobblyWindow::showHideFrameDetailsOnVideo() {
     settings_print_details_check->setChecked(!settings_print_details_check->isChecked());
 }
@@ -4382,6 +4488,18 @@ void WobblyWindow::updateFrameDetails() {
     }
 
 
+    const Bookmark *bookmark = project->getBookmark(current_frame);
+
+    if (bookmark) {
+        if (bookmark->description.size())
+            bookmark_label->setText(QStringLiteral("Bookmark: ") + QString::fromStdString(bookmark->description));
+        else
+            bookmark_label->setText(QStringLiteral("Bookmark"));
+    } else {
+        bookmark_label->clear();
+    }
+
+
     if (settings_print_details_check->isChecked()) {
         QString drawn_text = frame_num_label->text() + "<br />";
         drawn_text += time_label->text() + "<br />";
@@ -4391,7 +4509,8 @@ void WobblyWindow::updateFrameDetails() {
         drawn_text += freeze_label->text() + "<br />";
         drawn_text += decimate_metric_label->text() + "<br />";
         drawn_text += mic_label->text() + "<br />";
-        drawn_text += combed_label->text();
+        drawn_text += combed_label->text() + "<br />";
+        drawn_text += bookmark_label->text();
 
         overlay_label->setText(drawn_text);
     } else {
@@ -4534,6 +4653,26 @@ void WobblyWindow::jumpToNextMic() {
 
     int frame = project->getNextFrameWithMic(mic_search_minimum_spin->value(), current_frame);
     if (frame != -1)
+        requestFrames(frame);
+}
+
+
+void WobblyWindow::jumpToPreviousBookmark() {
+    if (!project)
+        return;
+
+    int frame = project->findPreviousBookmark(current_frame);
+    if (frame != current_frame)
+        requestFrames(frame);
+}
+
+
+void WobblyWindow::jumpToNextBookmark() {
+    if (!project)
+        return;
+
+    int frame = project->findNextBookmark(current_frame);
+    if (frame != current_frame)
         requestFrames(frame);
 }
 
@@ -4735,6 +4874,27 @@ void WobblyWindow::toggleCombed() {
 //            togglePreview();
 //        }
 //    }
+
+    updateFrameDetails();
+}
+
+
+void WobblyWindow::toggleBookmark() {
+    if (!project)
+        return;
+
+    if (project->isBookmark(current_frame)) {
+        project->deleteBookmark(current_frame);
+    } else {
+        bool ok = true;
+        QString description;
+
+        if (settings.value("user_interface/ask_for_bookmark_description").toBool())
+            description = QInputDialog::getText(this, QStringLiteral("Bookmark description"), QStringLiteral("Optional description for the bookmark:"), QLineEdit::Normal, QString(), &ok);
+
+        if (ok)
+            project->addBookmark(current_frame, description.toStdString());
+    }
 
     updateFrameDetails();
 }

@@ -18,7 +18,8 @@ moc_%.cpp : %.h
 
 bin_PROGRAMS = wibbly wobbly
 
-shared_moc_files = src/shared/moc_CombedFramesModel.cpp \
+shared_moc_files = src/shared/moc_BookmarksModel.cpp \
+				   src/shared/moc_CombedFramesModel.cpp \
 				   src/shared/moc_CustomListsModel.cpp \
 				   src/shared/moc_DockWidget.cpp \
 				   src/shared/moc_FrameRangesModel.cpp \
@@ -79,6 +80,8 @@ rapidjson_sources = rapidjson/allocators.h \
 					rapidjson/msinttypes/stdint.h
 
 shared_sources = $(rapidjson_sources) \
+				 src/shared/BookmarksModel.cpp \
+				 src/shared/BookmarksModel.h \
 				 src/shared/CombedFramesModel.cpp \
 				 src/shared/CombedFramesModel.h \
 				 src/shared/CustomListsModel.cpp \

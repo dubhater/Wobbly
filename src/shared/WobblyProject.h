@@ -35,6 +35,7 @@ SOFTWARE.
 
 #include <QObject>
 
+#include "BookmarksModel.h"
 #include "CombedFramesModel.h"
 #include "CustomListsModel.h"
 #include "FrozenFramesModel.h"
@@ -116,6 +117,7 @@ class WobblyProject : public QObject {
         PresetsModel *presets;
         CustomListsModel *custom_lists;
         SectionsModel *sections;
+        BookmarksModel *bookmarks;
 
         Resize resize;
         Crop crop;
@@ -327,6 +329,15 @@ class WobblyProject : public QObject {
 
         void addInterlacedFade(int frame, double field_difference);
         const InterlacedFadeMap &getInterlacedFades() const;
+
+
+        void addBookmark(int frame, const std::string &description);
+        void deleteBookmark(int frame);
+        bool isBookmark(int frame) const;
+        int findPreviousBookmark(int frame) const;
+        int findNextBookmark(int frame) const;
+        const Bookmark *getBookmark(int frame) const;
+        BookmarksModel *getBookmarksModel();
 
 
         void sectionsToScript(std::string &script) const;

@@ -196,4 +196,12 @@ struct ImportedThings {
     bool zoom;
 };
 
+
+struct Bookmark {
+    int frame;
+    std::string description;
+};
+
+typedef std::map<int, Bookmark> BookmarkMap;
+
 #endif // WOBBLYTYPES_H
