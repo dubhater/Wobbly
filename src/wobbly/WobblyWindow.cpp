@@ -2549,11 +2549,11 @@ void WobblyWindow::createSettingsWindow() {
     QPushButton *settings_reset_shortcuts_button = new QPushButton("Reset selected shortcuts");
 
 
-    connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
+    connect(settings_compact_projects_check, &QCheckBox::toggled, [this] (bool checked) {
         settings.setValue("projects/compact_project_files", checked);
     });
 
-    connect(settings_use_relative_paths_check, &QCheckBox::clicked, [this] (bool checked) {
+    connect(settings_use_relative_paths_check, &QCheckBox::toggled, [this] (bool checked) {
         settings.setValue("projects/use_relative_paths", checked);
     });
 
