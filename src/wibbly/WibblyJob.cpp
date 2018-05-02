@@ -18,6 +18,7 @@ SOFTWARE.
 */
 
 
+#include "RandomStuff.h"
 #include "WibblyJob.h"
 
 
@@ -222,20 +223,22 @@ void WibblyJob::headerToScript(std::string &script) const {
 
 
 void WibblyJob::sourceToScript(std::string &script) const {
+    std::string fixed_input_file = handleSingleQuotes(input_file);
+
     script +=
-            "if wibbly_last_input_file == r'" + input_file + "':\n"
+            "if wibbly_last_input_file == r'" + fixed_input_file + "':\n"
             "    try:\n"
             "        src = vs.get_output(index=1)\n"
             // Since VapourSynth R41 get_output returns the alpha as well.
             "        if isinstance(src, tuple):\n"
             "            src = src[0]\n"
             "    except KeyError:\n"
-            "        src = c." + source_filter + "(r'" + input_file + "')\n"
+            "        src = c." + source_filter + "(r'" + fixed_input_file + "')\n"
             "        src.set_output(index=1)\n"
             "else:\n"
-            "    src = c." + source_filter + "(r'" + input_file + "')\n"
+            "    src = c." + source_filter + "(r'" + fixed_input_file + "')\n"
             "    src.set_output(index=1)\n"
-            "    wibbly_last_input_file = r'" + input_file + "'\n"
+            "    wibbly_last_input_file = r'" + fixed_input_file + "'\n"
             "\n";
 }
 

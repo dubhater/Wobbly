@@ -98,6 +98,7 @@ shared_sources = $(rapidjson_sources) \
 				 src/shared/PresetsModel.h \
 				 src/shared/ProgressDialog.cpp \
 				 src/shared/ProgressDialog.h \
+				 src/shared/RandomStuff.h \
 				 src/shared/ScrollArea.cpp \
 				 src/shared/ScrollArea.h \
 				 src/shared/SectionsModel.cpp \

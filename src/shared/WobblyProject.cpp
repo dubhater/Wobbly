@@ -36,6 +36,7 @@ SOFTWARE.
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/error/en.h"
 
+#include "RandomStuff.h"
 #include "WobblyException.h"
 #include "WobblyProject.h"
 
@@ -3332,7 +3333,7 @@ void WobblyProject::presetsToScript(std::string &script) const {
 
 
 void WobblyProject::sourceToScript(std::string &script, bool save_node) const {
-    std::string src = "src = c." + source_filter + "(r'" + input_file + "')\n";
+    std::string src = "src = c." + source_filter + "(r'" + handleSingleQuotes(input_file) + "')\n";
 
     if (save_node) {
     script +=

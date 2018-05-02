@@ -45,6 +45,7 @@ SOFTWARE.
 
 #include "CombedFramesCollector.h"
 #include "ProgressDialog.h"
+#include "RandomStuff.h"
 #include "ScrollArea.h"
 #include "WobblyException.h"
 #include "WobblyWindow.h"
@@ -3681,7 +3682,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
                     "c = vs.get_core()\n"
                     "\n"
                     "c.%1(r'%2').set_output()\n");
-        script = script.arg(source_filter).arg(path);
+        script = script.arg(source_filter).arg(QString::fromStdString(handleSingleQuotes(path.toStdString())));
 
         QApplication::setOverrideCursor(Qt::WaitCursor);
 
