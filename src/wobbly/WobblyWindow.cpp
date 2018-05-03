@@ -51,6 +51,24 @@ SOFTWARE.
 #include "WobblyWindow.h"
 
 
+// To avoid duplicating the string literals passed to QSettings
+#define KEY_STATE                           QStringLiteral("user_interface/state")
+#define KEY_GEOMETRY                        QStringLiteral("user_interface/geometry")
+#define KEY_FONT_SIZE                       QStringLiteral("user_interface/font_size")
+#define KEY_ASK_FOR_BOOKMARK_DESCRIPTION    QStringLiteral("user_interface/ask_for_bookmark_description")
+#define KEY_COLORMATRIX                     QStringLiteral("user_interface/colormatrix")
+#define KEY_MAXIMUM_CACHE_SIZE              QStringLiteral("user_interface/maximum_cache_size")
+#define KEY_PRINT_DETAILS_ON_VIDEO          QStringLiteral("user_interface/print_details_on_video")
+#define KEY_NUMBER_OF_THUMBNAILS            QStringLiteral("user_interface/number_of_thumbnails")
+#define KEY_THUMBNAIL_SIZE                  QStringLiteral("user_interface/thumbnail_size")
+#define KEY_LAST_DIR                        QStringLiteral("user_interface/last_dir")
+#define KEY_RECENT                          QStringLiteral("user_interface/recent%1")
+#define KEY_KEYS                            QStringLiteral("user_interface/keys/")
+
+#define KEY_COMPACT_PROJECT_FILES           QStringLiteral("projects/compact_project_files")
+#define KEY_USE_RELATIVE_PATHS              QStringLiteral("projects/use_relative_paths")
+
+
 struct CallbackData {
     WobblyWindow *window;
     VSNodeRef *node;
@@ -147,43 +165,43 @@ void WobblyWindow::addRecentFile(const QString &path) {
         text[1] = QChar('0' + i);
         actions[i]->setText(text);
 
-        settings.setValue(QStringLiteral("user_interface/recent%1").arg(i), text.mid(4));
+        settings.setValue(KEY_RECENT.arg(i), text.mid(4));
     }
 }
 
 
 void WobblyWindow::readSettings() {
-    if (settings.contains("user_interface/state"))
-        restoreState(settings.value("user_interface/state").toByteArray());
+    if (settings.contains(KEY_STATE))
+        restoreState(settings.value(KEY_STATE).toByteArray());
 
-    if (settings.contains("user_interface/geometry"))
-        restoreGeometry(settings.value("user_interface/geometry").toByteArray());
+    if (settings.contains(KEY_GEOMETRY))
+        restoreGeometry(settings.value(KEY_GEOMETRY).toByteArray());
 
-    settings_font_spin->setValue(settings.value("user_interface/font_size", QApplication::font().pointSize()).toInt());
+    settings_font_spin->setValue(settings.value(KEY_FONT_SIZE, QApplication::font().pointSize()).toInt());
 
-    settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
+    settings_compact_projects_check->setChecked(settings.value(KEY_COMPACT_PROJECT_FILES, false).toBool());
 
-    settings_use_relative_paths_check->setChecked(settings.value("projects/use_relative_paths", false).toBool());
+    settings_use_relative_paths_check->setChecked(settings.value(KEY_USE_RELATIVE_PATHS, false).toBool());
 
-    settings_bookmark_description_check->setChecked(settings.value("user_interface/ask_for_bookmark_description", true).toBool());
+    settings_bookmark_description_check->setChecked(settings.value(KEY_ASK_FOR_BOOKMARK_DESCRIPTION, true).toBool());
 
     /// Why is it that the default values for some of these settings are kept in this function,
     /// but for others they are kept in createSettingsWindow ?
-    if (settings.contains("user_interface/colormatrix"))
-        settings_colormatrix_combo->setCurrentText(settings.value("user_interface/colormatrix").toString());
+    if (settings.contains(KEY_COLORMATRIX))
+        settings_colormatrix_combo->setCurrentText(settings.value(KEY_COLORMATRIX).toString());
 
-    if (settings.contains("user_interface/maximum_cache_size"))
-        settings_cache_spin->setValue(settings.value("user_interface/maximum_cache_size").toInt());
+    if (settings.contains(KEY_MAXIMUM_CACHE_SIZE))
+        settings_cache_spin->setValue(settings.value(KEY_MAXIMUM_CACHE_SIZE).toInt());
 
-    settings_print_details_check->setChecked(settings.value("user_interface/print_details_on_video", true).toBool());
+    settings_print_details_check->setChecked(settings.value(KEY_PRINT_DETAILS_ON_VIDEO, true).toBool());
 
-    settings_num_thumbnails_spin->setValue(settings.value("user_interface/number_of_thumbnails", 3).toInt());
+    settings_num_thumbnails_spin->setValue(settings.value(KEY_NUMBER_OF_THUMBNAILS, 3).toInt());
 
-    settings_thumbnail_size_dspin->setValue(settings.value("user_interface/thumbnail_size", 12).toDouble());
+    settings_thumbnail_size_dspin->setValue(settings.value(KEY_THUMBNAIL_SIZE, 12).toDouble());
 
     settings_shortcuts_table->setRowCount(shortcuts.size());
     for (size_t i = 0; i < shortcuts.size(); i++) {
-        QString settings_key = "user_interface/keys/" + shortcuts[i].description;
+        QString settings_key = KEY_KEYS + shortcuts[i].description;
 
         if (settings.contains(settings_key))
             shortcuts[i].keys = settings.value(settings_key).toString();
@@ -201,7 +219,7 @@ void WobblyWindow::readSettings() {
 
     QStringList recent;
     for (int i = 9; i >= 0; i--) {
-        QString settings_key = QStringLiteral("user_interface/recent%1").arg(i);
+        QString settings_key = KEY_RECENT.arg(i);
         if (settings.contains(settings_key))
             recent.push_back(settings.value(settings_key).toString());
     }
@@ -211,9 +229,9 @@ void WobblyWindow::readSettings() {
 
 
 void WobblyWindow::writeSettings() {
-    settings.setValue("user_interface/state", saveState());
+    settings.setValue(KEY_STATE, saveState());
 
-    settings.setValue("user_interface/geometry", saveGeometry());
+    settings.setValue(KEY_GEOMETRY, saveGeometry());
 }
 
 
@@ -2635,21 +2653,21 @@ void WobblyWindow::createSettingsWindow() {
 
 
     connect(settings_compact_projects_check, &QCheckBox::toggled, [this] (bool checked) {
-        settings.setValue("projects/compact_project_files", checked);
+        settings.setValue(KEY_COMPACT_PROJECT_FILES, checked);
     });
 
     connect(settings_use_relative_paths_check, &QCheckBox::toggled, [this] (bool checked) {
-        settings.setValue("projects/use_relative_paths", checked);
+        settings.setValue(KEY_USE_RELATIVE_PATHS, checked);
     });
 
     connect(settings_print_details_check, &QCheckBox::toggled, [this] (bool checked) {
-        settings.setValue("user_interface/print_details_on_video", checked);
+        settings.setValue(KEY_PRINT_DETAILS_ON_VIDEO, checked);
 
         updateFrameDetails();
     });
 
     connect(settings_bookmark_description_check, &QCheckBox::toggled, [this] (bool checked) {
-        settings.setValue("user_interface/ask_for_bookmark_description", checked);
+        settings.setValue(KEY_ASK_FOR_BOOKMARK_DESCRIPTION, checked);
     });
 
     connect(settings_font_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
@@ -2657,11 +2675,11 @@ void WobblyWindow::createSettingsWindow() {
         font.setPointSize(value);
         QApplication::setFont(font);
 
-        settings.setValue("user_interface/font_size", value);
+        settings.setValue(KEY_FONT_SIZE, value);
     });
 
     connect(settings_colormatrix_combo, &QComboBox::currentTextChanged, [this] (const QString &text) {
-        settings.setValue("user_interface/colormatrix", text);
+        settings.setValue(KEY_COLORMATRIX, text);
 
         if (!project)
             return;
@@ -2674,11 +2692,11 @@ void WobblyWindow::createSettingsWindow() {
     });
 
     connect(settings_cache_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
-        settings.setValue("user_interface/maximum_cache_size", value);
+        settings.setValue(KEY_MAXIMUM_CACHE_SIZE, value);
     });
 
     connect(settings_num_thumbnails_spin, static_cast<void (SpinBox::*)(int)>(&SpinBox::valueChanged), [this] (int num_thumbnails) {
-        settings.setValue("user_interface/number_of_thumbnails", num_thumbnails);
+        settings.setValue(KEY_NUMBER_OF_THUMBNAILS, num_thumbnails);
 
         int first_visible = (MAX_THUMBNAILS - num_thumbnails) / 2;
         int last_visible = first_visible + num_thumbnails - 1;
@@ -2702,7 +2720,7 @@ void WobblyWindow::createSettingsWindow() {
     });
 
     connect(settings_thumbnail_size_dspin, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), [this] (double percentage) {
-        settings.setValue("user_interface/thumbnail_size", percentage);
+        settings.setValue(KEY_THUMBNAIL_SIZE, percentage);
 
         splash_thumb = getThumbnail(splash_image);
 
@@ -2751,7 +2769,7 @@ void WobblyWindow::createSettingsWindow() {
 
         // XXX No duplicate shortcuts.
 
-        QString settings_key = "user_interface/keys/" + shortcuts[row].description;
+        QString settings_key = KEY_KEYS + shortcuts[row].description;
 
         if (shortcuts[row].keys == shortcuts[row].default_keys)
             settings.remove(settings_key);
@@ -3651,10 +3669,10 @@ void WobblyWindow::openProject() {
     if (askToSaveIfModified() == QMessageBox::Cancel)
         return;
 
-    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), settings.value("user_interface/last_dir").toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
+    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
 
     if (!path.isNull()) {
-        settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+        settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
         realOpenProject(path);
     }
@@ -3740,10 +3758,10 @@ void WobblyWindow::openVideo() {
     if (askToSaveIfModified() == QMessageBox::Cancel)
         return;
 
-    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open video file"), settings.value("user_interface/last_dir").toString());
+    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open video file"), settings.value(KEY_LAST_DIR).toString());
 
     if (!path.isNull()) {
-        settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+        settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
         realOpenVideo(path);
     }
@@ -3805,10 +3823,10 @@ void WobblyWindow::saveProjectAs() {
         if (!project)
             throw WobblyException("Can't save the project because none has been loaded.");
 
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), settings.value("user_interface/last_dir").toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
 
         if (!path.isNull()) {
-            settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+            settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
             realSaveProject(path);
         }
@@ -3867,7 +3885,7 @@ void WobblyWindow::saveScriptAs() {
         QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save script"), dir, QStringLiteral("VapourSynth scripts (*.py *.vpy);;All files (*)"));
 
         if (!path.isNull()) {
-            settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+            settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
             realSaveScript(path);
         }
@@ -3923,7 +3941,7 @@ void WobblyWindow::saveTimecodesAs() {
         QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save timecodes"), dir, QStringLiteral("Timecodes v1 files (*.txt);;All files (*)"));
 
         if (!path.isNull()) {
-            settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+            settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
             realSaveTimecodes(path);
         }
@@ -3946,7 +3964,7 @@ void WobblyWindow::saveScreenshot() {
     path = QFileDialog::getSaveFileName(this, QStringLiteral("Save screenshot"), path, QStringLiteral("PNG images (*.png);;All files (*)"));
 
     if (!path.isNull()) {
-        settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+        settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
         frame_label->pixmap()->save(path, "png");
     }
@@ -4890,7 +4908,7 @@ void WobblyWindow::toggleBookmark() {
         bool ok = true;
         QString description;
 
-        if (settings.value("user_interface/ask_for_bookmark_description").toBool())
+        if (settings.value(KEY_ASK_FOR_BOOKMARK_DESCRIPTION).toBool())
             description = QInputDialog::getText(this, QStringLiteral("Bookmark description"), QStringLiteral("Optional description for the bookmark:"), QLineEdit::Normal, QString(), &ok);
 
         if (ok)

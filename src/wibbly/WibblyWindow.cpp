@@ -44,6 +44,30 @@ SOFTWARE.
 #include "WobblyException.h"
 
 
+// To avoid duplicating the string literals passed to QSettings
+#define KEY_STATE                           QStringLiteral("user_interface/state")
+#define KEY_GEOMETRY                        QStringLiteral("user_interface/geometry")
+#define KEY_FONT_SIZE                       QStringLiteral("user_interface/font_size")
+#define KEY_MAXIMUM_CACHE_SIZE              QStringLiteral("user_interface/maximum_cache_size")
+#define KEY_LAST_DIR                        QStringLiteral("user_interface/last_dir")
+
+#define KEY_COMPACT_PROJECT_FILES           QStringLiteral("projects/compact_project_files")
+#define KEY_USE_RELATIVE_PATHS              QStringLiteral("projects/use_relative_paths")
+
+#define KEY_JOBS                            QStringLiteral("jobs")
+#define KEY_COUNT                           QStringLiteral("jobs/count")
+#define KEY_JOB                             QStringLiteral("jobs/job%1")
+#define KEY_INPUT_FILE                      QStringLiteral("input_file")
+#define KEY_SOURCE_FILTER                   QStringLiteral("source_filter")
+#define KEY_OUTPUT_FILE                     QStringLiteral("output_file")
+#define KEY_STEPS                           QStringLiteral("steps")
+#define KEY_CROP                            QStringLiteral("crop")
+#define KEY_TRIMS                           QStringLiteral("trims")
+#define KEY_VFM                             QStringLiteral("vfm/")
+#define KEY_VDECIMATE                       QStringLiteral("vdecimate/")
+#define KEY_FADES_THRESHOLD                 QStringLiteral("fades_threshold")
+
+
 std::mutex requests_mutex;
 std::condition_variable requests_condition;
 
@@ -494,10 +518,10 @@ void WibblyWindow::createMainWindow() {
     connect(main_destination_edit, &QLineEdit::editingFinished, destinationChanged);
 
     connect(main_choose_button, &QPushButton::clicked, [this, destinationChanged] () {
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), settings.value("user_interface/last_dir").toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
 
         if (!path.isEmpty()) {
-            settings.setValue("user_interface/last_dir", QFileInfo(path).absolutePath());
+            settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
             main_destination_edit->setText(path);
             destinationChanged();
@@ -521,13 +545,13 @@ void WibblyWindow::createMainWindow() {
     });
 
     connect(main_add_jobs_button, &QPushButton::clicked, [this] () {
-        QStringList paths = QFileDialog::getOpenFileNames(this, QStringLiteral("Open video file"), settings.value("user_interface/last_dir").toString());
+        QStringList paths = QFileDialog::getOpenFileNames(this, QStringLiteral("Open video file"), settings.value(KEY_LAST_DIR).toString());
 
         paths.sort();
 
         for (int i = 0; i < paths.size(); i++) {
             if (!paths[i].isNull()) {
-                settings.setValue("user_interface/last_dir", QFileInfo(paths[i]).absolutePath());
+                settings.setValue(KEY_LAST_DIR, QFileInfo(paths[i]).absolutePath());
 
                 realOpenVideo(paths[i]);
             }
@@ -1127,19 +1151,19 @@ void WibblyWindow::createSettingsWindow() {
         font.setPointSize(value);
         QApplication::setFont(font);
 
-        settings.setValue("user_interface/font_size", value);
+        settings.setValue(KEY_FONT_SIZE, value);
     });
 
     connect(settings_compact_projects_check, &QCheckBox::clicked, [this] (bool checked) {
-        settings.setValue("projects/compact_project_files", checked);
+        settings.setValue(KEY_COMPACT_PROJECT_FILES, checked);
     });
 
     connect(settings_use_relative_paths_check, &QCheckBox::clicked, [this] (bool checked) {
-        settings.setValue("projects/use_relative_paths", checked);
+        settings.setValue(KEY_USE_RELATIVE_PATHS, checked);
     });
 
     connect(settings_cache_spin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [this] (int value) {
-        settings.setValue("user_interface/maximum_cache_size", value);
+        settings.setValue(KEY_MAXIMUM_CACHE_SIZE, value);
     });
 
 
@@ -1622,32 +1646,32 @@ void WibblyWindow::frameDone(void *frame_v, int n, const QString &error_msg) {
 
 
 void WibblyWindow::readSettings() {
-    if (settings.contains("user_interface/state"))
-        restoreState(settings.value("user_interface/state").toByteArray());
+    if (settings.contains(KEY_STATE))
+        restoreState(settings.value(KEY_STATE).toByteArray());
 
-    if (settings.contains("user_interface/geometry"))
-        restoreGeometry(settings.value("user_interface/geometry").toByteArray());
+    if (settings.contains(KEY_GEOMETRY))
+        restoreGeometry(settings.value(KEY_GEOMETRY).toByteArray());
 
-    settings_font_spin->setValue(settings.value("user_interface/font_size", QApplication::font().pointSize()).toInt());
+    settings_font_spin->setValue(settings.value(KEY_FONT_SIZE, QApplication::font().pointSize()).toInt());
 
-    settings_compact_projects_check->setChecked(settings.value("projects/compact_project_files", false).toBool());
+    settings_compact_projects_check->setChecked(settings.value(KEY_COMPACT_PROJECT_FILES, false).toBool());
 
-    settings_use_relative_paths_check->setChecked(settings.value("projects/use_relative_paths", false).toBool());
+    settings_use_relative_paths_check->setChecked(settings.value(KEY_USE_RELATIVE_PATHS, false).toBool());
 
-    if (settings.contains("user_interface/maximum_cache_size"))
-        settings_cache_spin->setValue(settings.value("user_interface/maximum_cache_size").toInt());
+    if (settings.contains(KEY_MAXIMUM_CACHE_SIZE))
+        settings_cache_spin->setValue(settings.value(KEY_MAXIMUM_CACHE_SIZE).toInt());
 }
 
 
 void WibblyWindow::writeSettings() {
-    settings.setValue("user_interface/state", saveState());
+    settings.setValue(KEY_STATE, saveState());
 
-    settings.setValue("user_interface/geometry", saveGeometry());
+    settings.setValue(KEY_GEOMETRY, saveGeometry());
 }
 
 
 void WibblyWindow::readJobs() {
-    int job_count = settings.value("jobs/count", 0).toInt();
+    int job_count = settings.value(KEY_COUNT, 0).toInt();
 
     if (!job_count)
         return;
@@ -1657,42 +1681,42 @@ void WibblyWindow::readJobs() {
     int field_width = QString::number(jobs.size() - 1).size();
 
     for (auto job = jobs.begin(); job != jobs.end(); job++) {
-        QString key = QStringLiteral("jobs/job%1/").arg(std::distance(jobs.begin(), job), field_width, 10, QLatin1Char('0'));
+        QString key = KEY_JOB.arg(std::distance(jobs.begin(), job), field_width, 10, QLatin1Char('0'));
 
-        job->setInputFile(settings.value(key + "input_file").toString().toStdString());
+        job->setInputFile(settings.value(key + KEY_INPUT_FILE).toString().toStdString());
 
-        job->setSourceFilter(settings.value(key + "source_filter").toString().toStdString());
+        job->setSourceFilter(settings.value(key + KEY_SOURCE_FILTER).toString().toStdString());
 
-        job->setOutputFile(settings.value(key + "output_file").toString().toStdString());
+        job->setOutputFile(settings.value(key + KEY_OUTPUT_FILE).toString().toStdString());
 
-        job->setSteps(settings.value(key + "steps").toInt());
+        job->setSteps(settings.value(key + KEY_STEPS).toInt());
 
-        QList<QVariant> crop_list = settings.value(key + "crop").toList();
+        QList<QVariant> crop_list = settings.value(key + KEY_CROP).toList();
         job->setCrop(crop_list[0].toInt(), crop_list[1].toInt(), crop_list[2].toInt(), crop_list[3].toInt());
 
-        QList<QVariant> trim_list = settings.value(key + "trims").toList();
+        QList<QVariant> trim_list = settings.value(key + KEY_TRIMS).toList();
         for (int i = 0; i < trim_list.size(); i += 2)
             job->addTrim(trim_list[i].toInt(), trim_list[i + 1].toInt());
 
         for (auto param = vfm_params.cbegin(); param != vfm_params.cend(); param++) {
             if (param->type == VIVTCParamInt)
-                job->setVFMParameter(param->name.toStdString(), settings.value(key + "vfm/" + param->name).toInt());
+                job->setVFMParameter(param->name.toStdString(), settings.value(key + KEY_VFM + param->name).toInt());
             else if (param->type == VIVTCParamDouble)
-                job->setVFMParameter(param->name.toStdString(), settings.value(key + "vfm/" + param->name).toDouble());
+                job->setVFMParameter(param->name.toStdString(), settings.value(key + KEY_VFM + param->name).toDouble());
             else if (param->type == VIVTCParamBool)
-                job->setVFMParameter(param->name.toStdString(), settings.value(key + "vfm/" + param->name).toBool());
+                job->setVFMParameter(param->name.toStdString(), settings.value(key + KEY_VFM + param->name).toBool());
         }
 
         for (auto param = vdecimate_params.cbegin(); param != vdecimate_params.cend(); param++) {
             if (param->type == VIVTCParamInt)
-                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + "vdecimate/" + param->name).toInt());
+                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + KEY_VDECIMATE + param->name).toInt());
             else if (param->type == VIVTCParamDouble)
-                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + "vdecimate/" + param->name).toDouble());
+                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + KEY_VDECIMATE + param->name).toDouble());
             else if (param->type == VIVTCParamBool)
-                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + "vdecimate/" + param->name).toBool());
+                job->setVDecimateParameter(param->name.toStdString(), settings.value(key + KEY_VDECIMATE + param->name).toBool());
         }
 
-        job->setFadesThreshold(settings.value(key + "fades_threshold").toDouble());
+        job->setFadesThreshold(settings.value(key + KEY_FADES_THRESHOLD).toDouble());
 
         main_jobs_list->addItem(QString::fromStdString(job->getInputFile()));
     }
@@ -1702,29 +1726,29 @@ void WibblyWindow::readJobs() {
 
 
 void WibblyWindow::writeJobs() {
-    settings.remove("jobs");
+    settings.remove(KEY_JOBS);
 
     if (!jobs.size())
         return;
 
-    settings.setValue("jobs/count", (int)jobs.size());
+    settings.setValue(KEY_COUNT, (int)jobs.size());
 
     int field_width = QString::number(jobs.size() - 1).size();
 
     for (auto job = jobs.cbegin(); job != jobs.cend(); job++) {
-        QString key = QStringLiteral("jobs/job%1/").arg(std::distance(jobs.cbegin(), job), field_width, 10, QLatin1Char('0'));
+        QString key = KEY_JOB.arg(std::distance(jobs.cbegin(), job), field_width, 10, QLatin1Char('0'));
 
-        settings.setValue(key + "input_file", QString::fromStdString(job->getInputFile()));
+        settings.setValue(key + KEY_INPUT_FILE, QString::fromStdString(job->getInputFile()));
 
-        settings.setValue(key + "source_filter", QString::fromStdString(job->getSourceFilter()));
+        settings.setValue(key + KEY_SOURCE_FILTER, QString::fromStdString(job->getSourceFilter()));
 
-        settings.setValue(key + "output_file", QString::fromStdString(job->getOutputFile()));
+        settings.setValue(key + KEY_OUTPUT_FILE, QString::fromStdString(job->getOutputFile()));
 
-        settings.setValue(key + "steps", job->getSteps());
+        settings.setValue(key + KEY_STEPS, job->getSteps());
 
         const Crop &crop = job->getCrop();
         QList<QVariant> crop_list = { crop.left, crop.top, crop.right, crop.bottom };
-        settings.setValue(key + "crop", crop_list);
+        settings.setValue(key + KEY_CROP, crop_list);
 
         const auto &trims = job->getTrims();
         QList<QVariant> trim_list;
@@ -1733,27 +1757,27 @@ void WibblyWindow::writeJobs() {
             trim_list.push_back(it->second.first);
             trim_list.push_back(it->second.last);
         }
-        settings.setValue(key + "trims", trim_list);
+        settings.setValue(key + KEY_TRIMS, trim_list);
 
         for (auto param = vfm_params.cbegin(); param != vfm_params.cend(); param++) {
             if (param->type == VIVTCParamInt)
-                settings.setValue(key + "vfm/" + param->name, job->getVFMParameterInt(param->name.toStdString()));
+                settings.setValue(key + KEY_VFM + param->name, job->getVFMParameterInt(param->name.toStdString()));
             else if (param->type == VIVTCParamDouble)
-                settings.setValue(key + "vfm/" + param->name, job->getVFMParameterDouble(param->name.toStdString()));
+                settings.setValue(key + KEY_VFM + param->name, job->getVFMParameterDouble(param->name.toStdString()));
             else if (param->type == VIVTCParamBool)
-                settings.setValue(key + "vfm/" + param->name, job->getVFMParameterBool(param->name.toStdString()));
+                settings.setValue(key + KEY_VFM + param->name, job->getVFMParameterBool(param->name.toStdString()));
         }
 
         for (auto param = vdecimate_params.cbegin(); param != vdecimate_params.cend(); param++) {
             if (param->type == VIVTCParamInt)
-                settings.setValue(key + "vdecimate/" + param->name, job->getVDecimateParameterInt(param->name.toStdString()));
+                settings.setValue(key + KEY_VDECIMATE + param->name, job->getVDecimateParameterInt(param->name.toStdString()));
             else if (param->type == VIVTCParamDouble)
-                settings.setValue(key + "vdecimate/" + param->name, job->getVDecimateParameterDouble(param->name.toStdString()));
+                settings.setValue(key + KEY_VDECIMATE + param->name, job->getVDecimateParameterDouble(param->name.toStdString()));
             else if (param->type == VIVTCParamBool)
-                settings.setValue(key + "vdecimate/" + param->name, job->getVDecimateParameterBool(param->name.toStdString()));
+                settings.setValue(key + KEY_VDECIMATE + param->name, job->getVDecimateParameterBool(param->name.toStdString()));
         }
 
-        settings.setValue(key + "fades_threshold", job->getFadesThreshold());
+        settings.setValue(key + KEY_FADES_THRESHOLD, job->getFadesThreshold());
     }
 }
 
