@@ -1425,6 +1425,11 @@ void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
 }
 
 
+void WobblyProject::addFreezeFrame(const FreezeFrame &ff) {
+    addFreezeFrame(ff.first, ff.last, ff.replacement);
+}
+
+
 void WobblyProject::deleteFreezeFrame(int frame) {
     frozen_frames->erase(frame);
 
@@ -2108,6 +2113,14 @@ void WobblyProject::moveCustomListDown(int list_index) {
     custom_lists->moveCustomListDown(list_index);
 
     setModified(true);
+}
+
+
+const std::string &WobblyProject::getCustomListName(int list_index) const {
+    if (list_index < 0 || list_index >= (int)custom_lists->size())
+        throw WobblyException("Can't get the name of the custom list with index " + std::to_string(list_index) + ": index out of range.");
+
+    return custom_lists->at(list_index).name;
 }
 
 

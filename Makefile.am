@@ -127,6 +127,8 @@ wobbly_SOURCES = $(shared_sources) \
 				 src/wobbly/TableView.h \
 				 src/wobbly/TableWidget.cpp \
 				 src/wobbly/TableWidget.h \
+				 src/wobbly/UndoAction.cpp \
+				 src/wobbly/UndoAction.h \
 				 src/wobbly/Wobbly.cpp \
 				 src/wobbly/WobblyWindow.cpp \
 				 src/wobbly/WobblyWindow.h \

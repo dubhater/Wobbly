@@ -149,6 +149,7 @@ class WobblyProject : public QObject {
 
 
         void addFreezeFrame(int first, int last, int replacement);
+        void addFreezeFrame(const FreezeFrame &ff);
         void deleteFreezeFrame(int frame);
         const FreezeFrame *findFreezeFrame(int frame) const;
         FrozenFramesModel *getFrozenFramesModel();
@@ -218,6 +219,7 @@ class WobblyProject : public QObject {
         void deleteCustomList(int list_index);
         void moveCustomListUp(int list_index);
         void moveCustomListDown(int list_index);
+        const std::string &getCustomListName(int list_index) const;
         const std::string &getCustomListPreset(int list_index) const;
         void setCustomListPreset(int list_index, const std::string &preset_name);
         PositionInFilterChain getCustomListPosition(int list_index) const;

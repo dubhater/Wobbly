@@ -22,6 +22,8 @@ SOFTWARE.
 #define WOBBLYWINDOW_H
 
 
+#include <stack>
+
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
@@ -50,6 +52,7 @@ SOFTWARE.
 #include "SpinBox.h"
 #include "TableView.h"
 #include "TableWidget.h"
+#include "UndoAction.h"
 #include "WobblyProject.h"
 
 
@@ -220,6 +223,11 @@ private:
     QSettings settings;
 
 
+    typedef std::list<UndoAction> UndoList;
+    UndoList undo_list;
+    UndoList redo_list;
+
+
     // VapourSynth stuff.
 
     const VSAPI *vsapi;
@@ -320,8 +328,19 @@ private:
     void selectNextCustomList();
     void addRangeToSelectedCustomList();
 
+    void undo();
+    void redo();
+
     QSize getThumbnailSize(QSize image_size);
     QPixmap getThumbnail(const QImage &image);
+
+    void addUndoAction(const UndoAction &undo, bool clear_redo_stack = true);
+    void removeUndoAction();
+    void clearUndoStack();
+
+    void addRedoAction(const UndoAction &redo);
+    void removeRedoAction();
+    void clearRedoStack();
 
 public slots:
     void jump1Forward();

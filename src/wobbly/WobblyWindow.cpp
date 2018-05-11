@@ -64,6 +64,7 @@ SOFTWARE.
 #define KEY_LAST_DIR                        QStringLiteral("user_interface/last_dir")
 #define KEY_RECENT                          QStringLiteral("user_interface/recent%1")
 #define KEY_KEYS                            QStringLiteral("user_interface/keys/")
+#define KEY_MAXIMUM_UNDO_STEPS              QStringLiteral("user_interface/maximum_undo_steps")
 
 #define KEY_COMPACT_PROJECT_FILES           QStringLiteral("projects/compact_project_files")
 #define KEY_USE_RELATIVE_PATHS              QStringLiteral("projects/use_relative_paths")
@@ -484,7 +485,9 @@ void WobblyWindow::createShortcuts() {
         { "", "",                   "Assign selected preset to the current section", &WobblyWindow::assignSelectedPresetToCurrentSection },
         { "", "Z",                  "Select the previous custom list", &WobblyWindow::selectPreviousCustomList },
         { "", "X",                  "Select the next custom list", &WobblyWindow::selectNextCustomList },
-        { "", "C",                  "Add range to the selected custom list", &WobblyWindow::addRangeToSelectedCustomList }
+        { "", "C",                  "Add range to the selected custom list", &WobblyWindow::addRangeToSelectedCustomList },
+        { "", "Ctrl+Z",             "Undo", &WobblyWindow::undo },
+        { "", "Ctrl+Y",             "Redo", &WobblyWindow::redo }
     };
 
     resetShortcuts();
@@ -1985,29 +1988,34 @@ void WobblyWindow::createFrozenFramesViewer() {
 
         QModelIndexList selection = frozen_frames_view->selectionModel()->selectedRows();
 
+        if (!selection.size())
+            return;
+
         // Can't use the model indexes after modifying the model.
-        std::vector<int> frames;
-        frames.reserve(selection.size());
+        std::vector<FreezeFrame> freezeframes;
+        freezeframes.reserve(selection.size());
 
         for (int i = 0; i < selection.size(); i++) {
             bool ok;
             int frame = frozen_frames_view->model()->data(selection[i]).toInt(&ok);
             if (ok)
-                frames.push_back(frame);
+                freezeframes.push_back(*project->findFreezeFrame(frame));
         }
 
-        for (size_t i = 0 ; i < frames.size(); i++)
-            project->deleteFreezeFrame(frames[i]);
+        bool modified_before = project->isModified();
+
+        for (size_t i = 0 ; i < freezeframes.size(); i++)
+            project->deleteFreezeFrame(freezeframes[i].first);
+
+        addUndoAction(UndoAction(modified_before, freezeframes));
 
         if (frozen_frames_view->model()->rowCount())
             frozen_frames_view->selectRow(frozen_frames_view->currentIndex().row());
 
-        if (selection.size()) {
-            try {
-                evaluateMainDisplayScript();
-            } catch (WobblyException &e) {
-                errorPopup(e.what());
-            }
+        try {
+            evaluateMainDisplayScript();
+        } catch (WobblyException &e) {
+            errorPopup(e.what());
         }
     });
 
@@ -4731,7 +4739,13 @@ void WobblyWindow::freezeForward() {
         return;
 
     try {
-        project->addFreezeFrame(current_frame, current_frame, current_frame + 1);
+        bool modified_before = project->isModified();
+
+        FreezeFrame ff = { current_frame, current_frame, current_frame + 1 };
+
+        project->addFreezeFrame(ff);
+
+        addUndoAction(UndoAction(UndoAction::AddFreezeFrame, modified_before, ff));
 
         evaluateScript(preview);
     } catch (WobblyException &e) {
@@ -4749,7 +4763,13 @@ void WobblyWindow::freezeBackward() {
         return;
 
     try {
-        project->addFreezeFrame(current_frame, current_frame, current_frame - 1);
+        bool modified_before = project->isModified();
+
+        FreezeFrame ff = { current_frame, current_frame, current_frame - 1 };
+
+        project->addFreezeFrame(ff);
+
+        addUndoAction(UndoAction(UndoAction::AddFreezeFrame, modified_before, ff));
 
         evaluateScript(preview);
     } catch (WobblyException &e) {
@@ -4782,7 +4802,11 @@ void WobblyWindow::freezeRange() {
     } else if (ff.replacement == -1) {
         ff.replacement = current_frame;
         try {
-            project->addFreezeFrame(ff.first, ff.last, ff.replacement);
+            bool modified_before = project->isModified();
+
+            project->addFreezeFrame(ff);
+
+            addUndoAction(UndoAction(UndoAction::AddFreezeFrame, modified_before, ff));
 
             evaluateScript(preview);
         } catch (WobblyException &e) {
@@ -4803,7 +4827,13 @@ void WobblyWindow::deleteFreezeFrame() {
 
     const FreezeFrame *ff = project->findFreezeFrame(current_frame);
     if (ff) {
+        bool modified_before = project->isModified();
+
+        FreezeFrame ff_copy = *ff;
+
         project->deleteFreezeFrame(ff->first);
+
+        addUndoAction(UndoAction(UndoAction::DeleteFreezeFrame, modified_before, ff_copy));
 
         try {
             evaluateScript(preview);
@@ -5554,7 +5584,11 @@ void WobblyWindow::addRangeToSelectedCustomList() {
     }
 
     try {
+        bool modified_before = project->isModified();
+
         project->addCustomListRange(selected_custom_list, start, end);
+
+        addUndoAction(UndoAction(modified_before, project->getCustomListName(selected_custom_list), selected_custom_list, start, end));
 
         updateFrameDetails();
     } catch (WobblyException &e) {
@@ -5594,4 +5628,196 @@ QPixmap WobblyWindow::getThumbnail(const QImage &image) {
     QSize thumbnail_size = getThumbnailSize(image.size());
 
     return QPixmap::fromImage(image.scaled(thumbnail_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+}
+
+
+/// updateUndoQAction
+//    if (undo_stack.size()) {
+//        /// change the Undo QAction's text to reflect what's in undo_stack.top()
+//    } else {
+//        /// change the Undo QAction's text to "Nothing to undo" and disable it
+//    }
+/// updateRedoQAction
+
+
+void WobblyWindow::addUndoAction(const UndoAction &undo, bool clear_redo_stack) {
+    unsigned maximum_steps = settings.value(KEY_MAXIMUM_UNDO_STEPS).toUInt();
+
+    if (maximum_steps == 0)
+        return;
+
+    undo_list.push_back(undo);
+
+    if (undo_list.size() > maximum_steps)
+        undo_list.pop_front();
+
+    if (clear_redo_stack)
+        clearRedoStack();
+
+//    updateUndoQAction();
+}
+
+
+void WobblyWindow::removeUndoAction() {
+    if (!undo_list.size())
+        return;
+
+    undo_list.pop_back();
+
+//    updateUndoQAction();
+}
+
+
+void WobblyWindow::clearUndoStack() {
+    undo_list.clear();
+
+//    updateUndoQAction();
+}
+
+
+void WobblyWindow::addRedoAction(const UndoAction &redo) {
+    redo_list.push_back(redo);
+
+//    updateRedoQAction();
+}
+
+
+void WobblyWindow::removeRedoAction() {
+    if (!redo_list.size())
+        return;
+
+    redo_list.pop_back();
+
+//    updateRedoQAction();
+}
+
+
+void WobblyWindow::clearRedoStack() {
+    redo_list.clear();
+
+//    updateRedoQAction();
+}
+
+
+void WobblyWindow::undo() {
+    if (!project)
+        return;
+
+    if (!undo_list.size())
+        return;
+
+    const UndoAction &undo_action = undo_list.back();
+
+    try {
+        switch (undo_action.type) {
+        case UndoAction::AddFreezeFrame:
+            project->deleteFreezeFrame(undo_action.freezeframe.first);
+            break;
+        case UndoAction::DeleteFreezeFrame:
+            project->addFreezeFrame(undo_action.freezeframe);
+            break;
+        case UndoAction::DeleteManyFreezeFrames:
+            for (size_t i = 0; i < undo_action.freezeframes.size(); i++)
+                project->addFreezeFrame(undo_action.freezeframes[i]);
+            break;
+        case UndoAction::AddRangeToCustomList:
+            project->deleteCustomListRange(undo_action.cl_index, undo_action.first_frame);
+            break;
+            /// next up: click on the list of symbols
+        }
+
+        project->setModified(undo_action.modified_before);
+    } catch (WobblyException &e) {
+        std::string err("Undo failed. This is probably a bug. Error message: ");
+        err += e.what();
+
+        errorPopup(err.c_str());
+
+        return;
+    }
+
+    try {
+        switch (undo_action.evaluate) {
+        case UndoAction::EvaluateMainScript:
+            if (!preview)
+                evaluateMainDisplayScript();
+            break;
+        case UndoAction::EvaluateFinalScript:
+            if (preview)
+                evaluateFinalScript();
+            break;
+        case UndoAction::EvaluateBoth:
+            evaluateScript(preview);
+            break;
+        case UndoAction::EvaluateNothing:
+            break;
+        }
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
+
+    addRedoAction(undo_action);
+
+    removeUndoAction();
+
+}
+
+
+void WobblyWindow::redo() {
+    if (!project)
+        return;
+
+    if (!redo_list.size())
+        return;
+
+    const UndoAction &redo_action = redo_list.back();
+
+    try {
+        switch (redo_action.type) {
+        case UndoAction::AddFreezeFrame:
+            project->addFreezeFrame(redo_action.freezeframe);
+            break;
+        case UndoAction::DeleteFreezeFrame:
+            project->deleteFreezeFrame(redo_action.freezeframe.first);
+            break;
+        case UndoAction::DeleteManyFreezeFrames:
+            for (size_t i = 0; i < redo_action.freezeframes.size(); i++)
+                project->deleteFreezeFrame(redo_action.freezeframes[i].first);
+            break;
+        case UndoAction::AddRangeToCustomList:
+            project->addCustomListRange(redo_action.cl_index, redo_action.first_frame, redo_action.last_frame);
+            break;
+        }
+    } catch (WobblyException &e) {
+        std::string err("Redo failed. This is probably a bug. Error message: ");
+        err += e.what();
+
+        errorPopup(err.c_str());
+
+        return;
+    }
+
+    try {
+        switch (redo_action.evaluate) {
+        case UndoAction::EvaluateMainScript:
+            if (!preview)
+                evaluateMainDisplayScript();
+            break;
+        case UndoAction::EvaluateFinalScript:
+            if (preview)
+                evaluateFinalScript();
+            break;
+        case UndoAction::EvaluateBoth:
+            evaluateScript(preview);
+            break;
+        case UndoAction::EvaluateNothing:
+            break;
+        }
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
+
+    addUndoAction(redo_action, false);
+
+    removeRedoAction();
 }
