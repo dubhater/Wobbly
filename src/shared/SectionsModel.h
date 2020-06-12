@@ -50,6 +50,7 @@ public:
     using SectionMap::cend;
     using SectionMap::upper_bound;
     using SectionMap::count;
+    using SectionMap::at;
 
     void insert(const value_type &section);
 
@@ -60,6 +61,8 @@ public:
     void appendSectionPreset(int section_start, const std::string &preset_name);
 
     void deleteSectionPreset(int section_start, size_t preset_index);
+
+    void setSectionPresets(int section_start, const std::vector<std::string> &presets);
 
     void moveSectionPresetUp(int section_start, size_t preset_index);
 

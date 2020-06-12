@@ -195,10 +195,12 @@ class WobblyProject : public QObject {
         const Section *findSection(int frame) const;
         const Section *findNextSection(int frame) const;
         int getSectionEnd(int frame) const;
-        void setSectionPreset(int section_start, const std::string &preset_name);
+        void appendSectionPreset(int section_start, const std::string &preset_name);
         void deleteSectionPreset(int section_start, size_t preset_index);
         void moveSectionPresetUp(int section_start, size_t preset_index);
         void moveSectionPresetDown(int section_start, size_t preset_index);
+        const std::vector<std::string> &getSectionPresets(int section_start) const;
+        void setSectionPresets(int section_start, const std::vector<std::string> &section_presets);
         void setSectionMatchesFromPattern(int section_start, const std::string &pattern);
         void setSectionDecimationFromPattern(int section_start, const std::string &pattern);
         SectionsModel *getSectionsModel();

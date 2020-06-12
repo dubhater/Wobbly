@@ -1303,7 +1303,7 @@ void WobblyWindow::createSectionsEditor() {
                     bool ok;
                     int section_start = section->data().toInt(&ok);
                     if (ok)
-                        project->setSectionPreset(section_start, preset->data().toString().toStdString());
+                        project->appendSectionPreset(section_start, preset->data().toString().toStdString());
                 }
 
             if (selected_sections.size()) {
@@ -4719,7 +4719,15 @@ void WobblyWindow::cycleMatchBCN() {
     if (!project)
         return;
 
+    bool modified_before = project->isModified();
+
+    char match_before = project->getMatch(current_frame);
+
     project->cycleMatchBCN(current_frame);
+
+    char match_after = project->getMatch(current_frame);
+
+    addUndoAction(UndoAction(UndoAction::CycleMatch, modified_before, current_frame, { match_before }, { match_after }));
 
     updateCMatchSequencesWindow();
 
@@ -4745,7 +4753,7 @@ void WobblyWindow::freezeForward() {
 
         project->addFreezeFrame(ff);
 
-        addUndoAction(UndoAction(UndoAction::AddFreezeFrame, modified_before, ff));
+        addUndoAction(UndoAction(modified_before, ff));
 
         evaluateScript(preview);
     } catch (WobblyException &e) {
@@ -4769,7 +4777,7 @@ void WobblyWindow::freezeBackward() {
 
         project->addFreezeFrame(ff);
 
-        addUndoAction(UndoAction(UndoAction::AddFreezeFrame, modified_before, ff));
+        addUndoAction(UndoAction(modified_before, ff));
 
         evaluateScript(preview);
     } catch (WobblyException &e) {
@@ -4806,7 +4814,7 @@ void WobblyWindow::freezeRange() {
 
             project->addFreezeFrame(ff);
 
-            addUndoAction(UndoAction(UndoAction::AddFreezeFrame, modified_before, ff));
+            addUndoAction(UndoAction(modified_before, ff));
 
             evaluateScript(preview);
         } catch (WobblyException &e) {
@@ -4827,13 +4835,9 @@ void WobblyWindow::deleteFreezeFrame() {
 
     const FreezeFrame *ff = project->findFreezeFrame(current_frame);
     if (ff) {
-        bool modified_before = project->isModified();
-
-        FreezeFrame ff_copy = *ff;
+        addUndoAction(UndoAction(project->isModified(), { *ff }));
 
         project->deleteFreezeFrame(ff->first);
-
-        addUndoAction(UndoAction(UndoAction::DeleteFreezeFrame, modified_before, ff_copy));
 
         try {
             evaluateScript(preview);
@@ -4955,9 +4959,15 @@ void WobblyWindow::addSection() {
 
     const Section *section = project->findSection(current_frame);
     if (section->start != current_frame) {
-        project->addSection(current_frame);
+        Section new_section(current_frame);
 
-        if (preview && section->presets.size()) {
+        bool update_needed = section->presets != new_section.presets;
+
+        addUndoAction(UndoAction(UndoAction::AddSection, project->isModified(), { new_section }, update_needed));
+
+        project->addSection(new_section);
+
+        if (preview && update_needed) {
             try {
                 evaluateFinalScript();
             } catch (WobblyException &e) {
@@ -4980,16 +4990,16 @@ void WobblyWindow::deleteSection() {
     if (section->start != 0) {
         bool update_needed = false;
 
-        if (preview) {
-            const Section *previous_section = project->findSection(section->start - 1);
+        const Section *previous_section = project->findSection(section->start - 1);
 
-            if (section->presets != previous_section->presets)
-                update_needed = true;
-        }
+        if (section->presets != previous_section->presets)
+            update_needed = true;
+
+        addUndoAction(UndoAction(UndoAction::DeleteSections, project->isModified(), { *section }, update_needed));
 
         project->deleteSection(section->start);
 
-        if (update_needed) {
+        if (preview && update_needed) {
             try {
                 evaluateFinalScript();
             } catch (WobblyException &e) {
@@ -5263,6 +5273,22 @@ void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
 
     int section_start = project->findSection(current_frame)->start;
 
+    int first_frame = section_start / 5 * 5;
+    int last_frame = (project->getSectionEnd(section_start) - 1) / 5 * 5 + 5;
+
+    std::vector<char> matches_before;
+    std::vector<bool> decimation_before;
+
+    matches_before.reserve(last_frame - first_frame);
+    decimation_before.reserve(last_frame - first_frame);
+
+    for (int i = first_frame; i < last_frame; i++) {
+        matches_before.push_back(project->getMatch(i));
+        decimation_before.push_back(project->isDecimatedFrame(i));
+    }
+
+    bool modified_before = project->isModified();
+
     bool success = project->guessSectionPatternsFromMatches(section_start, pg_length_spin->value(), pg_n_match_buttons->checkedId(), pg_decimate_buttons->checkedId());
 
     updatePatternGuessingWindow();
@@ -5270,6 +5296,19 @@ void WobblyWindow::guessCurrentSectionPatternsFromMatches() {
     QApplication::restoreOverrideCursor();
 
     if (success) {
+        std::vector<char> matches_after;
+        std::vector<bool> decimation_after;
+
+        matches_after.reserve(last_frame - first_frame);
+        decimation_after.reserve(last_frame - first_frame);
+
+        for (int i = first_frame; i < last_frame; i++) {
+            matches_after.push_back(project->getMatch(i));
+            decimation_after.push_back(project->isDecimatedFrame(i));
+        }
+
+        addUndoAction(UndoAction(UndoAction::GuessSectionPatternsFromMatches, modified_before, section_start, matches_before, decimation_before, matches_after, decimation_after));
+
         updateFrameRatesViewer();
 
         updateCMatchSequencesWindow();
@@ -5546,7 +5585,21 @@ void WobblyWindow::assignSelectedPresetToCurrentSection() {
     PresetsModel *presets_model = project->getPresetsModel();
 
     int section_start = project->findSection(current_frame)->start;
-    project->setSectionPreset(section_start, presets_model->data(presets_model->index(selected_preset)).toString().toStdString());
+
+    std::string preset_name = presets_model->data(presets_model->index(selected_preset)).toString().toStdString();
+
+    const std::vector<std::string> &section_presets_before = project->getSectionPresets(section_start);
+
+    project->appendSectionPreset(section_start, preset_name);
+
+    const std::vector<std::string> &section_presets_after = project->getSectionPresets(section_start);
+
+    addUndoAction(UndoAction(UndoAction::AssignPresetToSection,
+                             project->isModified(),
+                             section_start,
+                             section_presets_before,
+                             section_presets_after,
+                             preset_name));
 
     if (preview) {
         try {
@@ -5588,7 +5641,11 @@ void WobblyWindow::addRangeToSelectedCustomList() {
 
         project->addCustomListRange(selected_custom_list, start, end);
 
-        addUndoAction(UndoAction(modified_before, project->getCustomListName(selected_custom_list), selected_custom_list, start, end));
+        addUndoAction(UndoAction(modified_before,
+                                 project->getCustomListName(selected_custom_list),
+                                 selected_custom_list,
+                                 start,
+                                 end));
 
         updateFrameDetails();
     } catch (WobblyException &e) {
@@ -5708,25 +5765,65 @@ void WobblyWindow::undo() {
 
     const UndoAction &undo_action = undo_list.back();
 
+    bool modified_before_undo = project->isModified();
+
     try {
         switch (undo_action.type) {
         case UndoAction::AddFreezeFrame:
-            project->deleteFreezeFrame(undo_action.freezeframe.first);
+            project->deleteFreezeFrame(undo_action.freezeframes[0].first);
             break;
-        case UndoAction::DeleteFreezeFrame:
-            project->addFreezeFrame(undo_action.freezeframe);
-            break;
-        case UndoAction::DeleteManyFreezeFrames:
+        case UndoAction::DeleteFreezeFrames:
             for (size_t i = 0; i < undo_action.freezeframes.size(); i++)
                 project->addFreezeFrame(undo_action.freezeframes[i]);
             break;
         case UndoAction::AddRangeToCustomList:
             project->deleteCustomListRange(undo_action.cl_index, undo_action.first_frame);
             break;
-            /// next up: click on the list of symbols
+        case UndoAction::AssignPresetToSection:
+            project->setSectionPresets(undo_action.section_start, undo_action.section_presets_before);
+            break;
+        case UndoAction::CycleMatch:
+            for (size_t i = 0; i < undo_action.matches_before.size(); i++)
+                project->setMatch(undo_action.first_frame + i, undo_action.matches_before[i]);
+
+            updateCMatchSequencesWindow();
+
+            break;
+        case UndoAction::AddSection:
+            project->deleteSection(undo_action.sections[0].start);
+
+            updateFrameDetails();
+
+            break;
+        case UndoAction::DeleteSections:
+            for (size_t i = 0; i < undo_action.sections.size(); i++)
+                project->addSection(undo_action.sections[i]);
+
+            updateFrameDetails();
+
+            break;
+        case UndoAction::GuessSectionPatternsFromMatches:
+            int first_frame = undo_action.section_start / 5 * 5;
+
+            for (size_t i = 0; i < undo_action.matches_before.size(); i++) {
+                project->setMatch(first_frame + i, undo_action.matches_before[i]);
+
+                if (i % 5 == 0)
+                    project->clearDecimatedFramesFromCycle(first_frame + i);
+
+                if (undo_action.decimation_before[i])
+                    project->addDecimatedFrame(first_frame + i);
+            }
+            /// pattern guessing failures need to be restored too
+
+            break;
         }
 
-        project->setModified(undo_action.modified_before);
+        bool modified_after_undo = undo_action.modified_before;
+        if (!modified_before_undo && !modified_after_undo)
+            modified_after_undo = true;
+
+        project->setModified(modified_after_undo);
     } catch (WobblyException &e) {
         std::string err("Undo failed. This is probably a bug. Error message: ");
         err += e.what();
@@ -5737,7 +5834,7 @@ void WobblyWindow::undo() {
     }
 
     try {
-        switch (undo_action.evaluate) {
+        switch (undo_action.evaluate()) {
         case UndoAction::EvaluateMainScript:
             if (!preview)
                 evaluateMainDisplayScript();
@@ -5758,8 +5855,9 @@ void WobblyWindow::undo() {
 
     addRedoAction(undo_action);
 
-    removeUndoAction();
+    redo_list.back().modified_before = modified_before_undo;
 
+    removeUndoAction();
 }
 
 
@@ -5775,19 +5873,41 @@ void WobblyWindow::redo() {
     try {
         switch (redo_action.type) {
         case UndoAction::AddFreezeFrame:
-            project->addFreezeFrame(redo_action.freezeframe);
+            project->addFreezeFrame(redo_action.freezeframes[0]);
             break;
-        case UndoAction::DeleteFreezeFrame:
-            project->deleteFreezeFrame(redo_action.freezeframe.first);
-            break;
-        case UndoAction::DeleteManyFreezeFrames:
+        case UndoAction::DeleteFreezeFrames:
             for (size_t i = 0; i < redo_action.freezeframes.size(); i++)
                 project->deleteFreezeFrame(redo_action.freezeframes[i].first);
             break;
         case UndoAction::AddRangeToCustomList:
             project->addCustomListRange(redo_action.cl_index, redo_action.first_frame, redo_action.last_frame);
             break;
+        case UndoAction::AssignPresetToSection:
+            project->setSectionPresets(redo_action.section_start, redo_action.section_presets_after);
+            break;
+        case UndoAction::CycleMatch:
+            for (size_t i = 0; i < redo_action.matches_after.size(); i++)
+                project->setMatch(redo_action.first_frame + i, redo_action.matches_after[i]);
+
+            updateCMatchSequencesWindow();
+
+            break;
+        case UndoAction::AddSection:
+            project->addSection(redo_action.sections[0].start);
+
+            updateFrameDetails();
+
+            break;
+        case UndoAction::DeleteSections:
+            for (size_t i = 0; i < redo_action.sections.size(); i++)
+                project->deleteSection(redo_action.sections[i].start);
+
+            updateFrameDetails();
+
+            break;
         }
+
+        project->setModified(redo_action.modified_before);
     } catch (WobblyException &e) {
         std::string err("Redo failed. This is probably a bug. Error message: ");
         err += e.what();
@@ -5798,7 +5918,7 @@ void WobblyWindow::redo() {
     }
 
     try {
-        switch (redo_action.evaluate) {
+        switch (redo_action.evaluate()) {
         case UndoAction::EvaluateMainScript:
             if (!preview)
                 evaluateMainDisplayScript();

@@ -25,19 +25,19 @@ QString UndoAction::description() const {
     switch (type) {
     case AddFreezeFrame:
         return QStringLiteral("add freezeframe [%1,%2,%3]")
-                .arg(freezeframe.first)
-                .arg(freezeframe.last)
-                .arg(freezeframe.replacement);
+                .arg(freezeframes[0].first)
+                .arg(freezeframes[0].last)
+                .arg(freezeframes[0].replacement);
         break;
-    case DeleteFreezeFrame:
-        return QStringLiteral("delete freezeframe [%1,%2,%3]")
-                .arg(freezeframe.first)
-                .arg(freezeframe.last)
-                .arg(freezeframe.replacement);
-        break;
-    case DeleteManyFreezeFrames:
-        return QStringLiteral("delete %1 freezeframes")
-                .arg(ints.size());
+    case DeleteFreezeFrames:
+        if (freezeframes.size() == 1)
+            return QStringLiteral("delete freezeframe [%1,%2,%3]")
+                    .arg(freezeframes[0].first)
+                    .arg(freezeframes[0].last)
+                    .arg(freezeframes[0].replacement);
+        else
+            return QStringLiteral("delete %1 freezeframes")
+                    .arg(freezeframes.size());
         break;
     case AddRangeToCustomList:
         return QStringLiteral("add [%1,%2] to custom list '%3'")
@@ -45,5 +45,68 @@ QString UndoAction::description() const {
                 .arg(last_frame)
                 .arg(QString::fromStdString(cl_name));
         break;
+    case AssignPresetToSection:
+        return QStringLiteral("assign preset '%1' to section %2")
+                .arg(QString::fromStdString(preset_name))
+                .arg(section_start);
+        break;
+    case CycleMatch:
+        return QStringLiteral("cycle the match for frame %1")
+                .arg(first_frame);
+        break;
+    case AddSection:
+        return QStringLiteral("add section %1")
+                .arg(sections[0].start);
+        break;
+    case DeleteSections:
+        if (sections.size() == 1)
+            return QStringLiteral("delete section %1")
+                    .arg(sections[0].start);
+        else
+            return QStringLiteral("delete %1 sections")
+                    .arg(sections.size());
+        break;
+    case GuessSectionPatternsFromMatches:
+        return QStringLiteral("guess patterns from matches for section %1")
+                .arg(section_start);
+        break;
+    case GuessSectionPatternsFromMics:
+        return QStringLiteral("guess patterns from mics for section %1")
+                .arg(section_start);
+        break;
+    case GuessProjectPatternsFromMatches:
+        return QStringLiteral("guess project patterns from matches");
+        break;
+    case GuessProjectPatternsFromMics:
+        return QStringLiteral("guess project patterns from mics");
+        break;
     }
+
+    return QStringLiteral("a bug, probably");
+}
+
+
+UndoAction::Evaluate UndoAction::evaluate() const {
+    if (!evaluate_needed)
+        return EvaluateNothing;
+
+    switch (type) {
+    case AddFreezeFrame:
+    case DeleteFreezeFrames:
+    case CycleMatch:
+    case GuessSectionPatternsFromMatches:
+    case GuessSectionPatternsFromMics:
+    case GuessProjectPatternsFromMatches:
+    case GuessProjectPatternsFromMics:
+        return EvaluateBoth;
+        break;
+    case AddRangeToCustomList:
+    case AssignPresetToSection:
+    case AddSection:
+    case DeleteSections:
+        return EvaluateFinalScript;
+        break;
+    }
+
+    return EvaluateNothing;
 }

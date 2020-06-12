@@ -28,10 +28,16 @@ class UndoAction {
 public:
     enum Types {
         AddFreezeFrame,
-        DeleteFreezeFrame,
-        DeleteManyFreezeFrames,
+        DeleteFreezeFrames,
         AddRangeToCustomList,
         AssignPresetToSection,
+        CycleMatch,
+        AddSection,
+        DeleteSections,
+        GuessSectionPatternsFromMatches,
+        GuessSectionPatternsFromMics,
+        GuessProjectPatternsFromMatches,
+        GuessProjectPatternsFromMics,
     };
 
     enum Evaluate {
@@ -42,23 +48,20 @@ public:
     };
 
 
-    UndoAction(Types _type, bool _modified_before, const FreezeFrame &_freezeframe)
-        : type(_type)
-        , evaluate(EvaluateBoth)
+    UndoAction(bool _modified_before, const FreezeFrame &_freezeframe)
+        : type(AddFreezeFrame)
         , modified_before(_modified_before)
-        , freezeframe(_freezeframe)
+        , freezeframes({ _freezeframe })
     {}
 
     UndoAction(bool _modified_before, const std::vector<FreezeFrame> &_freezeframes)
-        : type(DeleteManyFreezeFrames)
-        , evaluate(EvaluateBoth)
+        : type(DeleteFreezeFrames)
         , modified_before(_modified_before)
         , freezeframes(_freezeframes)
     {}
 
     UndoAction(bool _modified_before, const std::string &_cl_name, int _cl_index, int _first_frame, int _last_frame)
         : type(AddRangeToCustomList)
-        , evaluate(EvaluateFinalScript)
         , modified_before(_modified_before)
         , cl_name(_cl_name)
         , cl_index(_cl_index)
@@ -66,24 +69,61 @@ public:
         , last_frame(_last_frame)
     {}
 
-    /// might be unnecessary
-    UndoAction(Types _type, bool _modified_before, const std::vector<int> &_ints)
+    UndoAction(Types _type, bool _modified_before, int _section_start, const std::vector<std::string> &_section_presets_before, const std::vector<std::string> &_section_presets_after, const std::string &_preset_name)
         : type(_type)
         , modified_before(_modified_before)
-        , ints(_ints)
+        , section_start(_section_start)
+        , section_presets_before(_section_presets_before)
+        , section_presets_after(_section_presets_after)
+        , preset_name(_preset_name)
     {}
 
+    UndoAction(Types _type, bool _modified_before, int _frame, const std::vector<char> &_matches_before, const std::vector<char> &_matches_after)
+        : type(_type)
+        , modified_before(_modified_before)
+        , first_frame(_frame)
+        , matches_before(_matches_before)
+        , matches_after(_matches_after)
+    {}
+
+    UndoAction(Types _type, bool _modified_before, const std::vector<Section> &_sections, bool _evaluate_needed)
+        : type(_type)
+        , modified_before(_modified_before)
+        , evaluate_needed(_evaluate_needed)
+        , sections(_sections)
+    {}
+
+    UndoAction(Types _type, bool _modified_before, int _section_start, const std::vector<char> &_matches_before, const std::vector<bool> &_decimation_before, const std::vector<char> &_matches_after, const std::vector<bool> &_decimation_after)
+        : type(_type)
+        , modified_before(_modified_before)
+        , section_start(_section_start)
+        , matches_before(_matches_before)
+        , matches_after(_matches_after)
+        , decimation_before(_decimation_before)
+        , decimation_after(_decimation_after)
+    {}
+
+    /// might be unnecessary
+//    UndoAction(Types _type, bool _modified_before, const std::vector<int> &_ints)
+//        : type(_type)
+//        , modified_before(_modified_before)
+//        , ints(_ints)
+//    {}
+
     QString description() const;
+
+    Evaluate evaluate() const;
 
 
     Types type;
 
-    Evaluate evaluate;
-
     bool modified_before;
 
-    FreezeFrame freezeframe;
+    bool evaluate_needed = true;
+
+
     std::vector<FreezeFrame> freezeframes;
+
 
     std::string cl_name;
     int cl_index;
@@ -91,7 +131,24 @@ public:
     int first_frame;
     int last_frame;
 
-    std::vector<int> ints;
+
+    int section_start;
+    std::vector<std::string> section_presets_before;
+    std::vector<std::string> section_presets_after;
+    std::string preset_name;
+
+
+    std::vector<char> matches_before;
+    std::vector<char> matches_after;
+
+    std::vector<bool> decimation_before;
+    std::vector<bool> decimation_after;
+
+
+    std::vector<Section> sections;
+
+
+//    std::vector<int> ints;
 };
 
 #endif // UNDOACTION_H

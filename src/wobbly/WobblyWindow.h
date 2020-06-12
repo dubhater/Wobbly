@@ -22,7 +22,7 @@ SOFTWARE.
 #define WOBBLYWINDOW_H
 
 
-#include <stack>
+#include <list>
 
 #include <QCheckBox>
 #include <QCloseEvent>

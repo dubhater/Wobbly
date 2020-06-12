@@ -154,6 +154,18 @@ void SectionsModel::deleteSectionPreset(int section_start, size_t preset_index) 
 }
 
 
+void SectionsModel::setSectionPresets(int section_start, const std::vector<std::string> &presets) {
+    SectionMap::iterator it = find(section_start);
+
+    it->second.presets = presets;
+
+    int row = (int)std::distance(begin(), it);
+
+    QModelIndex cell = index(row, PresetsColumn);
+    emit dataChanged(cell, cell);
+}
+
+
 void SectionsModel::moveSectionPresetUp(int section_start, size_t preset_index) {
     if (preset_index == 0)
         return;

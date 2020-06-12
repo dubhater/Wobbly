@@ -1852,7 +1852,7 @@ int WobblyProject::getSectionEnd(int frame) const {
 }
 
 
-void WobblyProject::setSectionPreset(int section_start, const std::string &preset_name) {
+void WobblyProject::appendSectionPreset(int section_start, const std::string &preset_name) {
     if (section_start < 0 || section_start >= getNumFrames(PostSource))
         throw WobblyException("Can't add preset '" + preset_name + "' to section starting at " + std::to_string(section_start) + ": frame number out of range.");
 
@@ -1905,6 +1905,29 @@ void WobblyProject::moveSectionPresetDown(int section_start, size_t preset_index
     sections->moveSectionPresetDown(section_start, preset_index);
 
     setModified(true);
+}
+
+
+const std::vector<std::string> &WobblyProject::getSectionPresets(int section_start) const {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the presets from section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    try {
+        return sections->at(section_start).presets;
+    } catch (std::out_of_range &) {
+        throw WobblyException("Can't get the presets from section starting at " + std::to_string(section_start) + ": no such section.");
+    }
+}
+
+
+void WobblyProject::setSectionPresets(int section_start, const std::vector<std::string> &section_presets) {
+    if (section_start < 0 || section_start >= getNumFrames(PostSource))
+        throw WobblyException("Can't set the presets for section starting at " + std::to_string(section_start) + ": frame number out of range.");
+
+    if (!sections->count(section_start))
+        throw WobblyException("Can't set the presets for section starting at " + std::to_string(section_start) + ": no such section.");
+
+    sections->setSectionPresets(section_start, section_presets);
 }
 
 
