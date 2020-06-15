@@ -1692,7 +1692,8 @@ void WibblyWindow::readJobs() {
         job->setSteps(settings.value(key + KEY_STEPS).toInt());
 
         QList<QVariant> crop_list = settings.value(key + KEY_CROP).toList();
-        job->setCrop(crop_list[0].toInt(), crop_list[1].toInt(), crop_list[2].toInt(), crop_list[3].toInt());
+        if (crop_list.size() == 4)
+            job->setCrop(crop_list[0].toInt(), crop_list[1].toInt(), crop_list[2].toInt(), crop_list[3].toInt());
 
         QList<QVariant> trim_list = settings.value(key + KEY_TRIMS).toList();
         for (int i = 0; i < trim_list.size(); i += 2)
