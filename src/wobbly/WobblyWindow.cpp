@@ -3037,7 +3037,7 @@ void VS_CC messageHandler(int msgType, const char *msg, void *userData) {
     if (QThread::currentThread() == window->thread())
         type = Qt::DirectConnection;
     else
-        type = Qt::BlockingQueuedConnection;
+        type = Qt::QueuedConnection;
 
     QMetaObject::invokeMethod(window, "vsLogPopup", type, Q_ARG(int, msgType), Q_ARG(QString, QString(msg)));
 }
@@ -3126,6 +3126,12 @@ void WobblyWindow::checkRequiredFilters() {
 
     std::vector<Plugin> plugins = {
         {
+            "com.vapoursynth.dgdecodenv",
+            { "DGSource" },
+            "DGDecNV plugin not found.",
+            ""
+        },
+        {
             "com.sources.d2vsource",
             { "Source" },
             "d2vsource plugin not found.",
@@ -3160,6 +3166,12 @@ void WobblyWindow::checkRequiredFilters() {
             { "IsCombed" },
             "TDeintMod plugin not found.",
             "TDeintMod plugin is older than r4."
+        },
+        {
+            "com.djatom.libp2p",
+            { "Pack" },
+            "LibP2P plugin not found.",
+            ""
         }
     };
 
@@ -3687,7 +3699,9 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
         QStringList mp4 = { "mp4", "m4v", "mov" };
 
-        if (extension == "d2v")
+        if (extension == "dgi")
+            source_filter = "dgdecodenv.DGSource";
+        else if (extension == "d2v")
             source_filter = "d2v.Source";
         else if (mp4.contains(extension))
             source_filter = "lsmas.LibavSMASHSource";
@@ -3697,7 +3711,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
         QString script = QStringLiteral(
                     "import vapoursynth as vs\n"
                     "\n"
-                    "c = vs.get_core()\n"
+                    "c = vs.core\n"
                     "\n"
                     "c.%1(r'%2').set_output()\n");
         script = script.arg(source_filter).arg(QString::fromStdString(handleSingleQuotes(path.toStdString())));
@@ -4201,11 +4215,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
             "    src = src[0]\n"
 
             "if src.format is None:\n"
-            "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n"
-
-            // Workaround for bug in the resizers in VapourSynth R29 and R30.
-            // Remove at some point after R31.
-            "src = c.std.SetFrameProp(clip=src, prop='_FieldBased', delete=True)\n";
+            "    raise vs.Error('The output clip has unknown format. Wobbly cannot display such clips.')\n";
 
     if (crop_dock->isVisible() && project->isCropEnabled() && !final_script) {
         script += "src = c.std.CropRel(clip=src, left=";
@@ -4223,10 +4233,12 @@ void WobblyWindow::evaluateScript(bool final_script) {
         script += std::to_string(crop_spin[2]->value()) + ", bottom=";
         script += std::to_string(crop_spin[3]->value()) + ", color=[224, 81, 255])\n";
 
-        script += "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32)\n";
+        script += "c.query_video_format(vs.GRAY, vs.INTEGER, 32, 0, 0)\n"
+            "src = c.libp2p.Pack(src)\n";
     } else {
         script +=
-            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32, dither_type='random', matrix_in_s='" + matrix + "', transfer_in_s='" + transfer + "', primaries_in_s='" + primaries + "')\n";
+            "c.query_video_format(vs.GRAY, vs.INTEGER, 32, 0, 0)\n"
+            "src = c.resize.Bicubic(clip=src, format=vs.RGB24, dither_type='random', matrix_in_s='" + matrix + "', transfer_in_s='" + transfer + "', primaries_in_s='" + primaries + "').libp2p.Pack()\n";
     }
 
     script +=
@@ -4354,7 +4366,7 @@ void WobblyWindow::frameDone(void *framev, int n, bool preview_node, const QStri
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QImage image = QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame).mirrored(false, true);
+    QImage image = QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame);
 
     int offset;
     if (preview_node)

@@ -3309,7 +3309,7 @@ void WobblyProject::headerToScript(std::string &script) const {
             "\n"
             "import vapoursynth as vs\n"
             "\n"
-            "c = vs.get_core()\n"
+            "c = vs.core\n"
             "\n";
 }
 
@@ -3505,10 +3505,6 @@ void WobblyProject::cropToScript(std::string &script) const {
 
 
 void WobblyProject::resizeAndBitDepthToScript(std::string &script, bool resize_enabled, bool depth_enabled) const {
-    // Workaround for bug in the resizers in VapourSynth R29 and R30.
-    // Remove at some point after R31.
-    script += "src = c.std.SetFrameProp(clip=src, prop='_FieldBased', delete=True)\n";
-
     script += "src = c.resize.";
 
     if (resize_enabled) {

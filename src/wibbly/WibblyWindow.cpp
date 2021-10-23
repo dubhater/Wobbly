@@ -123,7 +123,7 @@ void VS_CC messageHandler(int msgType, const char *msg, void *userData) {
     if (QThread::currentThread() == window->thread())
         type = Qt::DirectConnection;
     else
-        type = Qt::BlockingQueuedConnection;
+        type = Qt::QueuedConnection;
 
     QMetaObject::invokeMethod(window, "vsLogPopup", type, Q_ARG(int, msgType), Q_ARG(QString, QString(msg)));
 }
@@ -201,6 +201,12 @@ void WibblyWindow::checkRequiredFilters() {
 
     std::vector<Plugin> plugins = {
         {
+            "com.vapoursynth.dgdecodenv",
+            { "DGSource" },
+            "DGDecNV plugin not found.",
+            ""
+        },
+        {
             "com.sources.d2vsource",
             { "Source" },
             "d2vsource plugin not found.",
@@ -235,6 +241,12 @@ void WibblyWindow::checkRequiredFilters() {
             { "PlaneStats" },
             "built-in filters not found. Something is borked.",
             "VapourSynth version is older than r32."
+        },
+        {
+            "com.djatom.libp2p",
+            { "Pack" },
+            "LibP2P plugin not found.",
+            ""
         }
     };
 
@@ -1210,7 +1222,9 @@ void WibblyWindow::realOpenVideo(const QString &path) {
 
     QStringList mp4 = { "mp4", "m4v", "mov" };
 
-    if (extension == "d2v")
+    if (extension == "dgi")
+        source_filter = "dgdecodenv.DGSource";
+    else if (extension == "d2v")
         source_filter = "d2v.Source";
     else if (mp4.contains(extension))
         source_filter = "lsmas.LibavSMASHSource";
@@ -1281,11 +1295,8 @@ void WibblyWindow::evaluateDisplayScript() {
             "if isinstance(src, tuple):\n"
             "    src = src[0]\n"
 
-            "src = c.std.SetFrameProp(clip=src, prop='_FieldBased', delete=True)\n"
-
-            // Workaround for bug in the resizers in VapourSynth R29 and R30.
-            // Remove at some point after R31.
-            "src = c.resize.Bicubic(clip=src, format=vs.COMPATBGR32, dither_type='random', matrix_in_s='470bg', transfer_in_s='601', primaries_in_s='170m')\n"
+            "c.query_video_format(vs.GRAY, vs.INTEGER, 32, 0, 0)\n"
+            "src = c.resize.Bicubic(clip=src, format=vs.RGB24, dither_type='random', matrix_in_s='470bg', transfer_in_s='601', primaries_in_s='170m').libp2p.Pack()\n"
 
             "src.set_output()\n";
 
@@ -1366,7 +1377,7 @@ void WibblyWindow::displayFrame(int n) {
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame).mirrored(false, true));
+    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame));
 
     video_frame_label->setPixmap(pixmap);
 

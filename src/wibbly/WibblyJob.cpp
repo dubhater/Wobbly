@@ -218,7 +218,7 @@ void WibblyJob::headerToScript(std::string &script) const {
     script +=
             "import vapoursynth as vs\n"
             "\n"
-            "c = vs.get_core()\n"
+            "c = vs.core\n"
             "\n";
 }
 
