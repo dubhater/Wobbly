@@ -18,6 +18,7 @@ SOFTWARE.
 */
 
 
+#include <sstream>
 #include "RandomStuff.h"
 #include "WibblyJob.h"
 
@@ -275,7 +276,7 @@ void WibblyJob::fieldMatchToScript(std::string &script) const {
         ss.imbue(std::locale::classic());
         ss << it->second;
         script += ", " + it->first + "=" + ss.str();
-	}
+    }
     for (auto it = vfm.bool_params.cbegin(); it != vfm.bool_params.cend(); it++)
         script += ", " + it->first + "=" + std::to_string((int)it->second);
 
@@ -332,7 +333,7 @@ void WibblyJob::decimationToScript(std::string &script) const {
         ss.imbue(std::locale::classic());
         ss << it->second;
         script += ", " + it->first + "=" + ss.str();
-	}
+    }
     for (auto it = vdecimate.bool_params.cbegin(); it != vdecimate.bool_params.cend(); it++)
         script += ", " + it->first + "=" + std::to_string((int)it->second);
 
