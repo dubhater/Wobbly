@@ -18,6 +18,7 @@ SOFTWARE.
 */
 
 
+#include <sstream>
 #include "RandomStuff.h"
 #include "WibblyJob.h"
 
@@ -270,8 +271,12 @@ void WibblyJob::fieldMatchToScript(std::string &script) const {
 
     for (auto it = vfm.int_params.cbegin(); it != vfm.int_params.cend(); it++)
         script += ", " + it->first + "=" + std::to_string(it->second);
-    for (auto it = vfm.double_params.cbegin(); it != vfm.double_params.cend(); it++)
-        script += ", " + it->first + "=" + std::to_string(it->second);
+    for (auto it = vfm.double_params.cbegin(); it != vfm.double_params.cend(); it++) {
+        std::stringstream ss;
+        ss.imbue(std::locale::classic());
+        ss << it->second;
+        script += ", " + it->first + "=" + ss.str();
+    }
     for (auto it = vfm.bool_params.cbegin(); it != vfm.bool_params.cend(); it++)
         script += ", " + it->first + "=" + std::to_string((int)it->second);
 
@@ -323,8 +328,12 @@ void WibblyJob::decimationToScript(std::string &script) const {
 
     for (auto it = vdecimate.int_params.cbegin(); it != vdecimate.int_params.cend(); it++)
         script += ", " + it->first + "=" + std::to_string(it->second);
-    for (auto it = vdecimate.double_params.cbegin(); it != vdecimate.double_params.cend(); it++)
-        script += ", " + it->first + "=" + std::to_string(it->second);
+    for (auto it = vdecimate.double_params.cbegin(); it != vdecimate.double_params.cend(); it++) {
+        std::stringstream ss;
+        ss.imbue(std::locale::classic());
+        ss << it->second;
+        script += ", " + it->first + "=" + ss.str();
+    }
     for (auto it = vdecimate.bool_params.cbegin(); it != vdecimate.bool_params.cend(); it++)
         script += ", " + it->first + "=" + std::to_string((int)it->second);
 
