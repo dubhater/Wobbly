@@ -42,7 +42,7 @@ WibblyJob::WibblyJob()
             },
             {
                 { "mchroma", true },
-                { "chroma", true }
+                { "chroma", false }
             }
     }
     , vdecimate{

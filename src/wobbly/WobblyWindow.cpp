@@ -103,7 +103,7 @@ WobblyWindow::WobblyWindow()
     , pending_frame(0)
     , pending_requests(0)
     , pending_requests_node(nullptr)
-    , match_pattern("ccnnc")
+    , match_pattern("cccnn")
     , decimation_pattern("kkkkd")
     , preview(false)
     , range_start(-1)
@@ -1001,7 +1001,7 @@ void WobblyWindow::createPatternEditor() {
     });
 
     connect(fill_24fps_button, &QPushButton::clicked, [this] () {
-        match_pattern = "ccnnc";
+        match_pattern = "cccnn";
         match_pattern_edit->setText(match_pattern);
 
         decimation_pattern = "kkkkd";
