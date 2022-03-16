@@ -347,6 +347,9 @@ public slots:
 
     void jumpToFrame();
 
+    void jumpToPreviousCombedFrame();
+    void jumpToNextCombedFrame();
+
     void freezeForward();
     void freezeBackward();
     void freezeRange();

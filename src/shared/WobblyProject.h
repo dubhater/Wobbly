@@ -339,6 +339,8 @@ class WobblyProject : public QObject {
         const Bookmark *getBookmark(int frame) const;
         BookmarksModel *getBookmarksModel();
 
+        int findPreviousCombedFrame(int frame) const;
+        int findNextCombedFrame(int frame) const;
 
         void sectionsToScript(std::string &script) const;
         void customListsToScript(std::string &script, PositionInFilterChain position) const;

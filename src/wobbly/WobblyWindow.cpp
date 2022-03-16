@@ -295,7 +295,7 @@ void WobblyWindow::keyPressEvent(QKeyEvent *event) {
     int key = event->key();
 
     // Shift+[ returns key() == Key_LeftBrace instead of Key_LeftBracket
-    if (key < Qt::Key_A || key > Qt::Key_Z)
+    if ((key < Qt::Key_A || key > Qt::Key_Z) && key != Qt::Key_Up && key != Qt::Key_Down)
         mod &= ~Qt::ShiftModifier;
 
     QKeySequence sequence(mod | key);
@@ -453,6 +453,8 @@ void WobblyWindow::createShortcuts() {
         { "", "<",                  "Jump to previous bookmark", &WobblyWindow::jumpToPreviousBookmark },
         { "", ">",                  "Jump to next bookmark", &WobblyWindow::jumpToNextBookmark },
         { "", "G",                  "Jump to specific frame", &WobblyWindow::jumpToFrame },
+        { "", "Shift+Up",           "Jump to next combed frame", &WobblyWindow::jumpToNextCombedFrame },
+        { "", "Shift+Down",         "Jump to previous combed frame", &WobblyWindow::jumpToPreviousCombedFrame },
         { "", "S",                  "Cycle the current frame's match", &WobblyWindow::cycleMatchBCN },
         { "", "Ctrl+F",             "Replace current frame with next", &WobblyWindow::freezeForward },
         { "", "Shift+F",            "Replace current frame with previous", &WobblyWindow::freezeBackward },
@@ -4715,6 +4717,24 @@ void WobblyWindow::jumpToFrame() {
     bool ok;
     int frame = QInputDialog::getInt(this, QStringLiteral("Jump to frame"), QStringLiteral("Destination frame:"), current_frame, 0, project->getNumFrames(PostSource) - 1, 1, &ok);
     if (ok)
+        requestFrames(frame);
+}
+
+void WobblyWindow::jumpToNextCombedFrame() {
+    if (!project)
+        return;
+
+    int frame = project->findNextCombedFrame(current_frame);
+    if (frame != current_frame)
+        requestFrames(frame);
+}
+
+void WobblyWindow::jumpToPreviousCombedFrame() {
+    if (!project)
+        return;
+
+    int frame = project->findPreviousCombedFrame(current_frame);
+    if (frame != current_frame)
         requestFrames(frame);
 }
 

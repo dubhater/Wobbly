@@ -3174,6 +3174,26 @@ BookmarksModel *WobblyProject::getBookmarksModel() {
     return bookmarks;
 }
 
+int WobblyProject::findNextCombedFrame(int frame) const {
+    CombedFramesModel::const_iterator it = combed_frames->upper_bound(frame);
+
+    if (it != combed_frames->cend())
+        return *it;
+
+    return frame;
+}
+
+int WobblyProject::findPreviousCombedFrame(int frame) const {
+    CombedFramesModel::const_iterator it = combed_frames->lower_bound(frame);
+
+    if (it != combed_frames->cbegin()) {
+        it--;
+
+        return *it;
+    }
+
+    return frame;
+}
 
 void WobblyProject::sectionsToScript(std::string &script) const {
     auto samePresets = [] (const std::vector<std::string> &a, const std::vector<std::string> &b) -> bool {

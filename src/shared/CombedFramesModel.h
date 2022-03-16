@@ -41,6 +41,10 @@ public:
     using std::set<int>::cbegin;
     using std::set<int>::cend;
     using std::set<int>::count;
+    using std::set<int>::lower_bound;
+    using std::set<int>::upper_bound;
+    using std::set<int>::size;
+    using std::set<int>::const_iterator;
 
     void insert(int frame);
 
