@@ -320,6 +320,9 @@ private:
     void selectNextCustomList();
     void addRangeToSelectedCustomList();
 
+    void copyCurrentFrameNumberToClipboard();
+    void copyCurrentFrameImageToClipboard();
+
     QSize getThumbnailSize(QSize image_size);
     QPixmap getThumbnail(const QImage &image);
 
