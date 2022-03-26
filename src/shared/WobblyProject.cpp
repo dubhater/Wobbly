@@ -178,7 +178,7 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , zoom(1)
     , last_visited_frame(0)
     , shown_frame_rates{ false, false, false, false, false }
-    , mic_search_minimum(20)
+    , mic_search_minimum(5)
     , c_match_sequences_minimum(20)
     , is_wobbly(_is_wobbly)
     , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, FailedPatternGuessingMap() }
