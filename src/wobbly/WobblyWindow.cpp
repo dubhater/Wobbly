@@ -3986,7 +3986,7 @@ void WobblyWindow::saveScreenshot() {
     if (!path.isNull()) {
         settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
-        frame_label->pixmap()->save(path, "png");
+        frame_label->pixmap(Qt::ReturnByValue).scaled(original_frame_width, original_frame_height, Qt::IgnoreAspectRatio, Qt::FastTransformation).save(path, "png");
     }
 }
 
@@ -4386,6 +4386,9 @@ void WobblyWindow::frameDone(void *framev, int n, bool preview_node, const QStri
 
         // setOverrideCursor called in requestFrames
         QApplication::restoreOverrideCursor();
+
+        original_frame_width = width;
+        original_frame_height = height;
     }
 
     thumb_labels[offset + MAX_THUMBNAILS / 2]->setPixmap(getThumbnail(image));
@@ -5624,7 +5627,7 @@ void WobblyWindow::copyCurrentFrameNumberToClipboard() {
 void WobblyWindow::copyCurrentFrameImageToClipboard() {
     if(project != nullptr) {
         QClipboard *clipboard = QGuiApplication::clipboard();
-        clipboard->setPixmap(*frame_label->pixmap());
+        clipboard->setPixmap(frame_label->pixmap(Qt::ReturnByValue).scaled(original_frame_width, original_frame_height, Qt::IgnoreAspectRatio, Qt::FastTransformation));
     }
 }
 
