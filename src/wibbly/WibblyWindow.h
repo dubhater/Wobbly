@@ -100,6 +100,7 @@ class WibblyWindow : public QMainWindow
     QCheckBox *settings_compact_projects_check;
     QCheckBox *settings_use_relative_paths_check;
     QSpinBox *settings_cache_spin;
+    int settings_last_crop[4];
 
 
     // VapourSynth stuff.

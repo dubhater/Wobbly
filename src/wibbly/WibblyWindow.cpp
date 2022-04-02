@@ -50,6 +50,7 @@ SOFTWARE.
 #define KEY_FONT_SIZE                       QStringLiteral("user_interface/font_size")
 #define KEY_MAXIMUM_CACHE_SIZE              QStringLiteral("user_interface/maximum_cache_size")
 #define KEY_LAST_DIR                        QStringLiteral("user_interface/last_dir")
+#define KEY_LAST_CROP                       QStringLiteral("user_interface/last_crop")
 
 #define KEY_COMPACT_PROJECT_FILES           QStringLiteral("projects/compact_project_files")
 #define KEY_USE_RELATIVE_PATHS              QStringLiteral("projects/use_relative_paths")
@@ -95,6 +96,7 @@ WibblyWindow::WibblyWindow()
     , frames_left(0)
     , aborted(false)
     , request_count(0)
+    , settings_last_crop{ 0, 0, 0, 0 }
 #ifdef _WIN32
     , settings(QApplication::applicationDirPath() + "/wibbly.ini", QSettings::IniFormat)
 #endif
@@ -858,6 +860,12 @@ void WibblyWindow::createCropWindow() {
             int row = main_jobs_list->row(selection[i]);
 
             jobs[row].setCrop(crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value());
+
+            for (int i = 0; i < 4; i++)
+                settings_last_crop[i] = crop_spin[i]->value();
+
+            QList<QVariant> crop_list = { crop_spin[0]->value(), crop_spin[1]->value(), crop_spin[2]->value(), crop_spin[3]->value() };
+            settings.setValue(KEY_LAST_CROP, crop_list);
         }
 
         int current_row = main_jobs_list->currentRow();
@@ -1234,6 +1242,8 @@ void WibblyWindow::realOpenVideo(const QString &path) {
     jobs.emplace_back();
 
     WibblyJob &job = jobs.back();
+    // Set last crop values
+    job.setCrop(settings_last_crop[0], settings_last_crop[1], settings_last_crop[2], settings_last_crop[3]);
 
     job.setInputFile(path.toStdString());
     job.setSourceFilter(source_filter.toStdString());
@@ -1671,6 +1681,12 @@ void WibblyWindow::readSettings() {
 
     if (settings.contains(KEY_MAXIMUM_CACHE_SIZE))
         settings_cache_spin->setValue(settings.value(KEY_MAXIMUM_CACHE_SIZE).toInt());
+    
+    if (settings.contains(KEY_LAST_CROP)) {
+        QList<QVariant> crop_list = settings.value(KEY_LAST_CROP).toList();
+        for (int i = 0; i < crop_list.size(); i++)
+            settings_last_crop[i] = crop_list[i].toInt();
+    }
 }
 
 
