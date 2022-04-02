@@ -300,6 +300,7 @@ private:
     void realSaveProject(const QString &path);
     void realSaveScript(const QString &path);
     void realSaveTimecodes(const QString &path);
+    void realSaveSections(const QString &path);
 
     QMessageBox::StandardButton askToSaveIfModified();
 
@@ -382,6 +383,8 @@ public slots:
     void saveScriptAs();
     void saveTimecodes();
     void saveTimecodesAs();
+    void saveSections();
+    void saveSectionsAs();
     void saveScreenshot();
     void importFromProject();
     void quit();

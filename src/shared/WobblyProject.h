@@ -359,6 +359,7 @@ class WobblyProject : public QObject {
         std::string generateMainDisplayScript() const;
 
         std::string generateTimecodesV1() const;
+        std::string generateKeyframesV1() const;
 
 
         void importFromOtherProject(const std::string &path, const ImportedThings &imports);

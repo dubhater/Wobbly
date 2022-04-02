@@ -3658,6 +3658,19 @@ std::string WobblyProject::generateTimecodesV1() const {
 }
 
 
+std::string WobblyProject::generateKeyframesV1() const {
+    std::string kf =
+            "# keyframe format v1\n"
+            "fps 0\n";
+
+    for (auto it = sections->cbegin(); it != sections->cend(); it++) {
+        kf += std::to_string(frameNumberAfterDecimation(it->second.start)) + "\n";
+    }
+
+    return kf;
+}
+
+
 void WobblyProject::importFromOtherProject(const std::string &path, const ImportedThings &imports) {
     WobblyProject *other = new WobblyProject(true);
 

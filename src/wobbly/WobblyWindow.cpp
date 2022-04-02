@@ -333,6 +333,8 @@ void WobblyWindow::createMenu() {
         { "Save script as",             &WobblyWindow::saveScriptAs },
         { "Save timecodes",             &WobblyWindow::saveTimecodes },
         { "Save timecodes as",          &WobblyWindow::saveTimecodesAs },
+        { "Save sections",              &WobblyWindow::saveSections },
+        { "Save sections as",           &WobblyWindow::saveSectionsAs },
         { "Save screenshot",            &WobblyWindow::saveScreenshot },
         { "Import from project",        &WobblyWindow::importFromProject },
         { nullptr,                      nullptr },
@@ -3927,6 +3929,18 @@ void WobblyWindow::realSaveTimecodes(const QString &path) {
 }
 
 
+void WobblyWindow::realSaveSections(const QString &path) {
+    std::string tc = project->generateKeyframesV1();
+
+    QFile file(path);
+
+    if (!file.open(QIODevice::WriteOnly))
+        throw WobblyException("Couldn't open timecodes file '" + path.toStdString() + "'. Error message: " + file.errorString().toStdString());
+
+    file.write(tc.c_str(), tc.size());
+}
+
+
 void WobblyWindow::saveTimecodes() {
     try {
         if (!project)
@@ -3987,6 +4001,50 @@ void WobblyWindow::saveScreenshot() {
         settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
 
         frame_label->pixmap(Qt::ReturnByValue).scaled(original_frame_width, original_frame_height, Qt::IgnoreAspectRatio, Qt::FastTransformation).save(path, "png");
+    }
+}
+
+
+void WobblyWindow::saveSections() {
+    try {
+        if (!project)
+            throw WobblyException("Can't save the sections because no project has been loaded.");
+
+        QString path;
+        if (project_path.isEmpty())
+            path = video_path;
+        else
+            path = project_path;
+        path += ".txt";
+
+        realSaveSections(path);
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
+    }
+}
+
+
+void WobblyWindow::saveSectionsAs() {
+    try {
+        if (!project)
+            throw WobblyException("Can't save the sections because no project has been loaded.");
+
+        QString dir;
+        if (project_path.isEmpty())
+            dir = video_path;
+        else
+            dir = project_path;
+        dir += ".txt";
+
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save sections"), dir, QStringLiteral("Keyframes v1 files (*.txt);;All files (*)"));
+
+        if (!path.isNull()) {
+            settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
+
+            realSaveSections(path);
+        }
+    } catch (WobblyException &e) {
+        errorPopup(e.what());
     }
 }
 
