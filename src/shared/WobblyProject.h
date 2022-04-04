@@ -342,6 +342,9 @@ class WobblyProject : public QObject {
         int findPreviousCombedFrame(int frame) const;
         int findNextCombedFrame(int frame) const;
 
+        int findPreviousAmbiguousPatternSection(int frame) const;
+        int findNextAmbiguousPatternSection(int frame) const;
+
         void sectionsToScript(std::string &script) const;
         void customListsToScript(std::string &script, PositionInFilterChain position) const;
         void headerToScript(std::string &script) const;

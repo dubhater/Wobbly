@@ -458,6 +458,8 @@ void WobblyWindow::createShortcuts() {
         { "", "G",                  "Jump to specific frame", &WobblyWindow::jumpToFrame },
         { "", "Shift+Up",           "Jump to next combed frame", &WobblyWindow::jumpToNextCombedFrame },
         { "", "Shift+Down",         "Jump to previous combed frame", &WobblyWindow::jumpToPreviousCombedFrame },
+        { "", "Alt+Up",             "Jump to next section with pattern failure", &WobblyWindow::jumpToNextPatternFailureSection },
+        { "", "Alt+Down",           "Jump to previous section with pattern failure", &WobblyWindow::jumpToPreviousPatternFailureSection },
         { "", "S",                  "Cycle the current frame's match", &WobblyWindow::cycleMatchBCN },
         { "", "Ctrl+F",             "Replace current frame with next", &WobblyWindow::freezeForward },
         { "", "Shift+F",            "Replace current frame with previous", &WobblyWindow::freezeBackward },
@@ -4785,20 +4787,42 @@ void WobblyWindow::jumpToFrame() {
         requestFrames(frame);
 }
 
+
 void WobblyWindow::jumpToNextCombedFrame() {
     if (!project)
         return;
 
-    int frame = project->findNextCombedFrame(current_frame);
+    int frame = project->findNextAmbiguousPatternSection(current_frame);
     if (frame != current_frame)
         requestFrames(frame);
 }
+
 
 void WobblyWindow::jumpToPreviousCombedFrame() {
     if (!project)
         return;
 
-    int frame = project->findPreviousCombedFrame(current_frame);
+    int frame = project->findPreviousAmbiguousPatternSection(current_frame);
+    if (frame != current_frame)
+        requestFrames(frame);
+}
+
+
+void WobblyWindow::jumpToNextPatternFailureSection() {
+    if (!project)
+        return;
+
+    int frame = project->findNextAmbiguousPatternSection(current_frame);
+    if (frame != current_frame)
+        requestFrames(frame);
+}
+
+
+void WobblyWindow::jumpToPreviousPatternFailureSection() {
+    if (!project)
+        return;
+
+    int frame = project->findPreviousAmbiguousPatternSection(current_frame);
     if (frame != current_frame)
         requestFrames(frame);
 }
