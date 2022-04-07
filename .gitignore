@@ -32,3 +32,4 @@ releases/
 *.json
 wibbly
 wobbly
+.vscode
