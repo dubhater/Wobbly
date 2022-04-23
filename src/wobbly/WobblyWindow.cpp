@@ -4812,7 +4812,7 @@ void WobblyWindow::jumpToNextPatternFailureSection() {
     if (!project)
         return;
 
-    int frame = project->findNextAmbiguousPatternSection(current_frame);
+    int frame = project->findNextCombedFrame(current_frame);
     if (frame != current_frame)
         requestFrames(frame);
 }
@@ -4822,7 +4822,7 @@ void WobblyWindow::jumpToPreviousPatternFailureSection() {
     if (!project)
         return;
 
-    int frame = project->findPreviousAmbiguousPatternSection(current_frame);
+    int frame = project->findPreviousCombedFrame(current_frame);
     if (frame != current_frame)
         requestFrames(frame);
 }
