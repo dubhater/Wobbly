@@ -27,8 +27,8 @@ class DockWidget : public QDockWidget {
     Q_OBJECT
 
 public:
-    DockWidget(const QString &title, QWidget *parent = 0, Qt::WindowFlags flags = 0)
-        : QDockWidget(title, parent, flags)
+    DockWidget(const QString &title, QWidget *parent = 0)
+        : QDockWidget(title, parent)
     { }
 
 private:

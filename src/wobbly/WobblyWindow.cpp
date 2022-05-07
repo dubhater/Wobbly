@@ -358,7 +358,7 @@ void WobblyWindow::createMenu() {
 
     recent_menu_signal_mapper = new QSignalMapper(this);
 
-    connect(recent_menu_signal_mapper, static_cast<void (QSignalMapper::*)(const QString &)>(&QSignalMapper::mapped), [this] (const QString &path) {
+    connect(recent_menu_signal_mapper, static_cast<void (QSignalMapper::*)(const QString &)>(&QSignalMapper::mappedString), [this] (const QString &path) {
         if (askToSaveIfModified() == QMessageBox::Cancel)
             return;
 
@@ -513,7 +513,7 @@ void WobblyWindow::createFrameDetailsViewer() {
     time_label = new QLabel;
     matches_label = new QLabel;
     matches_label->setTextFormat(Qt::RichText);
-    matches_label->resize(QFontMetrics(matches_label->font()).width("CCCCCCCCCCCCCCCCCCCCC"), matches_label->height());
+    matches_label->resize(QFontMetrics(matches_label->font()).horizontalAdvance("CCCCCCCCCCCCCCCCCCCCC"), matches_label->height());
     section_label = new QLabel;
     section_label->setTextFormat(Qt::RichText);
     custom_list_label = new QLabel;
@@ -707,7 +707,7 @@ void WobblyWindow::createCropAssistant() {
     for (int i = 0; i < 2; i++)
         connect(resize_spin[i], static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), resizeChanged);
 
-    connect(resize_filter_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), [this] (const QString &text) {
+    connect(resize_filter_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::textActivated), [this] (const QString &text) {
         if (!project)
             return;
 
@@ -857,7 +857,7 @@ void WobblyWindow::createPresetEditor() {
     QPushButton *rename_button = new QPushButton(QStringLiteral("Rename"));
     QPushButton *delete_button = new QPushButton(QStringLiteral("Delete"));
 
-    connect(preset_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), this, &WobblyWindow::presetChanged);
+    connect(preset_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::textActivated), this, &WobblyWindow::presetChanged);
 
     connect(preset_edit, &PresetTextEdit::focusLost, this, &WobblyWindow::presetEdited);
 
@@ -1638,7 +1638,7 @@ void WobblyWindow::createCustomListsEditor() {
         updateFrameDetails();
     });
 
-    connect(cl_presets_box, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated), [this] (const QString &text) {
+    connect(cl_presets_box, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::textActivated), [this] (const QString &text) {
         if (!project)
             return;
 
@@ -1663,7 +1663,7 @@ void WobblyWindow::createCustomListsEditor() {
         }
     });
 
-    connect(cl_position_group, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this] (int id) {
+    connect(cl_position_group, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::idClicked), [this] (int id) {
         if (!project)
             return;
 
@@ -1921,7 +1921,7 @@ void WobblyWindow::createFrameRatesViewer() {
     frame_rates_table->setHorizontalHeaderLabels({ "Start", "End", "Frame rate" });
 
 
-    connect(frame_rates_buttons, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this] () {
+    connect(frame_rates_buttons, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::idClicked), [this] () {
         if (!project)
             return;
 
@@ -2149,7 +2149,7 @@ void WobblyWindow::createPatternGuessingWindow() {
     pg_failures_table->setHorizontalHeaderLabels({ "Section", "Reason for failure" });
 
 
-    connect(pg_use_patterns_buttons, static_cast<void (QButtonGroup::*)(int, bool)>(&QButtonGroup::buttonToggled), [this] (int id, bool checked) {
+    connect(pg_use_patterns_buttons, static_cast<void (QButtonGroup::*)(int, bool)>(&QButtonGroup::idToggled), [this] (int id, bool checked) {
         if (id == PatternCCCNN && !checked && !pg_use_patterns_buttons->button(PatternCCNNN)->isChecked())
             pg_use_patterns_buttons->button(PatternCCNNN)->setChecked(true);
         else if (id == PatternCCNNN && !checked && !pg_use_patterns_buttons->button(PatternCCCNN)->isChecked())
@@ -2215,7 +2215,7 @@ void WobblyWindow::createPatternGuessingWindow() {
 
     // Kind of awful to put it here, but replaceWidget() only works the first two times it's called. (wtf?)
     // Or maybe the second time it removes "from", but doesn't insert "to"?
-    connect(pg_methods_buttons, static_cast<void (QButtonGroup::*)(int, bool)>(&QButtonGroup::buttonToggled), [this, pg_n_match_group, pg_use_patterns_group, hbox] (int id) {
+    connect(pg_methods_buttons, static_cast<void (QButtonGroup::*)(int, bool)>(&QButtonGroup::idToggled), [pg_n_match_group, pg_use_patterns_group, hbox] (int id) {
         QWidget *from = pg_n_match_group;
         QWidget *to = pg_use_patterns_group;
 
