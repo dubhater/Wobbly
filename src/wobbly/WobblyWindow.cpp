@@ -3113,7 +3113,12 @@ void WobblyWindow::initialiseVapourSynth() {
 
 }
 
-void WobblyWindow::closeVapourSynthScript() {
+
+void WobblyWindow::cleanUpVapourSynth() {
+    frame_label->setPixmap(QPixmap());
+    for (int i = 0; i < MAX_THUMBNAILS; i++)
+        thumb_labels[i]->setPixmap(QPixmap());
+
     for (int i = 0; i < 2; i++) {
         vsapi->freeNode(vsnode[i]);
         vsnode[i] = nullptr;
@@ -3122,15 +3127,6 @@ void WobblyWindow::closeVapourSynthScript() {
     vssapi->freeScript(vsscript);
     vsscript = nullptr;
     vscore = nullptr;
-}
-
-
-void WobblyWindow::cleanUpVapourSynth() {
-    frame_label->setPixmap(QPixmap());
-    for (int i = 0; i < MAX_THUMBNAILS; i++)
-        thumb_labels[i]->setPixmap(QPixmap());
-
-    closeVapourSynthScript();
 }
 
 
@@ -3671,7 +3667,7 @@ void WobblyWindow::realOpenProject(const QString &path) {
 
         initialiseUIFromProject();
 
-        closeVapourSynthScript();
+        vssapi->evaluateBuffer(vsscript, "vs.clear_output(1)", "wobbly.cleanup");
 
         connect(project, &WobblyProject::modifiedChanged, this, &WobblyWindow::updateWindowTitle);
 
@@ -3735,17 +3731,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
         QApplication::setOverrideCursor(Qt::WaitCursor);
 
-        vscore = vsapi->createCore(0);
-        if (!vscore)
-            throw WobblyException("Fatal error: failed to create VapourSynth core object.");
 
-        vsapi->addLogHandler(messageHandler, nullptr, this, vscore);
-
-        vsscript = vssapi->createScript(vscore);
-        if (!vsscript)
-            throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vssapi->getError(vsscript));
-
-        vssapi->evalSetWorkingDir(vsscript, 1);
         if (vssapi->evaluateBuffer(vsscript, script.toUtf8().constData(), path.toUtf8().constData())) {
             std::string error = vssapi->getError(vsscript);
             // The traceback is mostly unnecessary noise.
@@ -3783,7 +3769,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
         initialiseUIFromProject();
 
-        closeVapourSynthScript();
+        vssapi->evaluateBuffer(vsscript, "vs.clear_output(1)", "wobbly.cleanup");
 
         evaluateMainDisplayScript();
 
@@ -4331,18 +4317,6 @@ void WobblyWindow::evaluateScript(bool final_script) {
     script +=
             "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
 
-
-    vscore = vsapi->createCore(0);
-    if (!vscore)
-        throw WobblyException("Fatal error: failed to create VapourSynth core object.");
-
-    vsapi->addLogHandler(messageHandler, nullptr, this, vscore);
-
-    vsscript = vssapi->createScript(vscore);
-    if (!vsscript)
-        throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vssapi->getError(vsscript));
-
-    vssapi->evalSetWorkingDir(vsscript, 1);
     if (vssapi->evaluateBuffer(vsscript, script.c_str(), (project_path.isEmpty() ? video_path : project_path).toUtf8().constData())) {
         std::string error = vssapi->getError(vsscript);
         // The traceback is mostly unnecessary noise.

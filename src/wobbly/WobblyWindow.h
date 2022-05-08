@@ -261,7 +261,6 @@ private:
     void writeSettings();
 
     void initialiseVapourSynth();
-    void closeVapourSynthScript();
     void cleanUpVapourSynth();
     void checkRequiredFilters();
 
