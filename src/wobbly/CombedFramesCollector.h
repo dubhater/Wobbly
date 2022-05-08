@@ -23,8 +23,8 @@ SOFTWARE.
 
 #include <set>
 
-#include <VapourSynth.h>
-#include <VSScript.h>
+#include <VapourSynth4.h>
+#include <VSScript4.h>
 
 #include <QElapsedTimer>
 #include <QObject>
@@ -32,10 +32,11 @@ SOFTWARE.
 class CombedFramesCollector : public QObject {
     Q_OBJECT
 
+    const VSSCRIPTAPI *vssapi;
     const VSAPI *vsapi;
     VSCore *vscore;
     VSScript *vsscript;
-    VSNodeRef *vsnode;
+    VSNode *vsnode;
 
     bool aborted;
     int request_count;
@@ -48,13 +49,13 @@ class CombedFramesCollector : public QObject {
 
     std::set<int> combed_frames;
 
-    static void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg);
+    static void VS_CC frameDoneCallback(void *userData, const VSFrame *f, int n, VSNode *, const char *errorMsg);
 
 private slots:
     void frameDone(void *frame_v, int n, const QString &error_msg);
 
 public:
-    CombedFramesCollector(const VSAPI *_vsapi, VSCore *_vscore, VSScript *_vsscript);
+    CombedFramesCollector(const VSSCRIPTAPI *_vssapi, const VSAPI *_vsapi, VSCore *_vscore, VSScript *_vsscript);
 
     void start(std::string script, const char *script_name);
 

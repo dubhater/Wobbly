@@ -37,8 +37,8 @@ SOFTWARE.
 #include <QSpinBox>
 #include <QStringListModel>
 
-#include <VapourSynth.h>
-#include <VSScript.h>
+#include <VapourSynth4.h>
+#include <VSScript4.h>
 
 #include "DockWidget.h"
 #include "FrameLabel.h"
@@ -195,7 +195,7 @@ private:
     int current_frame;
     int pending_frame;
     int pending_requests;
-    VSNodeRef *pending_requests_node; // Don't free, it's just a copy.
+    VSNode *pending_requests_node; // Don't free, it's just a copy.
 
     QString match_pattern;
     QString decimation_pattern;
@@ -226,9 +226,10 @@ private:
     // VapourSynth stuff.
 
     const VSAPI *vsapi;
+    const VSSCRIPTAPI *vssapi;
     VSScript *vsscript;
     VSCore *vscore;
-    VSNodeRef *vsnode[2];
+    VSNode *vsnode[2];
 
 
     // Functions
@@ -260,6 +261,7 @@ private:
     void writeSettings();
 
     void initialiseVapourSynth();
+    void closeVapourSynthScript();
     void cleanUpVapourSynth();
     void checkRequiredFilters();
 

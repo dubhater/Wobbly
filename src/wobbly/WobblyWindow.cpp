@@ -42,7 +42,7 @@ SOFTWARE.
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 
-#include <VSScript.h>
+#include <VSScript4.h>
 
 #include "CombedFramesCollector.h"
 #include "ProgressDialog.h"
@@ -72,11 +72,11 @@ SOFTWARE.
 
 struct CallbackData {
     WobblyWindow *window;
-    VSNodeRef *node;
+    VSNode *node;
     bool preview_node;
     const VSAPI *vsapi;
 
-    CallbackData(WobblyWindow *_window, VSNodeRef *_node, bool _preview_node, const VSAPI *_vsapi)
+    CallbackData(WobblyWindow *_window, VSNode *_node, bool _preview_node, const VSAPI *_vsapi)
         : window(_window)
         , node(_node)
         , preview_node(_preview_node)
@@ -90,7 +90,8 @@ struct CallbackData {
 // QImageCleanupFunction is expected to be a cdecl function, but VSAPI::freeFrame uses stdcall.
 // Thus a wrapper is needed.
 void vsapiFreeFrameCdecl(void *frame) {
-    vsscript_getVSApi()->freeFrame((const VSFrameRef *)frame);
+    // fixme, very ugly
+    getVSScriptAPI(VSSCRIPT_API_VERSION)->getVSAPI(VAPOURSYNTH_API_VERSION)->freeFrame((const VSFrame *)frame);
 }
 
 
@@ -2473,7 +2474,7 @@ void WobblyWindow::createCombedFramesWindow() {
 
         script += "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
 
-        CombedFramesCollector *collector = new CombedFramesCollector(vsapi, vscore, vsscript);
+        CombedFramesCollector *collector = new CombedFramesCollector(vssapi, vsapi, vscore, vsscript);
 
         ProgressDialog *progress_dialog = new ProgressDialog;
         progress_dialog->setModal(true);
@@ -3092,22 +3093,30 @@ void WobblyWindow::vsLogPopup(int msgType, const QString &msg) {
 
 
 void WobblyWindow::initialiseVapourSynth() {
-    if (!vsscript_init())
+    vssapi = getVSScriptAPI(VSSCRIPT_API_VERSION);
+    if (!vssapi)
         throw WobblyException("Fatal error: failed to initialise VSScript. Your VapourSynth installation is probably broken. Python probably couldn't 'import vapoursynth'.");
-    
-    
-    vsapi = vsscript_getVSApi();
+       
+    vsapi = vssapi->getVSAPI(VAPOURSYNTH_API_VERSION);
     if (!vsapi)
         throw WobblyException("Fatal error: failed to acquire VapourSynth API struct. Did you update the VapourSynth library but not the Python module (or the other way around)?");
-    
-    vsapi->setMessageHandler(messageHandler, (void *)this);
 
-    if (vsscript_createScript(&vsscript))
-        throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vsscript_getError(vsscript));
-
-    vscore = vsscript_getCore(vsscript);
+    vscore = vsapi->createCore(0);
     if (!vscore)
-        throw WobblyException("Fatal error: failed to retrieve VapourSynth core object.");
+        throw WobblyException("Fatal error: failed to create VapourSynth core object.");
+
+    vsapi->addLogHandler(messageHandler, nullptr, this, vscore);
+
+    vsscript = vssapi->createScript(vscore);
+    if (!vsscript)
+        throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vssapi->getError(vsscript));
+
+}
+
+void WobblyWindow::closeVapourSynthScript() {
+    vssapi->freeScript(vsscript);
+    vsscript = nullptr;
+    vscore = nullptr;
 }
 
 
@@ -3121,8 +3130,7 @@ void WobblyWindow::cleanUpVapourSynth() {
         vsnode[i] = nullptr;
     }
 
-    vsscript_freeScript(vsscript);
-    vsscript = nullptr;
+    closeVapourSynthScript();
 }
 
 
@@ -3188,15 +3196,16 @@ void WobblyWindow::checkRequiredFilters() {
     std::string error;
 
     for (size_t i = 0; i < plugins.size(); i++) {
-        VSPlugin *plugin = vsapi->getPluginById(plugins[i].id.c_str(), vscore);
+        VSPlugin *plugin = vsapi->getPluginByID(plugins[i].id.c_str(), vscore);
         if (!plugin) {
             error += "Fatal error: ";
             error += plugins[i].plugin_not_found;
             error += "\n";
         } else {
+            /* FIXME, what does this only verify that all required functions exist? is this relly relevant?
             VSMap *map = vsapi->getFunctions(plugin);
             for (auto it = plugins[i].filters.cbegin(); it != plugins[i].filters.cend(); it++) {
-                if (vsapi->propGetType(map, it->c_str()) == ptUnset) {
+                if (vsapi->mapGetType(map, it->c_str()) == ptUnset) {
                     error += "Fatal error: plugin '";
                     error += plugins[i].id;
                     error += "' found but it lacks filter '";
@@ -3209,6 +3218,7 @@ void WobblyWindow::checkRequiredFilters() {
                     error += "\n";
                 }
             }
+            */
         }
     }
 
@@ -3664,7 +3674,7 @@ void WobblyWindow::realOpenProject(const QString &path) {
 
         initialiseUIFromProject();
 
-        vsscript_clearOutput(vsscript, 1);
+        closeVapourSynthScript();
 
         connect(project, &WobblyProject::modifiedChanged, this, &WobblyWindow::updateWindowTitle);
 
@@ -3728,8 +3738,19 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
         QApplication::setOverrideCursor(Qt::WaitCursor);
 
-        if (vsscript_evaluateScript(&vsscript, script.toUtf8().constData(), path.toUtf8().constData(), efSetWorkingDir)) {
-            std::string error = vsscript_getError(vsscript);
+        vscore = vsapi->createCore(0);
+        if (!vscore)
+            throw WobblyException("Fatal error: failed to create VapourSynth core object.");
+
+        vsapi->addLogHandler(messageHandler, nullptr, this, vscore);
+
+        vsscript = vssapi->createScript(vscore);
+        if (!vsscript)
+            throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vssapi->getError(vsscript));
+
+        vssapi->evalSetWorkingDir(vsscript, 1);
+        if (vssapi->evaluateBuffer(vsscript, script.toUtf8().constData(), path.toUtf8().constData())) {
+            std::string error = vssapi->getError(vsscript);
             // The traceback is mostly unnecessary noise.
             size_t traceback = error.find("Traceback");
             if (traceback != std::string::npos)
@@ -3742,7 +3763,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
         QApplication::restoreOverrideCursor();
 
-        VSNodeRef *node = vsscript_getOutput(vsscript, 0);
+        VSNode *node = vssapi->getOutputNode(vsscript, 0);
         if (!node)
             throw WobblyException("Can't extract basic information from the video file: script evaluated successfully, but no node found at output index 0.");
 
@@ -3765,7 +3786,7 @@ void WobblyWindow::realOpenVideo(const QString &path) {
 
         initialiseUIFromProject();
 
-        vsscript_clearOutput(vsscript, 1);
+        closeVapourSynthScript();
 
         evaluateMainDisplayScript();
 
@@ -4313,8 +4334,20 @@ void WobblyWindow::evaluateScript(bool final_script) {
     script +=
             "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), (project_path.isEmpty() ? video_path : project_path).toUtf8().constData(), efSetWorkingDir)) {
-        std::string error = vsscript_getError(vsscript);
+
+    vscore = vsapi->createCore(0);
+    if (!vscore)
+        throw WobblyException("Fatal error: failed to create VapourSynth core object.");
+
+    vsapi->addLogHandler(messageHandler, nullptr, this, vscore);
+
+    vsscript = vssapi->createScript(vscore);
+    if (!vsscript)
+        throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vssapi->getError(vsscript));
+
+    vssapi->evalSetWorkingDir(vsscript, 1);
+    if (vssapi->evaluateBuffer(vsscript, script.c_str(), (project_path.isEmpty() ? video_path : project_path).toUtf8().constData())) {
+        std::string error = vssapi->getError(vsscript);
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
         if (traceback != std::string::npos)
@@ -4327,7 +4360,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
 
     vsapi->freeNode(vsnode[node_index]);
 
-    vsnode[node_index] = vsscript_getOutput(vsscript, 0);
+    vsnode[node_index] = vssapi->getOutputNode(vsscript, 0);
     if (!vsnode[node_index])
         throw WobblyException(std::string(final_script ? "Final" : "Main display") + " script evaluated successfully, but no node found at output index 0.");
 
@@ -4345,7 +4378,7 @@ void WobblyWindow::evaluateFinalScript() {
 }
 
 
-void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
+void VS_CC frameDoneCallback(void *userData, const VSFrame *f, int n, VSNode *, const char *errorMsg) {
     CallbackData *callback_data = (CallbackData *)userData;
 
     callback_data->vsapi->freeNode(callback_data->node);
@@ -4404,7 +4437,7 @@ void WobblyWindow::requestFrames(int n) {
 
     for (int i = std::max(0, frame_num - num_thumbnails / 2); i < std::min(frame_num + num_thumbnails / 2 + 1, last_frame + 1); i++) {
         pending_requests++;
-        CallbackData *callback_data = new CallbackData(this, vsapi->cloneNodeRef(vsnode[(int)preview]), preview, vsapi);
+        CallbackData *callback_data = new CallbackData(this, vsapi->addNodeRef(vsnode[(int)preview]), preview, vsapi);
         vsapi->getFrameAsync(i, vsnode[(int)preview], frameDoneCallback, (void *)callback_data);
     }
 
@@ -4415,7 +4448,7 @@ void WobblyWindow::requestFrames(int n) {
 
 // Runs in the GUI thread.
 void WobblyWindow::frameDone(void *framev, int n, bool preview_node, const QString &errorMsg) {
-    const VSFrameRef *frame = (const VSFrameRef *)framev;
+    const VSFrame *frame = (const VSFrame *)framev;
 
     pending_requests--;
 

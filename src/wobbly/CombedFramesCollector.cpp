@@ -21,8 +21,9 @@ SOFTWARE.
 #include "CombedFramesCollector.h"
 
 
-CombedFramesCollector::CombedFramesCollector(const VSAPI *_vsapi, VSCore *_vscore, VSScript *_vsscript)
-    : vsapi(_vsapi)
+CombedFramesCollector::CombedFramesCollector(const VSSCRIPTAPI *_vssapi, const VSAPI *_vsapi, VSCore *_vscore, VSScript *_vsscript)
+    : vssapi(_vssapi)
+    , vsapi(_vsapi)
     , vscore(_vscore)
     , vsscript(_vsscript)
 {
@@ -42,8 +43,9 @@ void CombedFramesCollector::start(std::string script, const char *script_name) {
 
             "src.set_output()\n";
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), script_name, efSetWorkingDir)) {
-        QString error = vsscript_getError(vsscript);
+    vssapi->evalSetWorkingDir(vsscript, 1);
+    if (vssapi->evaluateBuffer(vsscript, script.c_str(), script_name)) {
+        QString error = vssapi->getError(vsscript);
         // The traceback is mostly unnecessary noise.
         int traceback = error.indexOf(QStringLiteral("Traceback"));
         if (traceback != -1)
@@ -54,7 +56,7 @@ void CombedFramesCollector::start(std::string script, const char *script_name) {
         return;
     }
 
-    vsnode = vsscript_getOutput(vsscript, 0);
+    vsnode = vssapi->getOutputNode(vsscript, 0);
     if (!vsnode) {
         emit errorMessage("Final script evaluated successfully, but no node found at output index 0.");
         emit workFinished();
@@ -63,7 +65,10 @@ void CombedFramesCollector::start(std::string script, const char *script_name) {
 
     num_frames = vsapi->getVideoInfo(vsnode)->numFrames;
 
-    int requests = std::min(vsapi->getCoreInfo(vscore)->numThreads, num_frames);
+    VSCoreInfo core_info;
+    vsapi->getCoreInfo(vscore, &core_info);
+
+    int requests = std::min(core_info.numThreads, num_frames);
 
     aborted = false;
     frames_left = num_frames;
@@ -85,7 +90,7 @@ void CombedFramesCollector::stop() {
 }
 
 
-void VS_CC CombedFramesCollector::frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
+void VS_CC CombedFramesCollector::frameDoneCallback(void *userData, const VSFrame *f, int n, VSNode *, const char *errorMsg) {
     CombedFramesCollector *collector = (CombedFramesCollector *)userData;
 
     // Qt::DirectConnection = frameDone runs in the worker threads
@@ -100,18 +105,18 @@ void VS_CC CombedFramesCollector::frameDoneCallback(void *userData, const VSFram
 
 
 void CombedFramesCollector::frameDone(void *frame_v, int n, const QString &error_msg) {
-    const VSFrameRef *frame = (const VSFrameRef *)frame_v;
+    const VSFrame *frame = (const VSFrame *)frame_v;
 
     if (aborted) {
         vsapi->freeFrame(frame);
     } else {
         if (frame) {
             // Extract the _Combed property
-            const VSMap *props = vsapi->getFramePropsRO(frame);
+            const VSMap *props = vsapi->getFramePropertiesRO(frame);
 
             int err;
 
-            if (vsapi->propGetInt(props, "_Combed", 0, &err))
+            if (vsapi->mapGetInt(props, "_Combed", 0, &err))
                 combed_frames.insert(n);
 
             vsapi->freeFrame(frame);
