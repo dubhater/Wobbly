@@ -3114,6 +3114,11 @@ void WobblyWindow::initialiseVapourSynth() {
 }
 
 void WobblyWindow::closeVapourSynthScript() {
+    for (int i = 0; i < 2; i++) {
+        vsapi->freeNode(vsnode[i]);
+        vsnode[i] = nullptr;
+    }
+
     vssapi->freeScript(vsscript);
     vsscript = nullptr;
     vscore = nullptr;
@@ -3124,11 +3129,6 @@ void WobblyWindow::cleanUpVapourSynth() {
     frame_label->setPixmap(QPixmap());
     for (int i = 0; i < MAX_THUMBNAILS; i++)
         thumb_labels[i]->setPixmap(QPixmap());
-
-    for (int i = 0; i < 2; i++) {
-        vsapi->freeNode(vsnode[i]);
-        vsnode[i] = nullptr;
-    }
 
     closeVapourSynthScript();
 }
