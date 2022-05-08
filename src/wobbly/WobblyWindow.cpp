@@ -87,14 +87,6 @@ struct CallbackData {
 };
 
 
-// QImageCleanupFunction is expected to be a cdecl function, but VSAPI::freeFrame uses stdcall.
-// Thus a wrapper is needed.
-void vsapiFreeFrameCdecl(void *frame) {
-    // fixme, very ugly
-    getVSScriptAPI(VSSCRIPT_API_VERSION)->getVSAPI(VAPOURSYNTH_API_VERSION)->freeFrame((const VSFrame *)frame);
-}
-
-
 WobblyWindow::WobblyWindow()
     : QMainWindow()
     , splash_image(720, 480, QImage::Format_RGB32)
@@ -3165,12 +3157,6 @@ void WobblyWindow::checkRequiredFilters() {
             { "IsCombed" },
             "TDeintMod plugin not found.",
             "TDeintMod plugin is older than r4."
-        },
-        {
-            "com.djatom.libp2p",
-            { "Pack" },
-            "LibP2P plugin not found.",
-            ""
         }
     };
 
@@ -4288,12 +4274,11 @@ void WobblyWindow::evaluateScript(bool final_script) {
         script += std::to_string(crop_spin[2]->value()) + ", bottom=";
         script += std::to_string(crop_spin[3]->value()) + ", color=[224, 81, 255])\n";
 
-        script += "c.query_video_format(vs.GRAY, vs.INTEGER, 32, 0, 0)\n"
-            "src = c.libp2p.Pack(src)\n";
+        script += "c.query_video_format(vs.GRAY, vs.INTEGER, 32, 0, 0)\n";
     } else {
         script +=
             "c.query_video_format(vs.GRAY, vs.INTEGER, 32, 0, 0)\n"
-            "src = c.resize.Bicubic(clip=src, format=vs.RGB24, dither_type='random', matrix_in_s='" + matrix + "', transfer_in_s='" + transfer + "', primaries_in_s='" + primaries + "').libp2p.Pack()\n";
+            "src = c.resize.Bicubic(clip=src, format=vs.RGB24, dither_type='random', matrix_in_s='" + matrix + "', transfer_in_s='" + transfer + "', primaries_in_s='" + primaries + "')\n";
     }
 
     script +=
@@ -4417,11 +4402,30 @@ void WobblyWindow::frameDone(void *framev, int n, bool preview_node, const QStri
         return;
     }
 
-    const uint8_t *ptr = vsapi->getReadPtr(frame, 0);
+    const uint8_t *ptrR = vsapi->getReadPtr(frame, 0);
+    const uint8_t *ptrG = vsapi->getReadPtr(frame, 1);
+    const uint8_t *ptrB = vsapi->getReadPtr(frame, 2);
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QImage image = QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame);
+    uint8_t *frame_data = reinterpret_cast<uint8_t *>(malloc(width * height * 4));
+    uint8_t *fd_ptr = frame_data;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            fd_ptr[0] = ptrB[x];
+            fd_ptr[1] = ptrG[x];
+            fd_ptr[2] = ptrR[x];
+            fd_ptr[3] = 0;
+            fd_ptr += 4;
+        }
+        ptrR += stride;
+        ptrG += stride;
+        ptrB += stride;
+    }
+
+    vsapi->freeFrame(frame);
+
+    QImage image = QImage(frame_data, width, height, width * 4, QImage::Format_RGB32, free, frame_data);
 
     int offset;
     if (preview_node)

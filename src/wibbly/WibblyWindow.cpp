@@ -69,16 +69,8 @@ SOFTWARE.
 #define KEY_FADES_THRESHOLD                 QStringLiteral("fades_threshold")
 
 
-std::mutex requests_mutex;
-std::condition_variable requests_condition;
-
-
-// QImageCleanupFunction is expected to be a cdecl function, but VSAPI::freeFrame uses stdcall.
-// Thus a wrapper is needed.
-void vsapiFreeFrameCdecl(void *frame) {
-    // FIXME, ugly
-    getVSScriptAPI(VSSCRIPT_API_VERSION)->getVSAPI(VAPOURSYNTH_API_VERSION)->freeFrame((const VSFrame *)frame);
-}
+static std::mutex requests_mutex;
+static std::condition_variable requests_condition;
 
 
 WibblyWindow::WibblyWindow()
@@ -231,12 +223,6 @@ void WibblyWindow::checkRequiredFilters() {
             { "PlaneStats" },
             "built-in filters not found. Something is borked.",
             "VapourSynth version is older than r32."
-        },
-        {
-            "com.djatom.libp2p",
-            { "Pack" },
-            "LibP2P plugin not found.",
-            ""
         }
     };
 
@@ -1294,7 +1280,7 @@ void WibblyWindow::evaluateDisplayScript() {
             "    src = src[0]\n"
 
             "c.query_video_format(vs.GRAY, vs.INTEGER, 32, 0, 0)\n"
-            "src = c.resize.Bicubic(clip=src, format=vs.RGB24, dither_type='random', matrix_in_s='470bg', transfer_in_s='601', primaries_in_s='170m').libp2p.Pack()\n"
+            "src = c.resize.Bicubic(clip=src, format=vs.RGB24, dither_type='random', matrix_in_s='470bg', transfer_in_s='601', primaries_in_s='170m')\n"
 
             "src.set_output()\n";
 
@@ -1372,11 +1358,30 @@ void WibblyWindow::displayFrame(int n) {
     if (!frame)
         throw WobblyException(std::string("Failed to retrieve frame. Error message: ") + error.data());
 
-    const uint8_t *ptr = vsapi->getReadPtr(frame, 0);
+    const uint8_t *ptrR = vsapi->getReadPtr(frame, 0);
+    const uint8_t *ptrG = vsapi->getReadPtr(frame, 1);
+    const uint8_t *ptrB = vsapi->getReadPtr(frame, 2);
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
     int stride = vsapi->getStride(frame, 0);
-    QPixmap pixmap = QPixmap::fromImage(QImage(ptr, width, height, stride, QImage::Format_RGB32, vsapiFreeFrameCdecl, (void *)frame));
+    uint8_t *frame_data = reinterpret_cast<uint8_t *>(malloc(width * height * 4));
+    uint8_t *fd_ptr = frame_data;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            fd_ptr[0] = ptrB[x];
+            fd_ptr[1] = ptrG[x];
+            fd_ptr[2] = ptrR[x];
+            fd_ptr[3] = 0;
+            fd_ptr += 4;
+        }
+        ptrR += stride;
+        ptrG += stride;
+        ptrB += stride;
+    }
+
+    vsapi->freeFrame(frame);
+
+    QPixmap pixmap = QPixmap::fromImage(QImage(frame_data, width, height, width * 4, QImage::Format_RGB32, free, frame_data));
 
     video_frame_label->setPixmap(pixmap);
 
