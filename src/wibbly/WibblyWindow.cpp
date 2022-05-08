@@ -165,7 +165,7 @@ void WibblyWindow::initialiseVapourSynth() {
     vsapi->addLogHandler(messageHandler, nullptr, (void *)this, vscore);
 
     vsscript = vssapi->createScript(vscore);
-    if (vsscript)
+    if (!vsscript)
         throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vssapi->getError(vsscript));
 }
 
@@ -250,7 +250,7 @@ void WibblyWindow::checkRequiredFilters() {
             error += "\n";
         } else {
             for (const auto &it : plugins[i].filters) {
-                if (vsapi->getPluginFunctionByName(it.c_str(), plugin)) {
+                if (!vsapi->getPluginFunctionByName(it.c_str(), plugin)) {
                     error += "Fatal error: plugin '";
                     error += plugins[i].id;
                     error += "' found but it lacks filter '";
