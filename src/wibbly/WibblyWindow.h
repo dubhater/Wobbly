@@ -35,7 +35,7 @@ SOFTWARE.
 #include <QSpinBox>
 #include <QTimeEdit>
 
-#include <VSScript.h>
+#include <VSScript4.h>
 
 #include "DockWidget.h"
 #include "ListWidget.h"
@@ -100,30 +100,31 @@ class WibblyWindow : public QMainWindow
     QCheckBox *settings_compact_projects_check;
     QCheckBox *settings_use_relative_paths_check;
     QSpinBox *settings_cache_spin;
-    int settings_last_crop[4];
+    int settings_last_crop[4] = {};
 
 
     // VapourSynth stuff.
-    const VSAPI *vsapi;
-    VSScript *vsscript;
-    VSCore *vscore;
-    VSNodeRef *vsnode;
-    const VSVideoInfo *vsvi;
+    const VSSCRIPTAPI *vssapi = nullptr;
+    const VSAPI *vsapi = nullptr;
+    VSScript *vsscript = nullptr;
+    VSCore *vscore = nullptr;
+    VSNode *vsnode = nullptr;
+    const VSVideoInfo *vsvi = nullptr;
 
 
     // Other stuff.
     std::vector<WibblyJob> jobs;
 
-    int current_frame;
+    int current_frame = 0;
 
-    int trim_start;
-    int trim_end;
+    int trim_start = -1;
+    int trim_end = -1;
 
-    WobblyProject *current_project;
-    int current_job;
-    int next_frame;
-    int frames_left;
-    bool aborted;
+    WobblyProject *current_project = nullptr;
+    int current_job = -1;
+    int next_frame = 0;
+    int frames_left = 0;
+    bool aborted = false;
     std::atomic<int> request_count;
 
     QString progress_dialog_label_text;

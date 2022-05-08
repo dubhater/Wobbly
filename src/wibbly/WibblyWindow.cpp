@@ -76,27 +76,14 @@ std::condition_variable requests_condition;
 // QImageCleanupFunction is expected to be a cdecl function, but VSAPI::freeFrame uses stdcall.
 // Thus a wrapper is needed.
 void vsapiFreeFrameCdecl(void *frame) {
-    vsscript_getVSApi()->freeFrame((const VSFrameRef *)frame);
+    // FIXME, ugly
+    getVSScriptAPI(VSSCRIPT_API_VERSION)->getVSAPI(VAPOURSYNTH_API_VERSION)->freeFrame((const VSFrame *)frame);
 }
 
 
 WibblyWindow::WibblyWindow()
     : QMainWindow()
-    , vsapi(nullptr)
-    , vsscript(nullptr)
-    , vscore(nullptr)
-    , vsnode(nullptr)
-    , vsvi(nullptr)
-    , current_frame(0)
-    , trim_start(-1)
-    , trim_end(-1)
-    , current_project(nullptr)
-    , current_job(-1)
-    , next_frame(0)
-    , frames_left(0)
-    , aborted(false)
     , request_count(0)
-    , settings_last_crop{ 0, 0, 0, 0 }
 #ifdef _WIN32
     , settings(QApplication::applicationDirPath() + "/wibbly.ini", QSettings::IniFormat)
 #endif
@@ -163,22 +150,23 @@ void WibblyWindow::vsLogPopup(int msgType, const QString &msg) {
 
 
 void WibblyWindow::initialiseVapourSynth() {
-    if (!vsscript_init())
+    vssapi = getVSScriptAPI(VSSCRIPT_API_VERSION);
+    if (!vssapi)
         throw WobblyException("Fatal error: failed to initialise VSScript. Your VapourSynth installation is probably broken. Python probably couldn't 'import vapoursynth'.");
 
-
-    vsapi = vsscript_getVSApi();
+    vsapi = vssapi->getVSAPI(VAPOURSYNTH_API_VERSION);
     if (!vsapi)
         throw WobblyException("Fatal error: failed to acquire VapourSynth API struct. Did you update the VapourSynth library but not the Python module (or the other way around)?");
 
-    vsapi->setMessageHandler(messageHandler, (void *)this);
-
-    if (vsscript_createScript(&vsscript))
-        throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vsscript_getError(vsscript));
-
-    vscore = vsscript_getCore(vsscript);
+    vscore = vsapi->createCore(0);
     if (!vscore)
-        throw WobblyException("Fatal error: failed to retrieve VapourSynth core object.");
+        throw WobblyException("Fatal error: failed to create VapourSynth core object.");
+
+    vsapi->addLogHandler(messageHandler, nullptr, (void *)this, vscore);
+
+    vsscript = vssapi->createScript(vscore);
+    if (vsscript)
+        throw WobblyException(std::string("Fatal error: failed to create VSScript object. Error message: ") + vssapi->getError(vsscript));
 }
 
 
@@ -188,7 +176,7 @@ void WibblyWindow::cleanUpVapourSynth() {
     vsapi->freeNode(vsnode);
     vsnode = nullptr;
 
-    vsscript_freeScript(vsscript);
+    vssapi->freeScript(vsscript);
     vsscript = nullptr;
 }
 
@@ -255,15 +243,16 @@ void WibblyWindow::checkRequiredFilters() {
     std::string error;
 
     for (size_t i = 0; i < plugins.size(); i++) {
-        VSPlugin *plugin = vsapi->getPluginById(plugins[i].id.c_str(), vscore);
+        VSPlugin *plugin = vsapi->getPluginByID(plugins[i].id.c_str(), vscore);
         if (!plugin) {
             error += "Fatal error: ";
             error += plugins[i].plugin_not_found;
             error += "\n";
         } else {
+            /* FIXME, useless function check?
             VSMap *map = vsapi->getFunctions(plugin);
             for (auto it = plugins[i].filters.cbegin(); it != plugins[i].filters.cend(); it++) {
-                if (vsapi->propGetType(map, it->c_str()) == ptUnset) {
+                if (vsapi->mapGetType(map, it->c_str()) == ptUnset) {
                     error += "Fatal error: plugin '";
                     error += plugins[i].id;
                     error += "' found but it lacks filter '";
@@ -276,6 +265,7 @@ void WibblyWindow::checkRequiredFilters() {
                     error += "\n";
                 }
             }
+            */
         }
     }
 
@@ -626,7 +616,7 @@ void WibblyWindow::createMainWindow() {
         }
     });
 
-    connect(main_steps_buttons, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), [this, main_steps_buttons] (int id) {
+    connect(main_steps_buttons, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::idClicked), [this, main_steps_buttons] (int id) {
         bool checked = main_steps_buttons->button(id)->isChecked();
 
         auto selection = main_jobs_list->selectedItems();
@@ -1265,8 +1255,9 @@ void WibblyWindow::evaluateFinalScript(int job_index) {
 
     script = job.generateFinalScript();
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), job.getInputFile().c_str(), efSetWorkingDir)) {
-        std::string error = vsscript_getError(vsscript);
+    vssapi->evalSetWorkingDir(vsscript, 1);
+    if (vssapi->evaluateBuffer(vsscript, script.c_str(), job.getInputFile().c_str())) {
+        std::string error = vssapi->getError(vsscript);
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
         if (traceback != std::string::npos)
@@ -1277,7 +1268,7 @@ void WibblyWindow::evaluateFinalScript(int job_index) {
 
     vsapi->freeNode(vsnode);
 
-    vsnode = vsscript_getOutput(vsscript, 0);
+    vsnode = vssapi->getOutputNode(vsscript, 0);
     if (!vsnode)
         throw WobblyException("Final script for job number " + std::to_string(job_index + 1) + " evaluated successfully, but no node found at output index 0.");
 
@@ -1314,14 +1305,15 @@ void WibblyWindow::evaluateDisplayScript() {
             "c.max_cache_size = " + std::to_string(settings_cache_spin->value()) + "\n";
 
     VSMap *m = vsapi->createMap();
-    if (vsscript_getVariable(vsscript, "wibbly_last_input_file", m)) {
-        vsapi->propSetData(m, "wibbly_last_input_file", "", -1, paReplace);
-        vsscript_setVariable(vsscript, m);
+    if (vssapi->getVariable(vsscript, "wibbly_last_input_file", m)) {
+        vsapi->mapSetData(m, "wibbly_last_input_file", "", -1, dtUtf8, maReplace);
+        vssapi->setVariables(vsscript, m);
     }
     vsapi->freeMap(m);
 
-    if (vsscript_evaluateScript(&vsscript, script.c_str(), job.getInputFile().c_str(), efSetWorkingDir)) {
-        std::string error = vsscript_getError(vsscript);
+    vssapi->evalSetWorkingDir(vsscript, 1);
+    if (vssapi->evaluateBuffer(vsscript, script.c_str(), job.getInputFile().c_str())) {
+        std::string error = vssapi->getError(vsscript);
         // The traceback is mostly unnecessary noise.
         size_t traceback = error.find("Traceback");
         if (traceback != std::string::npos)
@@ -1337,7 +1329,7 @@ void WibblyWindow::evaluateDisplayScript() {
 
     vsapi->freeNode(vsnode);
 
-    vsnode = vsscript_getOutput(vsscript, 0);
+    vsnode = vssapi->getOutputNode(vsscript, 0);
     if (!vsnode)
         throw WobblyException("Display script evaluated successfully, but no node found at output index 0.");
 
@@ -1378,7 +1370,7 @@ void WibblyWindow::displayFrame(int n) {
     if (n == vsvi->numFrames - 1)
         // Workaround for bug in d2vsource: https://github.com/dwbuiten/d2vsource/issues/12
         vsapi->freeFrame(vsapi->getFrame(n - 1, vsnode, error.data(), 1024));
-    const VSFrameRef *frame = vsapi->getFrame(n, vsnode, error.data(), 1024);
+    const VSFrame *frame = vsapi->getFrame(n, vsnode, error.data(), 1024);
 
     if (!frame)
         throw WobblyException(std::string("Failed to retrieve frame. Error message: ") + error.data());
@@ -1418,7 +1410,7 @@ void WibblyWindow::displayFrame(int n) {
 }
 
 
-void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
+void VS_CC frameDoneCallback(void *userData, const VSFrame *f, int n, VSNode *, const char *errorMsg) {
     WibblyWindow *window = (WibblyWindow *)userData;
 
     // Qt::DirectConnection = frameDone runs in the worker threads
@@ -1526,8 +1518,9 @@ void WibblyWindow::startNextJob() {
     main_progress_dialog->setMaximum(vsvi->numFrames);
     main_progress_dialog->setValue(0);
 
-    const VSCoreInfo *info = vsapi->getCoreInfo(vscore);
-    int requests = std::min(info->numThreads, vsvi->numFrames);
+    VSCoreInfo core_info;
+    vsapi->getCoreInfo(vscore, &core_info);
+    int requests = std::min(core_info.numThreads, vsvi->numFrames);
 
     aborted = false;
 
@@ -1547,40 +1540,40 @@ void WibblyWindow::startNextJob() {
 // Runs in the worker threads, so don't touch the GUI directly.
 // The worker threads are queued up inside VapourSynth, so they run one at a time.
 void WibblyWindow::frameDone(void *frame_v, int n, const QString &error_msg) {
-    const VSFrameRef *frame = (const VSFrameRef *)frame_v;
+    const VSFrame *frame = (const VSFrame *)frame_v;
 
     if (aborted) {
         vsapi->freeFrame(frame);
     } else {
         if (frame) {
-            const VSMap *props = vsapi->getFramePropsRO(frame);
+            const VSMap *props = vsapi->getFramePropertiesRO(frame);
 
             int err;
 
             const char match_chars[] = { 'p', 'c', 'n', 'b', 'u' };
-            int64_t match = vsapi->propGetInt(props, "VFMMatch", 0, &err);
+            int64_t match = vsapi->mapGetInt(props, "VFMMatch", 0, &err);
             if (!err)
                 current_project->setOriginalMatch(n, match_chars[match]);
 
-            if (vsapi->propGetInt(props, "_Combed", 0, &err))
+            if (vsapi->mapGetInt(props, "_Combed", 0, &err))
                 current_project->addCombedFrame(n);
 
-            if (vsapi->propNumElements(props, "VFMMics") == 5) {
-                const int64_t *mics = vsapi->propGetIntArray(props, "VFMMics", &err);
+            if (vsapi->mapNumElements(props, "VFMMics") == 5) {
+                const int64_t *mics = vsapi->mapGetIntArray(props, "VFMMics", &err);
                 current_project->setMics(n, mics[0], mics[1], mics[2], mics[3], mics[4]);
             }
 
-            if (vsapi->propGetInt(props, "_SceneChangePrev", 0, &err))
+            if (vsapi->mapGetInt(props, "_SceneChangePrev", 0, &err))
                 current_project->addSection(n);
 
-            int64_t decimate_metric = vsapi->propGetInt(props, "VDecimateMaxBlockDiff", 0, &err);
+            int64_t decimate_metric = vsapi->mapGetInt(props, "VDecimateMaxBlockDiff", 0, &err);
             if (!err)
                 current_project->setDecimateMetric(n, decimate_metric);
 
-            if (vsapi->propGetInt(props, "VDecimateDrop", 0, &err))
+            if (vsapi->mapGetInt(props, "VDecimateDrop", 0, &err))
                 current_project->addDecimatedFrame(n);
 
-            double field_difference = vsapi->propGetFloat(props, "WibblyFieldDifference", 0, &err);
+            double field_difference = vsapi->mapGetFloat(props, "WibblyFieldDifference", 0, &err);
             if (field_difference > jobs[current_job].getFadesThreshold())
                 current_project->addInterlacedFade(n, field_difference);
 
