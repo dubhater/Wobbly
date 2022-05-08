@@ -173,7 +173,7 @@ private:
     QDoubleSpinBox *settings_thumbnail_size_dspin;
     TableWidget *settings_shortcuts_table;
 
-    ImportWindow *import_window;
+    ImportWindow *import_window = nullptr;
 
 
     // Widget-related
@@ -188,19 +188,19 @@ private:
 
     // Other stuff.
 
-    WobblyProject *project;
+    WobblyProject *project = nullptr;
     QString project_path;
     QString video_path;
 
-    int current_frame;
-    int pending_frame;
-    int pending_requests;
-    VSNode *pending_requests_node; // Don't free, it's just a copy.
+    int current_frame = 0;
+    int pending_frame = 0;
+    int pending_requests = 0;
+    VSNode *pending_requests_node = nullptr; // Don't free, it's just a copy.
 
     QString match_pattern;
     QString decimation_pattern;
 
-    bool preview;
+    bool preview = false;
 
     struct Shortcut {
         QString keys;
@@ -211,11 +211,11 @@ private:
 
     std::vector<Shortcut> shortcuts;
 
-    int range_start;
-    int range_end;
+    int range_start = -1;
+    int range_end = -1;
 
-    int selected_preset;
-    int selected_custom_list;
+    int selected_preset = -1;
+    int selected_custom_list = -1;
 
     QSettings settings;
 
@@ -225,11 +225,11 @@ private:
 
     // VapourSynth stuff.
 
-    const VSAPI *vsapi;
-    const VSSCRIPTAPI *vssapi;
-    VSScript *vsscript;
-    VSCore *vscore;
-    VSNode *vsnode[2];
+    const VSAPI *vsapi = nullptr;
+    const VSSCRIPTAPI *vssapi = nullptr;
+    VSScript *vsscript = nullptr;
+    VSCore *vscore = nullptr;
+    VSNode *vsnode[2] = {};
 
 
     // Functions

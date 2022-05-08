@@ -97,28 +97,13 @@ void vsapiFreeFrameCdecl(void *frame) {
 
 WobblyWindow::WobblyWindow()
     : QMainWindow()
-    , import_window(nullptr)
     , splash_image(720, 480, QImage::Format_RGB32)
     , window_title(QStringLiteral("Wobbly IVTC Assistant v%1").arg(PACKAGE_VERSION))
-    , project(nullptr)
-    , current_frame(0)
-    , pending_frame(0)
-    , pending_requests(0)
-    , pending_requests_node(nullptr)
     , match_pattern("cccnn")
     , decimation_pattern("kkkkd")
-    , preview(false)
-    , range_start(-1)
-    , range_end(-1)
-    , selected_preset(-1)
-    , selected_custom_list(-1)
 #ifdef _WIN32
     , settings(QApplication::applicationDirPath() + "/wobbly.ini", QSettings::IniFormat)
 #endif
-    , vsapi(nullptr)
-    , vsscript(nullptr)
-    , vscore(nullptr)
-    , vsnode{nullptr, nullptr}
 {
     createUI();
 
