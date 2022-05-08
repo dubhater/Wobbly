@@ -3202,14 +3202,12 @@ void WobblyWindow::checkRequiredFilters() {
             error += plugins[i].plugin_not_found;
             error += "\n";
         } else {
-            /* FIXME, what does this only verify that all required functions exist? is this relly relevant?
-            VSMap *map = vsapi->getFunctions(plugin);
-            for (auto it = plugins[i].filters.cbegin(); it != plugins[i].filters.cend(); it++) {
-                if (vsapi->mapGetType(map, it->c_str()) == ptUnset) {
+            for (const auto &it : plugins[i].filters) {
+                if (!vsapi->getPluginFunctionByName(it.c_str(), plugin)) {
                     error += "Fatal error: plugin '";
                     error += plugins[i].id;
                     error += "' found but it lacks filter '";
-                    error += *it;
+                    error += it;
                     error += "'.";
                     if (plugins[i].filter_not_found.size()) {
                         error += " Likely reason: ";
@@ -3218,7 +3216,6 @@ void WobblyWindow::checkRequiredFilters() {
                     error += "\n";
                 }
             }
-            */
         }
     }
 
