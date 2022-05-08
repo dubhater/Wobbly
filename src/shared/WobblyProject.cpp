@@ -44,129 +44,114 @@ SOFTWARE.
 #define PROJECT_FORMAT_VERSION 2
 
 
-// Isn't it wonderful?
-#define K(...) KEY(__VA_ARGS__, 4, 3, 2, 1)
-#define KEY(a, b, c, d, count, ...) KEY##count(a, b, c, d)
-
-#define KEY1(a, b, c, d) const char a[] = #a;
-#define KEY2(a, b, c, d) const char a##_##b[] = #a " " #b;
-#define KEY3(a, b, c, d) const char a##_##b##_##c[] = #a " " #b " " #c;
-#define KEY4(a, b, c, d) const char a##_##b##_##c##_##d[] = #a " " #b " " #c " " #d;
-
 namespace Keys {
-    K(wobbly, version);
-    K(project, format, version);
-    K(input, file);
-    K(input, frame, rate);
-    K(input, resolution);
-    K(trim);
-    K(source, filter);
-    K(user, interface);
+    const char wobbly_version[] = "wobbly" " " "version";;
+    const char project_format_version[] = "project" " " "format" " " "version";;
+    const char input_file[] = "input" " " "file";;
+    const char input_frame_rate[] = "input" " " "frame" " " "rate";;
+    const char input_resolution[] = "input" " " "resolution";;
+    const char trim[] = "trim";;
+    const char source_filter[] = "source" " " "filter";;
+    const char user_interface[] = "user" " " "interface";;
     namespace UserInterface {
-        K(zoom);
-        K(last, visited, frame);
-        K(geometry);
-        K(state);
-        K(show, frame, rates);
-        K(mic, search, minimum);
-        K(c, match, sequences, minimum);
-        K(pattern, guessing);
+        const char zoom[] = "zoom";;
+        const char last_visited_frame[] = "last" " " "visited" " " "frame";;
+        const char geometry[] = "geometry";;
+        const char state[] = "state";;
+        const char show_frame_rates[] = "show" " " "frame" " " "rates";;
+        const char mic_search_minimum[] = "mic" " " "search" " " "minimum";;
+        const char c_match_sequences_minimum[] = "c" " " "match" " " "sequences" " " "minimum";;
+        const char pattern_guessing[] = "pattern" " " "guessing";;
         namespace PatternGuessing {
-            K(method);
-            K(minimum, length);
-            K(use, third, n, match);
-            K(decimate);
-            K(use, patterns);
-            K(failures);
+            const char method[] = "method";;
+            const char minimum_length[] = "minimum" " " "length";;
+            const char use_third_n_match[] = "use" " " "third" " " "n" " " "match";;
+            const char decimate[] = "decimate";;
+            const char use_patterns[] = "use" " " "patterns";;
+            const char failures[] = "failures";;
             namespace Failures {
-                K(start);
-                K(reason);
+                const char start[] = "start";;
+                const char reason[] = "reason";;
             }
         }
-        K(bookmarks);
+        const char bookmarks[] = "bookmarks";;
         namespace Bookmarks {
-            K(frame);
-            K(description);
+            const char frame[] = "frame";;
+            const char description[] = "description";;
         }
     }
-    K(vfm, parameters);
+    const char vfm_parameters[] = "vfm" " " "parameters";;
     namespace VFMParameters {
-        K(blockx);
-        K(blocky);
-        K(chroma);
-        K(cthresh);
-        K(mchroma);
-        K(mi);
-        K(micmatch);
-        K(order);
-        K(scthresh);
-        K(y0);
-        K(y1);
+        const char blockx[] = "blockx";;
+        const char blocky[] = "blocky";;
+        const char chroma[] = "chroma";;
+        const char cthresh[] = "cthresh";;
+        const char mchroma[] = "mchroma";;
+        const char mi[] = "mi";;
+        const char micmatch[] = "micmatch";;
+        const char order[] = "order";;
+        const char scthresh[] = "scthresh";;
+        const char y0[] = "y0";;
+        const char y1[] = "y1";;
     }
-    K(vdecimate, parameters);
+    const char vdecimate_parameters[] = "vdecimate" " " "parameters";;
     namespace VDecimateParameters {
-        K(blockx);
-        K(blocky);
-        K(chroma);
-        K(dupthresh);
-        K(scthresh);
+        const char blockx[] = "blockx";;
+        const char blocky[] = "blocky";;
+        const char chroma[] = "chroma";;
+        const char dupthresh[] = "dupthresh";;
+        const char scthresh[] = "scthresh";;
     }
-    K(mics);
-    K(matches);
-    K(original, matches);
-    K(combed, frames);
-    K(decimated, frames);
-    K(decimate, metrics);
-    K(sections);
+    const char mics[] = "mics";;
+    const char matches[] = "matches";;
+    const char original_matches[] = "original" " " "matches";;
+    const char combed_frames[] = "combed" " " "frames";;
+    const char decimated_frames[] = "decimated" " " "frames";;
+    const char decimate_metrics[] = "decimate" " " "metrics";;
+    const char sections[] = "sections";;
     namespace Sections {
-        K(start);
-        K(presets);
+        const char start[] = "start";;
+        const char presets[] = "presets";;
     }
-    K(interlaced, fades);
+    const char interlaced_fades[] = "interlaced" " " "fades";;
     namespace InterlacedFades {
-        K(frame);
-        K(field, difference);
+        const char frame[] = "frame";;
+        const char field_difference[] = "field" " " "difference";;
     }
-    K(presets);
+    const char presets[] = "presets";;
     namespace Presets {
-        K(name);
-        K(contents);
+        const char name[] = "name";;
+        const char contents[] = "contents";;
     }
-    K(frozen, frames);
-    K(custom, lists);
+    const char frozen_frames[] = "frozen" " " "frames";;
+    const char custom_lists[] = "custom" " " "lists";;
     namespace CustomLists {
-        K(name);
-        K(preset);
-        K(position);
-        K(frames);
+        const char name[] = "name";;
+        const char preset[] = "preset";;
+        const char position[] = "position";;
+        const char frames[] = "frames";;
     }
-    K(resize);
+    const char resize[] = "resize";;
     namespace Resize {
-        K(width);
-        K(height);
-        K(filter);
+        const char width[] = "width";;
+        const char height[] = "height";;
+        const char filter[] = "filter";;
     }
-    K(crop);
+    const char crop[] = "crop";;
     namespace Crop {
-        K(early);
-        K(left);
-        K(top);
-        K(right);
-        K(bottom);
+        const char early[] = "early";;
+        const char left[] = "left";;
+        const char top[] = "top";;
+        const char right[] = "right";;
+        const char bottom[] = "bottom";;
     }
-    K(depth);
+    const char depth[] = "depth";;
     namespace Depth {
-        K(bits);
-        K(float, samples);
-        K(dither);
+        const char bits[] = "bits";;
+        const char float_samples[] = "float" " " "samples";;
+        const char dither[] = "dither";;
     }
 }
-#undef K
-#undef KEY
-#undef KEY1
-#undef KEY2
-#undef KEY3
-#undef KEY4
 
 
 WobblyProject::WobblyProject(bool _is_wobbly)
@@ -1415,9 +1400,9 @@ void WobblyProject::addFreezeFrame(int first, int last, int replacement) {
         throw WobblyException("Can't add FreezeFrame (" + std::to_string(first) + "," + std::to_string(last) + "," + std::to_string(replacement) + "): overlaps (" + std::to_string(overlap->first) + "," + std::to_string(overlap->last) + "," + std::to_string(overlap->replacement) + ").");
 
     FreezeFrame ff = {
-        .first = first,
-        .last = last,
-        .replacement = replacement
+        first,
+        last,
+        replacement
     };
     frozen_frames->insert(std::make_pair(first, ff));
 
