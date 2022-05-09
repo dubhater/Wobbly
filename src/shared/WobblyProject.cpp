@@ -155,17 +155,7 @@ namespace Keys {
 
 
 WobblyProject::WobblyProject(bool _is_wobbly)
-    : num_frames{ 0, 0 }
-    , fps_num(0)
-    , fps_den(0)
-    , width(0)
-    , height(0)
-    , zoom(1)
-    , last_visited_frame(0)
-    , shown_frame_rates{ false, false, false, false, false }
-    , mic_search_minimum(5)
-    , c_match_sequences_minimum(20)
-    , is_wobbly(_is_wobbly)
+    : is_wobbly(_is_wobbly)
     , pattern_guessing{ PatternGuessingFromMics, 10, UseThirdNMatchNever, DropFirstDuplicate, PatternCCCNN | PatternCCNNN | PatternCCCCC, FailedPatternGuessingMap() }
     , combed_frames(new CombedFramesModel(this))
     , frozen_frames(new FrozenFramesModel(this))
@@ -173,11 +163,6 @@ WobblyProject::WobblyProject(bool _is_wobbly)
     , custom_lists(new CustomListsModel(this))
     , sections(new SectionsModel(this))
     , bookmarks(new BookmarksModel(this))
-    , resize{ false, 0, 0, "spline16" }
-    , crop{ false, false, 0, 0, 0, 0 }
-    , depth{ false, 8, false, "random" }
-    , freeze_frames_wanted(true)
-    , is_modified(false)
 {
     connect(bookmarks, &BookmarksModel::dataChanged, [this] () {
         setModified(true);
@@ -215,6 +200,11 @@ int WobblyProject::getNumFrames(PositionInFilterChain position) const {
         return num_frames[1];
     else
         throw WobblyException("Can't get the number of frames for position " + std::to_string(position) + ": invalid position.");
+}
+
+
+bool WobblyProject::isValidMatchChar(char match) {
+    return (match == 'p' || match == 'c' || match == 'n' || match == 'b' || match == 'u');
 }
 
 
@@ -610,17 +600,6 @@ void WobblyProject::readProject(const std::string &path) {
     if (project_format_version > PROJECT_FORMAT_VERSION)
         throw WobblyException(path + ": the project's format version is " + std::to_string(project_format_version) + ", but this software only understands format version " + std::to_string(PROJECT_FORMAT_VERSION) + " and older. Upgrade the software and try again.");
 
-
-//    int wobbly_version = 0;
-//    it = json_project.FindMember(Keys::wobbly_version);
-//    if (it != json_project.MemberEnd()) {
-//        if (project_format_version == 1)
-//            wobbly_version = std::atoi(it->value.GetString());
-//        else
-//            wobbly_version = it->value.GetInt();
-//    }
-
-
     it = json_project.FindMember(Keys::input_file);
     if (it == json_project.MemberEnd())
         throw WobblyException(path + ": JSON key '" + Keys::input_file + "' is missing.");
@@ -999,11 +978,7 @@ void WobblyProject::readProject(const std::string &path) {
 
             matches[i] = json_matches[i].GetString()[0];
 
-            if (matches[i] != 'p' &&
-                matches[i] != 'c' &&
-                matches[i] != 'n' &&
-                matches[i] != 'b' &&
-                matches[i] != 'u')
+            if (!isValidMatchChar(matches[i]))
                 throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::matches + "' must be one of 'p', 'c', 'n', 'b', or 'u'.");
         }
     }
@@ -1023,11 +998,7 @@ void WobblyProject::readProject(const std::string &path) {
 
             original_matches[i] = json_original_matches[i].GetString()[0];
 
-            if (original_matches[i] != 'p' &&
-                original_matches[i] != 'c' &&
-                original_matches[i] != 'n' &&
-                original_matches[i] != 'b' &&
-                original_matches[i] != 'u')
+            if (!isValidMatchChar(original_matches[i]))
                 throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::original_matches + "' must be one of 'p', 'c', 'n', 'b', or 'u'.");
         }
     }
@@ -1663,7 +1634,7 @@ void WobblyProject::setOriginalMatch(int frame, char match) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't set the original match for frame " + std::to_string(frame) + ": frame number out of range.");
 
-    if (match != 'p' && match != 'c' && match != 'n' && match != 'b' && match != 'u')
+    if (!isValidMatchChar(match))
         throw WobblyException("Can't set the original match for frame " + std::to_string(frame) + ": '" + match + "' is not a valid match character.");
 
     if (!original_matches.size())
@@ -1690,7 +1661,7 @@ void WobblyProject::setMatch(int frame, char match) {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't set the match for frame " + std::to_string(frame) + ": frame number out of range.");
 
-    if (match != 'p' && match != 'c' && match != 'n' && match != 'b' && match != 'u')
+    if (!isValidMatchChar(match))
         throw WobblyException("Can't set the match for frame " + std::to_string(frame) + ": '" + match + "' is not a valid match character.");
 
     if (frame == 0 && (match == 'b' || match == 'p'))
@@ -3376,8 +3347,7 @@ void WobblyProject::sourceToScript(std::string &script, bool save_node) const {
     script +=
             "try:\n"
             "    src = vs.get_output(index=1)\n"
-            // Since VapourSynth R41 get_output returns the alpha as well.
-            "    if isinstance(src, tuple):\n"
+            "    if isinstance(src, vs.VideoOutputTuple):\n"
             "        src = src[0]\n"
             "except KeyError:\n"
             "    " + src +
@@ -3559,7 +3529,7 @@ void WobblyProject::resizeAndBitDepthToScript(std::string &script, bool resize_e
     }
 
     if (depth_enabled)
-        script += ", format=c.register_format(src.format.color_family, " + std::string(depth.float_samples ? "vs.FLOAT" : "vs.INTEGER") + ", " + std::to_string(depth.bits) + ", src.format.subsampling_w, src.format.subsampling_h).id";
+        script += ", format=c.query_video_format(src.format.color_family, " + std::string(depth.float_samples ? "vs.FLOAT" : "vs.INTEGER") + ", " + std::to_string(depth.bits) + ", src.format.subsampling_w, src.format.subsampling_h).id";
 
     script += ")\n\n";
 }
@@ -3689,80 +3659,72 @@ std::string WobblyProject::generateKeyframesV1() const {
 
 
 void WobblyProject::importFromOtherProject(const std::string &path, const ImportedThings &imports) {
-    WobblyProject *other = new WobblyProject(true);
+    std::unique_ptr<WobblyProject> other(new WobblyProject(true));
 
-    try {
-        other->readProject(path);
+    other->readProject(path);
 
-        if (imports.geometry) {
-            setUIState(other->getUIState());
-            setUIGeometry(other->getUIGeometry());
-        }
-
-        if (imports.presets || imports.custom_lists) {
-            const PresetsModel *p = other->getPresetsModel();
-            for (auto it = p->cbegin(); it != p->cend(); it++) {
-                std::string preset_name = it->second.name;
-
-                bool rename_needed = presetExists(preset_name);
-                while (presetExists(preset_name))
-                    preset_name += "_imported";
-
-                if (rename_needed) {
-                    while (presetExists(preset_name) || other->presetExists(preset_name))
-                        preset_name += "_imported";
-                }
-
-                other->renamePreset(it->second.name, preset_name); // changes to other aren't saved, so it's okay.
-                if (imports.presets)
-                    addPreset(preset_name, other->getPresetContents(preset_name));
-            }
-        }
-
-        if (imports.custom_lists) {
-            const CustomListsModel *lists = other->getCustomListsModel();
-            for (size_t i = 0; i < lists->size(); i++) {
-                if (lists->at(i).preset.size() && !presetExists(lists->at(i).preset))
-                    addPreset(lists->at(i).preset, other->getPresetContents(lists->at(i).preset));
-
-                CustomList list = lists->at(i);
-                while (customListExists(list.name))
-                    list.name += "_imported";
-                addCustomList(list);
-            }
-        }
-
-        if (imports.crop) {
-            setCropEnabled(other->isCropEnabled());
-            setCropEarly(other->isCropEarly());
-            const Crop &c = other->getCrop();
-            setCrop(c.left, c.top, c.right, c.bottom);
-        }
-
-        if (imports.resize) {
-           setResizeEnabled(other->isResizeEnabled());
-           const Resize &r = other->getResize();
-           setResize(r.width, r.height, r.filter);
-        }
-
-        if (imports.bit_depth) {
-            setBitDepthEnabled(other->isBitDepthEnabled());
-            const Depth &d = other->getBitDepth();
-            setBitDepth(d.bits, d.float_samples, d.dither);
-        }
-
-        if (imports.mic_search)
-            setMicSearchMinimum(other->getMicSearchMinimum());
-
-        if (imports.zoom)
-            setZoom(other->getZoom());
-
-        delete other;
-
-        setModified(true);
-    } catch (WobblyException &e) {
-        delete other;
-
-        throw e;
+    if (imports.geometry) {
+        setUIState(other->getUIState());
+        setUIGeometry(other->getUIGeometry());
     }
+
+    if (imports.presets || imports.custom_lists) {
+        const PresetsModel *p = other->getPresetsModel();
+        for (auto it = p->cbegin(); it != p->cend(); it++) {
+            std::string preset_name = it->second.name;
+
+            bool rename_needed = presetExists(preset_name);
+            while (presetExists(preset_name))
+                preset_name += "_imported";
+
+            if (rename_needed) {
+                while (presetExists(preset_name) || other->presetExists(preset_name))
+                    preset_name += "_imported";
+            }
+
+            other->renamePreset(it->second.name, preset_name); // changes to other aren't saved, so it's okay.
+            if (imports.presets)
+                addPreset(preset_name, other->getPresetContents(preset_name));
+        }
+    }
+
+    if (imports.custom_lists) {
+        const CustomListsModel *lists = other->getCustomListsModel();
+        for (size_t i = 0; i < lists->size(); i++) {
+            if (lists->at(i).preset.size() && !presetExists(lists->at(i).preset))
+                addPreset(lists->at(i).preset, other->getPresetContents(lists->at(i).preset));
+
+            CustomList list = lists->at(i);
+            while (customListExists(list.name))
+                list.name += "_imported";
+            addCustomList(list);
+        }
+    }
+
+    if (imports.crop) {
+        setCropEnabled(other->isCropEnabled());
+        setCropEarly(other->isCropEarly());
+        const Crop &c = other->getCrop();
+        setCrop(c.left, c.top, c.right, c.bottom);
+    }
+
+    if (imports.resize) {
+        setResizeEnabled(other->isResizeEnabled());
+        const Resize &r = other->getResize();
+        setResize(r.width, r.height, r.filter);
+    }
+
+    if (imports.bit_depth) {
+        setBitDepthEnabled(other->isBitDepthEnabled());
+        const Depth &d = other->getBitDepth();
+        setBitDepth(d.bits, d.float_samples, d.dither);
+    }
+
+    if (imports.mic_search)
+        setMicSearchMinimum(other->getMicSearchMinimum());
+
+    if (imports.zoom)
+        setZoom(other->getZoom());
+
+    setModified(true);
 }

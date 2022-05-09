@@ -262,7 +262,6 @@ private:
 
     void initialiseVapourSynth();
     void cleanUpVapourSynth();
-    void checkRequiredFilters();
 
     void updateGeometry();
     void updateWindowTitle();

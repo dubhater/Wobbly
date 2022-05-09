@@ -55,10 +55,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <IncludePath>../../;$(IncludePath)</IncludePath>
+    <IncludePath>../../;C:\Program Files\VapourSynth\sdk\include\vapoursynth;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <IncludePath>../../;$(IncludePath)</IncludePath>
+    <IncludePath>../../;C:\Program Files\VapourSynth\sdk\include\vapoursynth;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -109,6 +109,7 @@
     <ClCompile Include="..\..\src\shared\ScrollArea.cpp" />
     <ClCompile Include="..\..\src\shared\SectionsModel.cpp" />
     <ClCompile Include="..\..\src\shared\WobblyProject.cpp" />
+    <ClCompile Include="..\..\src\shared\WobblyShared.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="..\..\src\shared\BookmarksModel.h" />
@@ -140,6 +141,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\src\shared\RandomStuff.h" />
     <ClInclude Include="..\..\src\shared\WobblyException.h" />
+    <ClInclude Include="..\..\src\shared\WobblyShared.h" />
     <ClInclude Include="..\..\src\shared\WobblyTypes.h" />
     <QtMoc Include="..\..\src\shared\WobblyProject.h" />
     <QtMoc Include="..\..\src\shared\SectionsModel.h" />

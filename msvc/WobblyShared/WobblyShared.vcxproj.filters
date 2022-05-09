@@ -59,6 +59,9 @@
     <ClCompile Include="..\..\src\shared\WobblyProject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\shared\WobblyShared.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="..\..\src\shared\BookmarksModel.h">
@@ -106,6 +109,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\shared\WobblyTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\shared\WobblyShared.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

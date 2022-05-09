@@ -42,6 +42,7 @@ SOFTWARE.
 #include "ScrollArea.h"
 #include "WibblyWindow.h"
 #include "WobblyException.h"
+#include "WobblyShared.h"
 
 
 // To avoid duplicating the string literals passed to QSettings
@@ -84,11 +85,10 @@ WibblyWindow::WibblyWindow()
 
     try {
         initialiseVapourSynth();
-
-        checkRequiredFilters();
     } catch (WobblyException &e) {
         show();
         errorPopup(e.what());
+        exit(1);
     }
 
     readSettings();
@@ -170,90 +170,6 @@ void WibblyWindow::cleanUpVapourSynth() {
 
     vssapi->freeScript(vsscript);
     vsscript = nullptr;
-}
-
-
-void WibblyWindow::checkRequiredFilters() {
-    struct Plugin {
-        std::string id;
-        std::vector<std::string> filters;
-        std::string plugin_not_found;
-        std::string filter_not_found;
-    };
-
-    std::vector<Plugin> plugins = {
-        {
-            "com.vapoursynth.dgdecodenv",
-            { "DGSource" },
-            "DGDecNV plugin not found.",
-            ""
-        },
-        {
-            "com.sources.d2vsource",
-            { "Source" },
-            "d2vsource plugin not found.",
-            ""
-        },
-        {
-            "systems.innocent.lsmas",
-            { "LibavSMASHSource", "LWLibavSource" },
-            "L-SMASH-Works plugin not found.",
-            ""
-        },
-        {
-            "org.ivtc.v",
-            { "VFM", "VDecimate" },
-            "VIVTC plugin not found.",
-            ""
-        },
-        {
-            "com.nodame.scxvid",
-            { "Scxvid" },
-            "SCXVID plugin not found.",
-            ""
-        },
-        {
-            "com.vapoursynth.resize",
-            { "Point", "Bilinear", "Bicubic", "Spline16", "Spline36", "Lanczos" },
-            "built-in resizers not found. Did you compile VapourSynth yourself?",
-            "VapourSynth version is older than r29."
-        },
-        {
-            "com.vapoursynth.std",
-            { "PlaneStats" },
-            "built-in filters not found. Something is borked.",
-            "VapourSynth version is older than r32."
-        }
-    };
-
-    std::string error;
-
-    for (size_t i = 0; i < plugins.size(); i++) {
-        VSPlugin *plugin = vsapi->getPluginByID(plugins[i].id.c_str(), vscore);
-        if (!plugin) {
-            error += "Fatal error: ";
-            error += plugins[i].plugin_not_found;
-            error += "\n";
-        } else {
-            for (const auto &it : plugins[i].filters) {
-                if (!vsapi->getPluginFunctionByName(it.c_str(), plugin)) {
-                    error += "Fatal error: plugin '";
-                    error += plugins[i].id;
-                    error += "' found but it lacks filter '";
-                    error += it;
-                    error += "'.";
-                    if (plugins[i].filter_not_found.size()) {
-                        error += " Likely reason: ";
-                        error += plugins[i].filter_not_found;
-                    }
-                    error += "\n";
-                }
-            }
-        }
-    }
-
-    if (error.size())
-        throw WobblyException(error);
 }
 
 
@@ -1358,27 +1274,9 @@ void WibblyWindow::displayFrame(int n) {
     if (!frame)
         throw WobblyException(std::string("Failed to retrieve frame. Error message: ") + error.data());
 
-    const uint8_t *ptrR = vsapi->getReadPtr(frame, 0);
-    const uint8_t *ptrG = vsapi->getReadPtr(frame, 1);
-    const uint8_t *ptrB = vsapi->getReadPtr(frame, 2);
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
-    int stride = vsapi->getStride(frame, 0);
-    uint8_t *frame_data = reinterpret_cast<uint8_t *>(malloc(width * height * 4));
-    uint8_t *fd_ptr = frame_data;
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            fd_ptr[0] = ptrB[x];
-            fd_ptr[1] = ptrG[x];
-            fd_ptr[2] = ptrR[x];
-            fd_ptr[3] = 0;
-            fd_ptr += 4;
-        }
-        ptrR += stride;
-        ptrG += stride;
-        ptrB += stride;
-    }
-
+    uint8_t *frame_data = packRGBFrame(vsapi, frame);
     vsapi->freeFrame(frame);
 
     QPixmap pixmap = QPixmap::fromImage(QImage(frame_data, width, height, width * 4, QImage::Format_RGB32, free, frame_data));

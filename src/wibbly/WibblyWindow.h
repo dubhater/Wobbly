@@ -137,7 +137,6 @@ class WibblyWindow : public QMainWindow
     // Functions.
     void initialiseVapourSynth();
     void cleanUpVapourSynth();
-    void checkRequiredFilters();
 
     void closeEvent(QCloseEvent *event);
     void dragEnterEvent(QDragEnterEvent *event);

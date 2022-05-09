@@ -35,8 +35,7 @@ void CombedFramesCollector::start(std::string script, const char *script_name) {
     script +=
             "src = vs.get_output(index=0)\n"
 
-            // Since VapourSynth R41 get_output returns the alpha as well.
-            "if isinstance(src, tuple):\n"
+            "if isinstance(src, vs.VideoOutputTuple):\n"
             "    src = src[0]\n"
 
             "src = c.tdm.IsCombed(src)\n"

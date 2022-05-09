@@ -230,8 +230,7 @@ void WibblyJob::sourceToScript(std::string &script) const {
             "if wibbly_last_input_file == r'" + fixed_input_file + "':\n"
             "    try:\n"
             "        src = vs.get_output(index=1)\n"
-            // Since VapourSynth R41 get_output returns the alpha as well.
-            "        if isinstance(src, tuple):\n"
+            "        if isinstance(src, vs.VideoOutputTuple):\n"
             "            src = src[0]\n"
             "    except KeyError:\n"
             "        src = c." + source_filter + "(r'" + fixed_input_file + "')\n"

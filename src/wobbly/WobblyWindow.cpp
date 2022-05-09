@@ -50,6 +50,7 @@ SOFTWARE.
 #include "ScrollArea.h"
 #include "WobblyException.h"
 #include "WobblyWindow.h"
+#include "WobblyShared.h"
 
 
 // To avoid duplicating the string literals passed to QSettings
@@ -103,11 +104,10 @@ WobblyWindow::WobblyWindow()
 
     try {
         initialiseVapourSynth();
-
-        checkRequiredFilters();
     } catch (WobblyException &e) {
         show();
         errorPopup(e.what());
+        exit(1);
     }
 }
 
@@ -3107,90 +3107,6 @@ void WobblyWindow::cleanUpVapourSynth() {
 }
 
 
-void WobblyWindow::checkRequiredFilters() {
-    struct Plugin {
-        std::string id;
-        std::vector<std::string> filters;
-        std::string plugin_not_found;
-        std::string filter_not_found;
-    };
-
-    std::vector<Plugin> plugins = {
-        {
-            "com.vapoursynth.dgdecodenv",
-            { "DGSource" },
-            "DGDecNV plugin not found.",
-            ""
-        },
-        {
-            "com.sources.d2vsource",
-            { "Source" },
-            "d2vsource plugin not found.",
-            ""
-        },
-        {
-            "systems.innocent.lsmas",
-            { "LibavSMASHSource", "LWLibavSource" },
-            "L-SMASH-Works plugin not found.",
-            ""
-        },
-        {
-            "com.nodame.fieldhint",
-            { "FieldHint" },
-            "FieldHint plugin not found.",
-            "FieldHint plugin is too old."
-        },
-        {
-            "com.vapoursynth.std",
-            { "FreezeFrames", "DeleteFrames" },
-            "VapourSynth standard filter library not found. This should never happen.",
-            "VapourSynth version is older than r24."
-        },
-        {
-            "com.vapoursynth.resize",
-            { "Point", "Bilinear", "Bicubic", "Spline16", "Spline36", "Lanczos" },
-            "built-in resizers not found. Did you compile VapourSynth yourself?",
-            "VapourSynth version is older than r29."
-        },
-        {
-            "com.holywu.tdeintmod",
-            { "IsCombed" },
-            "TDeintMod plugin not found.",
-            "TDeintMod plugin is older than r4."
-        }
-    };
-
-    std::string error;
-
-    for (size_t i = 0; i < plugins.size(); i++) {
-        VSPlugin *plugin = vsapi->getPluginByID(plugins[i].id.c_str(), vscore);
-        if (!plugin) {
-            error += "Fatal error: ";
-            error += plugins[i].plugin_not_found;
-            error += "\n";
-        } else {
-            for (const auto &it : plugins[i].filters) {
-                if (!vsapi->getPluginFunctionByName(it.c_str(), plugin)) {
-                    error += "Fatal error: plugin '";
-                    error += plugins[i].id;
-                    error += "' found but it lacks filter '";
-                    error += it;
-                    error += "'.";
-                    if (plugins[i].filter_not_found.size()) {
-                        error += " Likely reason: ";
-                        error += plugins[i].filter_not_found;
-                    }
-                    error += "\n";
-                }
-            }
-        }
-    }
-
-    if (error.size())
-        throw WobblyException(error);
-}
-
-
 void WobblyWindow::updateGeometry() {
     const std::string &state = project->getUIState();
     if (state.size())
@@ -4251,8 +4167,7 @@ void WobblyWindow::evaluateScript(bool final_script) {
     script +=
             "src = vs.get_output(index=0)\n"
 
-            // Since VapourSynth R41 get_output returns the alpha as well.
-            "if isinstance(src, tuple):\n"
+            "if isinstance(src, vs.VideoOutputTuple):\n"
             "    src = src[0]\n"
 
             "if src.format is None:\n"
@@ -4402,27 +4317,9 @@ void WobblyWindow::frameDone(void *framev, int n, bool preview_node, const QStri
         return;
     }
 
-    const uint8_t *ptrR = vsapi->getReadPtr(frame, 0);
-    const uint8_t *ptrG = vsapi->getReadPtr(frame, 1);
-    const uint8_t *ptrB = vsapi->getReadPtr(frame, 2);
     int width = vsapi->getFrameWidth(frame, 0);
     int height = vsapi->getFrameHeight(frame, 0);
-    int stride = vsapi->getStride(frame, 0);
-    uint8_t *frame_data = reinterpret_cast<uint8_t *>(malloc(width * height * 4));
-    uint8_t *fd_ptr = frame_data;
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            fd_ptr[0] = ptrB[x];
-            fd_ptr[1] = ptrG[x];
-            fd_ptr[2] = ptrR[x];
-            fd_ptr[3] = 0;
-            fd_ptr += 4;
-        }
-        ptrR += stride;
-        ptrG += stride;
-        ptrB += stride;
-    }
-
+    uint8_t *frame_data = packRGBFrame(vsapi, frame);
     vsapi->freeFrame(frame);
 
     QImage image = QImage(frame_data, width, height, width * 4, QImage::Format_RGB32, free, frame_data);

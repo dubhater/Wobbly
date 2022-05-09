@@ -52,19 +52,6 @@ SOFTWARE.
 #include "WobblyTypes.h"
 
 
-/*
-static const char[] match_chars = { 'p', 'c', 'n', 'b', 'u' };
-
-
-enum Matches {
-    P = 0,
-    C,
-    N,
-    B,
-    U
-};
-*/
-
 
 static inline uint8_t matchCharToIndex(char match) {
     if (match == 'p')
@@ -86,21 +73,21 @@ class WobblyProject : public QObject {
     Q_OBJECT
 
     private:
-        int num_frames[2];
+        int num_frames[2] = {};
 
-        int64_t fps_num;
-        int64_t fps_den;
+        int64_t fps_num = 0;
+        int64_t fps_den = 0;
 
-        int width;
-        int height;
+        int width = 0;
+        int height = 0;
 
-        int zoom;
-        int last_visited_frame;
+        int zoom = 1;
+        int last_visited_frame = 0;
         std::string ui_state;
         std::string ui_geometry;
-        std::array<bool, 5> shown_frame_rates;
-        int mic_search_minimum;
-        int c_match_sequences_minimum;
+        std::array<bool, 5> shown_frame_rates = {};
+        int mic_search_minimum = 5;
+        int c_match_sequences_minimum = 20;
 
         std::string input_file;
         std::map<int, FrameRange> trims; // Key is FrameRange::first
@@ -126,18 +113,19 @@ class WobblyProject : public QObject {
         SectionsModel *sections;
         BookmarksModel *bookmarks;
 
-        Resize resize;
-        Crop crop;
-        Depth depth;
+        Resize resize = { false, 0, 0, "spline16" };
+        Crop crop = {};
+        Depth depth = { false, 8, false, "random" };
 
         std::string source_filter;
 
-        bool freeze_frames_wanted;
+        bool freeze_frames_wanted = true;
 
-        bool is_modified;
+        bool is_modified = false;
 
         // Only functions below.
 
+        static bool isValidMatchChar(char match);
         void setNumFrames(PositionInFilterChain position, int frames);
 
         bool isNameSafeForPython(const std::string &name) const;

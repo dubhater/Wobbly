@@ -28,8 +28,7 @@ SOFTWARE.
 
 class WobblyException : public std::runtime_error {
 public:
-    WobblyException(const char *text) : std::runtime_error(text) { }
-    WobblyException(const std::string &text) : std::runtime_error(text) { }
+    using std::runtime_error::runtime_error;
     WobblyException(const QString &text) : std::runtime_error(text.toStdString()) { }
 };
 
