@@ -2536,7 +2536,7 @@ void WobblyWindow::createBookmarksWindow() {
     connect(bookmarks_view, &TableView::doubleClicked, [this] (const QModelIndex &index) {
         if (index.column() == BookmarksModel::FrameColumn) {
             bool ok;
-            int frame = combed_view->model()->data(index).toInt(&ok);
+            int frame = bookmarks_view->model()->data(index).toInt(&ok);
             if (ok)
                 requestFrames(frame);
         }
