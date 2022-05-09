@@ -21,6 +21,13 @@ SOFTWARE.
 #ifndef WOBBLYPROJECT_H
 #define WOBBLYPROJECT_H
 
+#ifndef PACKAGE_VERSION
+#define PACKAGE_VERSION "6"
+#endif
+
+#ifndef PACKAGE_URL
+#define PACKAGE_URL "https://github.com/dubhater/Wobbly"
+#endif
 
 #include <cstdint>
 
