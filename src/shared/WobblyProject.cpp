@@ -1693,6 +1693,12 @@ void WobblyProject::setMatch(int frame, char match) {
     if (match != 'p' && match != 'c' && match != 'n' && match != 'b' && match != 'u')
         throw WobblyException("Can't set the match for frame " + std::to_string(frame) + ": '" + match + "' is not a valid match character.");
 
+    if (frame == 0 && (match == 'b' || match == 'p'))
+        match = 'c';
+
+    if (frame == getNumFrames(PostSource) - 1 && (match == 'n' || match == 'u'))
+        match = 'c';
+
     if (!matches.size())
         matches.resize(getNumFrames(PostSource), 'c');
 
