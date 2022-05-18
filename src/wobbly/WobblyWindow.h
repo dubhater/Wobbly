@@ -380,6 +380,7 @@ public slots:
     void addSection();
     void deleteSection();
 
+    void openFile(const QString &path);
     void openProject();
     void openVideo();
     void saveProject();

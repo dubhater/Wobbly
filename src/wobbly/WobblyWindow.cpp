@@ -260,10 +260,7 @@ void WobblyWindow::dropEvent(QDropEvent *event) {
 
     QString path = urls[first_local].toLocalFile();
 
-    if (path.endsWith(".wob") || path.endsWith(".json"))
-        realOpenProject(path);
-    else
-        realOpenVideo(path);
+    openFile(path);
 
     event->acceptProposedAction();
 }
@@ -340,10 +337,7 @@ void WobblyWindow::createMenu() {
         if (askToSaveIfModified() == QMessageBox::Cancel)
             return;
 
-        if (path.endsWith(".wob") || path.endsWith(".json"))
-            realOpenProject(path);
-        else
-            realOpenVideo(path);
+        openFile(path);
     });
 
 
@@ -3580,6 +3574,14 @@ void WobblyWindow::realOpenProject(const QString &path) {
             requestFrames(current_frame);
         }
     }
+}
+
+
+void WobblyWindow::openFile(const QString &path) {
+    if (path.endsWith(".wob") || path.endsWith(".json"))
+        realOpenProject(path);
+    else
+        realOpenVideo(path);
 }
 
 
