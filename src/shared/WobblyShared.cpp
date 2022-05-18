@@ -31,11 +31,12 @@ struct PluginDetectionInfo {
 
 static PluginDetectionInfo requiredPlugins[] = {
     {"VIVTC", "org.ivtc.v", "VFM", "VDecimate"},
+    {"DMetrics", "com.vapoursynth.dmetrics", "DMetrics"},
     {"SCXVID", "com.nodame.scxvid", "Scxvid"},
     {"FieldHint", "com.nodame.fieldhint", "FieldHint"},
     {"TDeintMod", "com.holywu.tdeintmod", "IsCombed"},
     {"d2vsource", "com.sources.d2vsource", "Source"},
-    {"L-SMASH-Works", "systems.innocent.lsmas", "LibavSMASHSource", "LWLibavSource" },
+    {"L-SMASH-Works", "systems.innocent.lsmas", "LibavSMASHSource", "LWLibavSource"},
     {"DGDecNV", "com.vapoursynth.dgdecodenv", "DGSource"} };
 
 static FilterState checkIfFiltersExists(const VSAPI *vsapi, VSCore *vscore, const char *id, const char *function_name1, const char *function_name2) {

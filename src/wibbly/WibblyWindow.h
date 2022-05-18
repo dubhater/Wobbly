@@ -83,6 +83,9 @@ class WibblyWindow : public QMainWindow
     QSpinBox *crop_spin[4];
 
     DockWidget *vfm_dock;
+    QCheckBox *vfm_dmetrics_enabled;
+    QSpinBox *vfm_dmetrics_nt;
+
     std::vector<VIVTCParameter> vfm_params;
 
     std::vector<VIVTCParameter> vdecimate_params;

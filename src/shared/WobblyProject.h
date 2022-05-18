@@ -69,6 +69,18 @@ static inline uint8_t matchCharToIndex(char match) {
 }
 
 
+static inline uint8_t matchCharToIndexDMetrics(char match) {
+    if (match == 'c')
+        return 1;
+    if (match == 'n')
+        return 2;
+    if (match == 'b')
+        return 0;
+
+    return 255;
+}
+
+
 class WobblyProject : public QObject {
     Q_OBJECT
 
@@ -95,6 +107,8 @@ class WobblyProject : public QObject {
         std::map<std::string, double> vdecimate_parameters;
 
         std::vector<std::array<int16_t, 5> > mics;
+        std::vector<std::array<int32_t, 2> > mmetrics;
+        std::vector<std::array<int32_t, 2> > vmetrics;
         std::vector<char> matches;
         std::vector<char> original_matches;
         std::vector<std::set<int8_t> > decimated_frames; // unordered_set may be sufficient.
@@ -113,6 +127,7 @@ class WobblyProject : public QObject {
         SectionsModel *sections;
         BookmarksModel *bookmarks;
 
+        DMetrics dmetrics = { false, 10 };
         Resize resize = { false, 0, 0, "spline16" };
         Crop crop = {};
         Depth depth = { false, 8, false, "random" };
@@ -166,9 +181,11 @@ class WobblyProject : public QObject {
         void setVFMParameter(const std::string &name, double value);
         void setVDecimateParameter(const std::string &name, double value);
 
-
+        std::array<int32_t, 3> getMMetrics(int frame) const;
+        std::array<int32_t, 3> getVMetrics(int frame) const;
         std::array<int16_t, 5> getMics(int frame) const;
         void setMics(int frame, int16_t mic_p, int16_t mic_c, int16_t mic_n, int16_t mic_b, int16_t mic_u);
+        void setDMetrics(int frame, int32_t mmetric_p, int32_t mmetric_c, int32_t vmetric_p, int32_t vmetric_c);
         int getPreviousFrameWithMic(int minimum, int start_frame) const;
         int getNextFrameWithMic(int minimum, int start_frame) const;
 

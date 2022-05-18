@@ -26,6 +26,7 @@ SOFTWARE.
 WibblyJob::WibblyJob()
     : steps(StepTrim | StepCrop | StepFieldMatch | StepInterlacedFades | StepDecimation | StepSceneChanges)
     , crop{ true, false, 0, 0, 0, 0 }
+    , dmetrics{ false, 10 }
     , vfm{
             {
                 { "order", 1 },
@@ -141,6 +142,17 @@ void WibblyJob::addTrim(int trim_start, int trim_end) {
 
 void WibblyJob::deleteTrim(int trim_start) {
     trims.erase(trim_start);
+}
+
+
+const DMetrics &WibblyJob::getDMetrics() const {
+    return dmetrics;
+}
+
+
+void WibblyJob::setDMetrics(bool enabled, int nt) {
+    dmetrics.enabled = enabled;
+    dmetrics.nt = nt;
 }
 
 
@@ -266,6 +278,14 @@ void WibblyJob::cropToScript(std::string &script) const {
 
 
 void WibblyJob::fieldMatchToScript(std::string &script) const {
+    if (dmetrics.enabled) {
+        script += "src = c.dmetrics.DMetrics(clip=src, tff=" + std::to_string(vfm.int_params.at("order")) +
+            ", nt=" + std::to_string(dmetrics.nt) +
+            ", chroma=" + std::to_string(vfm.bool_params.at("chroma")) +
+            ", y0=" + std::to_string(vfm.int_params.at("y0")) +
+            ", y1=" + std::to_string(vfm.int_params.at("y1")) + ")\n\n";
+    }
+
     script += "src = c.vivtc.VFM(clip=src";
 
     for (auto it = vfm.int_params.cbegin(); it != vfm.int_params.cend(); it++)
@@ -312,8 +332,11 @@ void WibblyJob::framePropsToScript(std::string &script) const {
     script += "src = c.text.FrameProps(clip=src, props=[";
 
     std::string props;
-    if (steps & StepFieldMatch)
+    if (steps & StepFieldMatch) {
+        if (dmetrics.enabled)
+            props += "'MMetrics', 'VMetrics', ";
         props += "'VFMMatch', 'VFMMics', 'VFMSceneChange', '_Combed', ";
+    }
     if (steps & StepInterlacedFades)
         props += "'WibblyFieldDifference', ";
 

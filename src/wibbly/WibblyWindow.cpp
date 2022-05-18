@@ -829,6 +829,8 @@ void WibblyWindow::createVFMWindow() {
                     job.setVFMParameter(vfm_params[j].name.toStdString(), reinterpret_cast<QCheckBox *>(vfm_params[j].widget)->isChecked());
                 }
             }
+
+            job.setDMetrics(vfm_dmetrics_enabled->isChecked(), vfm_dmetrics_nt->value());
         }
 
         int current_row = main_jobs_list->currentRow();
@@ -874,6 +876,18 @@ void WibblyWindow::createVFMWindow() {
     QVBoxLayout *vbox = new QVBoxLayout;
     for (size_t i = 0; i < vfm_params.size(); i++)
         vbox->addWidget(vfm_params[i].widget);
+    
+    vfm_dmetrics_enabled = new QCheckBox("Enable DMetrics");
+    connect(vfm_dmetrics_enabled, &QCheckBox::clicked, parametersChanged);
+    vbox->addWidget(vfm_dmetrics_enabled);
+
+    vfm_dmetrics_nt = new QSpinBox;
+    vfm_dmetrics_nt->setPrefix("DMetrics nt: ");
+    vfm_dmetrics_nt->setMinimum(0);
+    connect(vfm_dmetrics_nt, static_cast<void (QSpinBox:: *)(int)>(&QSpinBox::valueChanged), parametersChanged);
+    vfm_dmetrics_nt->setValue(10);
+    vbox->addWidget(vfm_dmetrics_nt);
+
     vbox->addStretch(1);
 
     QHBoxLayout *hbox = new QHBoxLayout;
@@ -1192,7 +1206,7 @@ void WibblyWindow::evaluateDisplayScript() {
     script +=
             "src = vs.get_output(index=0)\n"
             // Since VapourSynth R41 get_output returns the alpha as well.
-            "if isinstance(src, tuple):\n"
+            "if isinstance(src, vs.VideoOutputTuple):\n"
             "    src = src[0]\n"
 
             "c.query_video_format(vs.GRAY, vs.INTEGER, 32, 0, 0)\n"
@@ -1461,6 +1475,12 @@ void WibblyWindow::frameDone(void *frame_v, int n, const QString &error_msg) {
             if (vsapi->mapNumElements(props, "VFMMics") == 5) {
                 const int64_t *mics = vsapi->mapGetIntArray(props, "VFMMics", &err);
                 current_project->setMics(n, mics[0], mics[1], mics[2], mics[3], mics[4]);
+            }
+
+            if (vsapi->mapNumElements(props, "MMetrics") == 2 && vsapi->mapNumElements(props, "VMetrics") == 2) {
+                const int64_t *mmetrics = vsapi->mapGetIntArray(props, "MMetrics", &err);
+                const int64_t *vmetrics = vsapi->mapGetIntArray(props, "VMetrics", &err);
+                current_project->setDMetrics(n, mmetrics[0], mmetrics[1], vmetrics[0], vmetrics[1]);
             }
 
             if (vsapi->mapGetInt(props, "_SceneChangePrev", 0, &err))

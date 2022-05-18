@@ -94,6 +94,12 @@ struct Crop {
 };
 
 
+struct DMetrics {
+    bool enabled;
+    int nt;
+};
+
+
 struct Depth {
     bool enabled;
     int bits;

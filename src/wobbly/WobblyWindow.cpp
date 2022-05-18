@@ -500,6 +500,10 @@ void WobblyWindow::createFrameDetailsViewer() {
     decimate_metric_label = new QLabel;
     mic_label = new QLabel;
     mic_label->setTextFormat(Qt::RichText);
+    mmetric_label = new QLabel;
+    mmetric_label->setTextFormat(Qt::RichText);
+    vmetric_label = new QLabel;
+    vmetric_label->setTextFormat(Qt::RichText);
     combed_label = new QLabel;
     bookmark_label = new QLabel;
     bookmark_label->setWordWrap(true);
@@ -512,6 +516,8 @@ void WobblyWindow::createFrameDetailsViewer() {
     vbox->addWidget(custom_list_label);
     vbox->addWidget(freeze_label);
     vbox->addWidget(decimate_metric_label);
+    vbox->addWidget(mmetric_label);
+    vbox->addWidget(vmetric_label);
     vbox->addWidget(mic_label);
     vbox->addWidget(combed_label);
     vbox->addWidget(bookmark_label);
@@ -4415,6 +4421,31 @@ void WobblyWindow::updateFrameDetails() {
     decimate_metric_label->setText(QStringLiteral("DMetric: ") + QString::number(project->getDecimateMetric(current_frame)));
 
 
+    int match_index2 = matchCharToIndexDMetrics(project->getMatch(current_frame));
+    QString mmetrics("MMetrics: ");
+    for (int i = 0; i < 3; i++) {
+        if (i == match_index2)
+            mmetrics += "<b>";
+
+        mmetrics += QStringLiteral("%1 ").arg((int)project->getMMetrics(current_frame)[i]);
+
+        if (i == match_index2)
+            mmetrics += "</b>";
+    }
+    mmetric_label->setText(mmetrics);
+
+    QString vmetrics("VMetrics: ");
+    for (int i = 0; i < 3; i++) {
+        if (i == match_index2)
+            vmetrics += "<b>";
+
+        vmetrics += QStringLiteral("%1 ").arg((int)project->getVMetrics(current_frame)[i]);
+
+        if (i == match_index2)
+            vmetrics += "</b>";
+    }
+    vmetric_label->setText(vmetrics);
+
     int match_index = matchCharToIndex(project->getMatch(current_frame));
     QString mics("Mics: ");
     for (int i = 0; i < 5; i++) {
@@ -4498,6 +4529,8 @@ void WobblyWindow::updateFrameDetails() {
         drawn_text += custom_list_label->text() + "<br />";
         drawn_text += freeze_label->text() + "<br />";
         drawn_text += decimate_metric_label->text() + "<br />";
+        drawn_text += mmetric_label->text() + "<br />";
+        drawn_text += vmetric_label->text() + "<br />";
         drawn_text += mic_label->text() + "<br />";
         drawn_text += combed_label->text() + "<br />";
         drawn_text += bookmark_label->text();

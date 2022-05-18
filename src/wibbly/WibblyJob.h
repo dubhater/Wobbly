@@ -59,6 +59,8 @@ class WibblyJob {
 
     std::map<int, FrameRange> trims;
 
+    DMetrics dmetrics;
+
     VIVTCParameters vfm;
 
     VIVTCParameters vdecimate;
@@ -100,10 +102,13 @@ public:
     const Crop &getCrop() const;
     void setCrop(int left, int top, int right, int bottom);
 
-
     const std::map<int, FrameRange> &getTrims() const;
     void addTrim(int trim_start, int trim_end);
     void deleteTrim(int trim_start);
+
+
+    const DMetrics &getDMetrics() const;
+    void setDMetrics(bool enabled, int nt);
 
 
     int getVFMParameterInt(const std::string &name) const;

@@ -102,6 +102,8 @@ namespace Keys {
         const char dupthresh[] = "dupthresh";;
         const char scthresh[] = "scthresh";;
     }
+    const char mmetrics[] = "mmetrics";;
+    const char vmetrics[] = "vmetrics";;
     const char mics[] = "mics";;
     const char matches[] = "matches";;
     const char original_matches[] = "original" " " "matches";;
@@ -349,7 +351,7 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
     }
     json_project.AddMember(Keys::trim, json_trims, a);
 
-
+    // FIXME, should probably save/load the DMetrics parameters here as well
     rj::Value json_vfm_parameters(rj::kObjectType);
 
     for (auto it = vfm_parameters.cbegin(); it != vfm_parameters.cend(); it++)
@@ -376,6 +378,32 @@ void WobblyProject::writeProject(const std::string &path, bool compact_project) 
         }
 
         json_project.AddMember(Keys::mics, json_mics, a);
+    }
+
+    if (mmetrics.size()) {
+        rj::Value json_mmetrics(rj::kArrayType);
+
+        for (size_t i = 0; i < mmetrics.size(); i++) {
+            rj::Value json_mmetric(rj::kArrayType);
+            for (int j = 0; j < 2; j++)
+                json_mmetric.PushBack(mmetrics[i][j], a);
+            json_mmetrics.PushBack(json_mmetric, a);
+        }
+
+        json_project.AddMember(Keys::mmetrics, json_mmetrics, a);
+    }
+
+    if (vmetrics.size()) {
+        rj::Value json_vmetrics(rj::kArrayType);
+
+        for (size_t i = 0; i < vmetrics.size(); i++) {
+            rj::Value json_vmetric(rj::kArrayType);
+            for (int j = 0; j < 2; j++)
+                json_vmetric.PushBack(vmetrics[i][j], a);
+            json_vmetrics.PushBack(json_vmetric, a);
+        }
+
+        json_project.AddMember(Keys::vmetrics, json_vmetrics, a);
     }
 
     if (matches.size()) {
@@ -937,6 +965,49 @@ void WobblyProject::readProject(const std::string &path) {
         }
     }
 
+    it = json_project.FindMember(Keys::mmetrics);
+    if (it != json_project.MemberEnd()) {
+        const rj::Value &json_mmetrics = it->value;
+
+        if (!json_mmetrics.IsArray() || json_mmetrics.Size() != (rj::SizeType)getNumFrames(PostSource))
+            throw WobblyException(path + ": JSON key '" + Keys::mmetrics + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+
+        mmetrics.resize(getNumFrames(PostSource), { 0 });
+        for (size_t i = 0; i < mmetrics.size(); i++) {
+            const rj::Value &json_mmetric = json_mmetrics[i];
+
+            if (!json_mmetric.IsArray() ||
+                json_mmetric.Size() != 2 ||
+                !json_mmetric[0].IsInt() ||
+                !json_mmetric[1].IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::mmetrics + "' must be an array of exactly 2 integers.");
+
+            for (rj::SizeType j = 0; j < json_mmetric.Size(); j++)
+                mmetrics[i][j] = json_mmetric[j].GetInt();
+        }
+    }
+
+    it = json_project.FindMember(Keys::vmetrics);
+    if (it != json_project.MemberEnd()) {
+        const rj::Value &json_vmetrics = it->value;
+
+        if (!json_vmetrics.IsArray() || json_vmetrics.Size() != (rj::SizeType)getNumFrames(PostSource))
+            throw WobblyException(path + ": JSON key '" + Keys::vmetrics + "' must be an array with exactly " + std::to_string(getNumFrames(PostSource)) + " elements.");
+
+        vmetrics.resize(getNumFrames(PostSource), { 0 });
+        for (size_t i = 0; i < vmetrics.size(); i++) {
+            const rj::Value &json_vmetric = json_vmetrics[i];
+
+            if (!json_vmetric.IsArray() ||
+                json_vmetric.Size() != 2 ||
+                !json_vmetric[0].IsInt() ||
+                !json_vmetric[1].IsInt())
+                throw WobblyException(path + ": element number " + std::to_string(i) + " of JSON key '" + Keys::vmetrics + "' must be an array of exactly 2 integers.");
+
+            for (rj::SizeType j = 0; j < json_vmetric.Size(); j++)
+                vmetrics[i][j] = json_vmetric[j].GetInt();
+        }
+    }
 
     it = json_project.FindMember(Keys::mics);
     if (it != json_project.MemberEnd()) {
@@ -1560,6 +1631,32 @@ void WobblyProject::setVDecimateParameter(const std::string &name, double value)
 }
 
 
+std::array<int32_t, 3> WobblyProject::getMMetrics(int frame) const {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the mmetrics for frame " + std::to_string(frame) + ": frame number out of range.");
+
+    if (mmetrics.size() && frame < mmetrics.size() - 1)
+        return { mmetrics[frame][0], mmetrics[frame][1], mmetrics[frame + 1][0] };
+    if (mmetrics.size())
+        return { mmetrics[frame][0], mmetrics[frame][1], mmetrics[frame][1] };
+    else
+        return { 0, 0, 0 };
+}
+
+
+std::array<int32_t, 3>WobblyProject::getVMetrics(int frame) const {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't get the vmetrics for frame " + std::to_string(frame) + ": frame number out of range.");
+
+    if (vmetrics.size() && frame < vmetrics.size() - 1)
+        return { vmetrics[frame][0], vmetrics[frame][1], vmetrics[frame + 1][0] };
+    if (vmetrics.size())
+        return { vmetrics[frame][0], vmetrics[frame][1], vmetrics[frame][1] };
+    else
+        return { 0, 0, 0 };
+}
+
+
 std::array<int16_t, 5> WobblyProject::getMics(int frame) const {
     if (frame < 0 || frame >= getNumFrames(PostSource))
         throw WobblyException("Can't get the mics for frame " + std::to_string(frame) + ": frame number out of range.");
@@ -1584,6 +1681,26 @@ void WobblyProject::setMics(int frame, int16_t mic_p, int16_t mic_c, int16_t mic
     mic[2] = mic_n;
     mic[3] = mic_b;
     mic[4] = mic_u;
+}
+
+
+void WobblyProject::setDMetrics(int frame, int32_t mmetric_p, int32_t mmetric_c, int32_t vmetric_p, int32_t vmetric_c) {
+    if (frame < 0 || frame >= getNumFrames(PostSource))
+        throw WobblyException("Can't set the mics for frame " + std::to_string(frame) + ": frame number out of range.");
+
+    if (!mmetrics.size())
+        mmetrics.resize(getNumFrames(PostSource), { 0 });
+
+    if (!vmetrics.size())
+        vmetrics.resize(getNumFrames(PostSource), { 0 });
+
+    auto &mmetric = mmetrics[frame];
+    mmetric[0] = mmetric_p;
+    mmetric[1] = mmetric_c;
+
+    auto &vmetric = vmetrics[frame];
+    vmetric[0] = vmetric_p;
+    vmetric[1] = vmetric_c;
 }
 
 

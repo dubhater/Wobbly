@@ -88,6 +88,8 @@ private:
     QLabel *freeze_label;
     QLabel *decimate_metric_label;
     QLabel *mic_label;
+    QLabel *mmetric_label;
+    QLabel *vmetric_label;
     QLabel *combed_label;
     QLabel *bookmark_label;
 
