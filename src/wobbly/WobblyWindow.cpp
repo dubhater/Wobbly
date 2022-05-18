@@ -260,7 +260,7 @@ void WobblyWindow::dropEvent(QDropEvent *event) {
 
     QString path = urls[first_local].toLocalFile();
 
-    if (path.endsWith(".json"))
+    if (path.endsWith(".wob") || path.endsWith(".json"))
         realOpenProject(path);
     else
         realOpenVideo(path);
@@ -340,7 +340,7 @@ void WobblyWindow::createMenu() {
         if (askToSaveIfModified() == QMessageBox::Cancel)
             return;
 
-        if (path.endsWith(".json"))
+        if (path.endsWith(".wob") || path.endsWith(".json"))
             realOpenProject(path);
         else
             realOpenVideo(path);
@@ -3043,7 +3043,7 @@ void WobblyWindow::vsLogPopup(int msgType, const QString &msg) {
     if (msgType == mtFatal) {
         if (project) {
             if (project_path.isEmpty())
-                project_path = video_path + ".json";
+                project_path = video_path + ".wob";
 
             realSaveProject(project_path);
 
@@ -3587,7 +3587,7 @@ void WobblyWindow::openProject() {
     if (askToSaveIfModified() == QMessageBox::Cancel)
         return;
 
-    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
+    QString path = QFileDialog::getOpenFileName(this, QStringLiteral("Open Wobbly project"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.wob);;All files (*)"));
 
     if (!path.isNull()) {
         settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
@@ -3744,7 +3744,7 @@ void WobblyWindow::saveProjectAs() {
         if (!project)
             throw WobblyException("Can't save the project because none has been loaded.");
 
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Save Wobbly project"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.wob);;All files (*)"));
 
         if (!path.isNull()) {
             settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());

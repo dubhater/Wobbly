@@ -421,7 +421,7 @@ void WibblyWindow::createMainWindow() {
     connect(main_destination_edit, &QLineEdit::editingFinished, destinationChanged);
 
     connect(main_choose_button, &QPushButton::clicked, [this, destinationChanged] () {
-        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.json);;All files (*)"));
+        QString path = QFileDialog::getSaveFileName(this, QStringLiteral("Choose destination"), settings.value(KEY_LAST_DIR).toString(), QStringLiteral("Wobbly projects (*.wob);;All files (*)"));
 
         if (!path.isEmpty()) {
             settings.setValue(KEY_LAST_DIR, QFileInfo(path).absolutePath());
@@ -1150,7 +1150,7 @@ void WibblyWindow::realOpenVideo(const QString &path) {
 
     job.setInputFile(path.toStdString());
     job.setSourceFilter(source_filter.toStdString());
-    job.setOutputFile(QStringLiteral("%1.json").arg(path).toStdString());
+    job.setOutputFile(QStringLiteral("%1.wob").arg(path).toStdString());
 
     main_jobs_list->addItem(path);
 }
