@@ -254,6 +254,7 @@ private:
     void createCombedFramesWindow();
     void createBookmarksWindow();
     void createSettingsWindow();
+    void createPluginWindow();
     void drawColorBars();
     void createUI();
 

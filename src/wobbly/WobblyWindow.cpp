@@ -109,6 +109,8 @@ WobblyWindow::WobblyWindow()
         errorPopup(e.what());
         exit(1);
     }
+
+    createPluginWindow();
 }
 
 
@@ -2827,6 +2829,32 @@ void WobblyWindow::createSettingsWindow() {
     addDockWidget(Qt::RightDockWidgetArea, settings_dock);
     tools_menu->addAction(settings_dock->toggleViewAction());
     connect(settings_dock, &DockWidget::visibilityChanged, settings_dock, &DockWidget::setEnabled);
+}
+
+
+void WobblyWindow::createPluginWindow() {
+    auto filters = getRequiredFilterStates(vsapi, vscore);
+
+    QTableWidget *plugin_table = new QTableWidget(filters.size(), 2, this);
+    plugin_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    plugin_table->setHorizontalHeaderLabels({ "Plugin", "Status" });
+    int row = 0;
+    for (const auto &iter : filters) {
+        plugin_table->setItem(row, 0, new QTableWidgetItem(iter.first.c_str()));  
+        plugin_table->setItem(row, 1, new QTableWidgetItem((iter.second == FilterState::Exists) ? "Available" : ((iter.second == FilterState::MissingFilter) ? "Invalid version" : "Missing")));
+        row++;
+    }
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(plugin_table);
+
+    QWidget *plugin_window = new QWidget;
+    plugin_window->setLayout(vbox);
+    plugin_window->setWindowModality(Qt::ApplicationModal);
+
+    QAction *plugin_action = new QAction("Check plugins");
+    connect(plugin_action, &QAction::triggered, plugin_window, &QWidget::show);
+    tools_menu->addAction(plugin_action);
 }
 
 
